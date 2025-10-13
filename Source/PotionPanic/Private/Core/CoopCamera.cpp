@@ -44,7 +44,16 @@ void ACoopCamera::BeginPlay()
 bool ACoopCamera::GatherPlayerPositions(TArray<FVector2D>& OutXY, FVector& OutAvg3D) const
 {
     TArray<FVector> Locs;
-    UCamTargetComponent::GetAllTargets(this, Locs);
+    for (auto* Target : UCamTargetComponent::Registry)
+    {
+		if (Target && Target->GetOwner())
+		{
+			if (USceneComponent* SC = Target->GetOwner()->GetRootComponent())
+			{
+				Locs.Add(SC->GetComponentLocation());
+			}
+		}
+    }
     if (Locs.Num() == 0) return false;
 
     OutXY.Reset(Locs.Num());

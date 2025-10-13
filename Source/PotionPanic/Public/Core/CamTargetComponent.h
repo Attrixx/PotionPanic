@@ -14,22 +14,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	bool bAutoRegister = true;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	FName SocketName = NAME_None;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
-	FVector Offset = FVector::ZeroVector;
-
-	static void GetAllTargets(const UObject* WorldContext, TArray<FVector>& OutLocations, bool bCleanup = true);
-	static int32 NumTargets(const UObject* WorldContext);
+	void Register();
+	void Unregister();
 
 protected:
-	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void BeginPlay() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
-	static TArray<TWeakObjectPtr<UCamTargetComponent>> Registry;
-
-	FVector ComputeLocation() const;
+	friend class ACoopCamera;
+	static inline TArray<UCamTargetComponent*> Registry;
 };
