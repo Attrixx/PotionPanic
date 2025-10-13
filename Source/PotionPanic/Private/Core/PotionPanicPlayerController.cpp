@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "UserSettings/EnhancedInputUserSettings.h"
 #include "Core/PotionPanicCharacter.h"
+#include "Kismet/KismetMathLibrary.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
@@ -49,12 +50,15 @@ void APotionPanicPlayerController::Move(const FInputActionValue& Value)
 	if (CurrentCharacter == nullptr) return;
 	
 	FVector2D MovementVector = Value.Get<FVector2D>();
-	CurrentCharacter->AddMovementInput(CurrentCharacter->GetActorForwardVector(), MovementVector.Y);
-	CurrentCharacter->AddMovementInput(CurrentCharacter->GetActorRightVector(), MovementVector.X);
+	CurrentCharacter->AddMovementInput(FVector::ForwardVector, MovementVector.Y);
+	CurrentCharacter->AddMovementInput(FVector::RightVector, MovementVector.X);
 	
-	float RotationAngle = FMath::Atan2(-MovementVector.Y, MovementVector.X);
-	FRotator Rotation = FRotator(0.f, FMath::RadiansToDegrees(RotationAngle) + 90.f, 0.f);
-	CurrentCharacter->GetMesh()->SetWorldRotation(Rotation);
+	const float RotationAngle = FMath::Atan2(-MovementVector.Y, MovementVector.X);
+	const float TargetYaw = FMath::RadiansToDegrees(RotationAngle) + 90.f;
+	const float CurrentYaw = CurrentCharacter->GetActorRotation().Yaw;
+	const float DeltaYaw = UKismetMathLibrary::NormalizeAxis(TargetYaw - CurrentYaw);
+	float NormalizedYawInput = FMath::Clamp(DeltaYaw, -1.f, 1.f);
+	CurrentCharacter->AddControllerYawInput(NormalizedYawInput);
 }
 
 void APotionPanicPlayerController::Interact(const FInputActionValue& Value)
