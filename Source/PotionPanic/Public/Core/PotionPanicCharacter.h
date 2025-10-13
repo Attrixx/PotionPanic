@@ -25,4 +25,6 @@ public:
 	void OnInteract();
 	void OnCarry();
 
+private:
+	TObjectPtr<class UCamTargetComponent> CamTargetComponent = nullptr;
 };

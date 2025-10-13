@@ -2,29 +2,24 @@
 
 
 #include "Core/PotionPanicCharacter.h"
+#include "Core/CamTargetComponent.h"
 
 APotionPanicCharacter::APotionPanicCharacter()
 {
+	CamTargetComponent = CreateDefaultSubobject<UCamTargetComponent>(TEXT("CamTargetComponent"));
 }
 
 void APotionPanicCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 void APotionPanicCharacter::OnInteract()
 {
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON INTERACT"));
-	}
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON INTERACT"));
 }
 
 void APotionPanicCharacter::OnCarry()
 {
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON CARRY"));
-	}
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON CARRY"));
 }
