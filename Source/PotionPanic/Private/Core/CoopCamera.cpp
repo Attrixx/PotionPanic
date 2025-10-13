@@ -6,6 +6,8 @@
 #include "GameFramework/Pawn.h"
 #include "DrawDebugHelpers.h"
 
+#include "Core/CamTargetComponent.h"
+
 ACoopCamera::ACoopCamera()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -41,24 +43,18 @@ void ACoopCamera::BeginPlay()
 
 bool ACoopCamera::GatherPlayerPositions(TArray<FVector2D>& OutXY, FVector& OutAvg3D) const
 {
-    OutXY.Reset();
+    TArray<FVector> Locs;
+    UCamTargetComponent::GetAllTargets(this, Locs);
+    if (Locs.Num() == 0) return false;
+
+    OutXY.Reset(Locs.Num());
     FVector Sum = FVector::ZeroVector;
-    int32 Count = 0;
-
-    for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+    for (const FVector& L : Locs)
     {
-        const APlayerController* PC = It->Get();
-        if (!PC) continue;
-        const APawn* P = PC->GetPawn();
-        if (!P) continue;
-
-        const FVector L = P->GetActorLocation();
         OutXY.Add(FVector2D(L.X, L.Y));
         Sum += L;
-        ++Count;
     }
-    if (Count == 0) return false;
-    OutAvg3D = Sum / float(Count);
+    OutAvg3D = Sum / float(Locs.Num());
     return true;
 }
 
