@@ -20,8 +20,6 @@ class AFlyingSocket : public AActor
 private:
 
 	AFlyingSocket();
-
-	void BeginPlay() override;
 	void EndPlay(EEndPlayReason::Type) override;
 
 	UFUNCTION() void OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -58,5 +56,11 @@ protected: // Properties
 public:
 
 	void IgnoreActor(AActor* ActorToIgnore);
+	bool IsIgnored(AActor* ActorToCheck) const;
+
 	void Launch(USocketableComponent& Socketable, const FVector& Force);
+
+private:
+
+	TArray<TObjectPtr<AActor>> IgnoredActors;
 };

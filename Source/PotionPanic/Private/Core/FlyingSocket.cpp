@@ -15,9 +15,11 @@ AFlyingSocket::AFlyingSocket()
 
 	SocketCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Socket Collision"));
 	SocketCollision->InitSphereRadius(50.f);
+	SocketCollision->SetCollisionProfileName("OverlapAll", false);
 	SocketCollision->SetupAttachment(RootComponent);
 
 	DropOrBreakCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Drop or Break Collision"));
+	DropOrBreakCollision->SetCollisionProfileName("OverlapAll", false);
 	DropOrBreakCollision->InitSphereRadius(10.f);
 	DropOrBreakCollision->SetupAttachment(RootComponent);
 
@@ -36,14 +38,6 @@ AFlyingSocket::AFlyingSocket()
 	Socket->SetupAttachment(RootComponent);
 }
 
-void AFlyingSocket::BeginPlay()
-{
-	Super::BeginPlay();
-
-	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
-	DropOrBreakCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnDropOrBreakBeginOverlap);
-}
-
 void AFlyingSocket::EndPlay(EEndPlayReason::Type EndPlayReason)
 {
 	SocketCollision->OnComponentBeginOverlap.RemoveAll(this);
@@ -54,6 +48,9 @@ void AFlyingSocket::EndPlay(EEndPlayReason::Type EndPlayReason)
 
 void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (IsIgnored(OtherActor))
+		return;
+
 	TSet Components = OtherActor->GetComponents();
 	for (auto* Comp : Components)
 	{
@@ -75,6 +72,9 @@ void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponen
 
 void AFlyingSocket::OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
+	if (IsIgnored(OtherActor))
+		return;
+
 	if (auto* Socketable = Socket->Take())
 	{
 		// We did not hit a socket
@@ -86,18 +86,29 @@ void AFlyingSocket::OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedCom
 
 void AFlyingSocket::IgnoreActor(AActor* ActorToIgnore)
 {
-	SocketCollision->IgnoreActorWhenMoving(ActorToIgnore, true);
-	DropOrBreakCollision->IgnoreActorWhenMoving(ActorToIgnore, true);
+	IgnoredActors.RemoveSwap(nullptr);
+	IgnoredActors.AddUnique(ActorToIgnore);
+}
+
+bool AFlyingSocket::IsIgnored(AActor* ActorToCheck) const
+{
+	for (auto Ignored : IgnoredActors)
+		if (ActorToCheck == Ignored)
+			return true;
+	return false;
 }
 
 void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Force)
 {
+	IgnoreActor(this);
+	IgnoreActor(Socketable.GetOwner());
 
-	SocketCollision->IgnoreActorWhenMoving(Socketable.GetOwner(), true);
-	DropOrBreakCollision->IgnoreActorWhenMoving(Socketable.GetOwner(), true);
 	Socket->Put(Socketable);
-	ProjectileMovement->AddForce(Force);
+	ProjectileMovement->Velocity = Force;
 	Niagara->Activate(true);
 	Audio->SetSound(LaunchSound);
 	Audio->Play();
+
+	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
+	DropOrBreakCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnDropOrBreakBeginOverlap);
 }
