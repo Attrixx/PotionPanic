@@ -22,8 +22,8 @@ public:
 
 protected:
 
-	virtual void BeginPlay() override;
-	virtual void SetupInputComponent() override;
+	void BeginPlay() override;
+	void SetupInputComponent() override;
 
 protected:
 
