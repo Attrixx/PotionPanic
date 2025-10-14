@@ -6,7 +6,7 @@
 
 class USocketableComponent;
 
-UCLASS(Abstract, Blueprintable)
+UCLASS(meta = (BlueprintSpawnableComponent))
 class USocketComponent : public USceneComponent
 {
 	GENERATED_BODY()
