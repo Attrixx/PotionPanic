@@ -8,6 +8,7 @@ class USphereComponent;
 class AFlyingSocket;
 class UCamTargetComponent;
 class USocketComponent;
+class USocketableComponent;
 
 UCLASS(Abstract)
 class POTIONPANIC_API APotionPanicCharacter : public ACharacter
@@ -16,7 +17,18 @@ class POTIONPANIC_API APotionPanicCharacter : public ACharacter
 
 	APotionPanicCharacter();
 
+protected:
+
+	void BeginPlay() override;
+	void Tick(float DeltaTime) override;
+	void EndPlay(EEndPlayReason::Type) override;
+
 private:
+
+	UFUNCTION() void OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION() void OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+	void SortActorsInRange();
 
 	friend class APotionPanicPlayerController;
 	void OnInteract();
@@ -45,9 +57,11 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Potion Panic Character")
 	TObjectPtr<USocketComponent> Socket;
 
-
 private:
 
 	TObjectPtr<UCamTargetComponent> CamTargetComponent;
+	TMap<AActor*, int32> ActorsInRange;
 
+	USocketComponent* BestSocket;
+	USocketableComponent* BestSocketable;
 };

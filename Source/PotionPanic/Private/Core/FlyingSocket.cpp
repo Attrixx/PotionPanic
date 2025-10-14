@@ -1,5 +1,6 @@
 #include "Core/FlyingSocket.h"
 #include "Core/SocketComponent.h"
+#include "Core/SocketableComponent.h"
 #include <GameFramework/ProjectileMovementComponent.h>
 #include <Components/SphereComponent.h>
 #include <Components/AudioComponent.h>
@@ -10,10 +11,15 @@ AFlyingSocket::AFlyingSocket()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	Collision = CreateDefaultSubobject<USphereComponent>(TEXT("Collision"));
-	Collision->SetCollisionProfileName(TEXT("Projectile"));
-	Collision->InitSphereRadius(10.f);
-	RootComponent = Collision;
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+
+	SocketCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Socket Collision"));
+	SocketCollision->InitSphereRadius(50.f);
+	SocketCollision->SetupAttachment(RootComponent);
+
+	DropOrBreakCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Drop or Break Collision"));
+	DropOrBreakCollision->InitSphereRadius(10.f);
+	DropOrBreakCollision->SetupAttachment(RootComponent);
 
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->bRotationFollowsVelocity = false;
@@ -28,16 +34,26 @@ AFlyingSocket::AFlyingSocket()
 
 	Socket = CreateDefaultSubobject<USocketComponent>(TEXT("Socket"));
 	Socket->SetupAttachment(RootComponent);
-
-	// Bind de la détection d’impact
-	Collision->OnComponentHit.AddDynamic(this, &AFlyingSocket::OnHit);
 }
 
-void AFlyingSocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AFlyingSocket::BeginPlay()
 {
-	if (OtherActor == this)
-		return;
+	Super::BeginPlay();
 
+	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
+	DropOrBreakCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnDropOrBreakBeginOverlap);
+}
+
+void AFlyingSocket::EndPlay(EEndPlayReason::Type EndPlayReason)
+{
+	SocketCollision->OnComponentBeginOverlap.RemoveAll(this);
+	DropOrBreakCollision->OnComponentBeginOverlap.RemoveAll(this);
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
 	TSet Components = OtherActor->GetComponents();
 	for (auto* Comp : Components)
 	{
@@ -55,17 +71,30 @@ void AFlyingSocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPri
 			break;
 		}
 	}
+}
 
+void AFlyingSocket::OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
 	if (auto* Socketable = Socket->Take())
 	{
-		// We did not hit a socket, drop item
+		// We did not hit a socket
+		// TODO: Break item if it is breakable
 	}
 
 	Destroy();
 }
 
+void AFlyingSocket::IgnoreActor(AActor* ActorToIgnore)
+{
+	SocketCollision->IgnoreActorWhenMoving(ActorToIgnore, true);
+	DropOrBreakCollision->IgnoreActorWhenMoving(ActorToIgnore, true);
+}
+
 void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Force)
 {
+
+	SocketCollision->IgnoreActorWhenMoving(Socketable.GetOwner(), true);
+	DropOrBreakCollision->IgnoreActorWhenMoving(Socketable.GetOwner(), true);
 	Socket->Put(Socketable);
 	ProjectileMovement->AddForce(Force);
 	Niagara->Activate(true);

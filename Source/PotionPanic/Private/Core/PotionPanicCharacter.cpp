@@ -20,6 +20,71 @@ APotionPanicCharacter::APotionPanicCharacter()
 	Socket->SetupAttachment(RootComponent);
 }
 
+void APotionPanicCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	PickupRange->OnComponentBeginOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentBeginOverlap);
+	PickupRange->OnComponentEndOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentEndOverlap);
+}
+
+void APotionPanicCharacter::Tick(float DeltaTime)
+{
+	SortActorsInRange();
+}
+
+void APotionPanicCharacter::EndPlay(EEndPlayReason::Type EndPlayReason)
+{
+	PickupRange->OnComponentBeginOverlap.RemoveAll(this);
+	PickupRange->OnComponentEndOverlap.RemoveAll(this);
+
+	Super::EndPlay(EndPlayReason);
+}
+
+void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor == this)
+		return;
+
+	++ActorsInRange.FindOrAdd(OtherActor);
+}
+
+void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	int32* CountPtr = ActorsInRange.Find(OtherActor);
+	if (!CountPtr)
+		return;
+
+	if (--(*CountPtr) <= 0)
+	{
+		ActorsInRange.Remove(OtherActor);
+	}
+}
+
+void APotionPanicCharacter::SortActorsInRange()
+{
+	BestSocket = nullptr;
+	BestSocketable = nullptr;
+
+	TArray<AActor*> InRange;
+	ActorsInRange.GetKeys(InRange);
+	for (auto* ActorInRange : InRange)
+	{
+		// TODO: Better picking
+		if (auto* OtherSocket = ActorInRange->GetComponentByClass<USocketComponent>())
+		{
+			if (OtherSocket->IsHolding())
+				continue;
+
+			BestSocket = OtherSocket;
+		}
+		else if (auto* Socketable = ActorInRange->GetComponentByClass<USocketableComponent>())
+		{
+			BestSocketable = Socketable;
+		}
+	}
+}
+
 void APotionPanicCharacter::OnInteract()
 {
 	if (IsHolding())
@@ -50,18 +115,23 @@ void APotionPanicCharacter::ThrowHeldObject()
 	if (!Socketable)
 		return;
 
-	FVector Location = Socket->GetComponentLocation();
-	FRotator Rotation = GetActorRotation();
+	FTransform FlyingSocketTransform =
+	{
+		GetActorRotation(),
+		Socket->GetComponentLocation()
+	};
 
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	auto* FlyingSocket = GetWorld()->SpawnActor<AFlyingSocket>(FlyingSocketClass, Location, Rotation, SpawnParameters);
+	auto* FlyingSocket = GetWorld()->SpawnActor<AFlyingSocket>(FlyingSocketClass, FlyingSocketTransform, SpawnParameters);
 	if (!FlyingSocket)
 	{
-		UE_LOGFMT(MS_PotionPanicCharacter, Error, "Could not spawn FlyingSocket.");
+		UE_LOGFMT(MS_PotionPanicCharacter, Error, "Could not spawn {0}.",
+			FlyingSocketClass ? FlyingSocketClass->GetName() : "NULL");
 		return;
 	}
 
+	FlyingSocket->IgnoreActor(this);
 	FlyingSocket->Launch(*Socketable, GetActorForwardVector() * ObjectThrowSpeed);
 }
 
@@ -76,78 +146,14 @@ void APotionPanicCharacter::DropObject()
 	if (!Socketable)
 		return;
 
-	TArray<FOverlapResult> Overlaps;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
-	GetWorld()->OverlapMultiByObjectType(
-		Overlaps,
-		PickupRange->GetComponentLocation(),
-		FQuat::Identity,
-		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldDynamic),
-		FCollisionShape::MakeSphere(PickupRange->GetScaledSphereRadius()),
-		QueryParams
-	);
-
-	TArray<USocketComponent*> Sockets;
-	for (const FOverlapResult& Result : Overlaps)
-	{
-		AActor* OverlappedActor = Result.GetActor();
-		if (!OverlappedActor)
-			continue;
-
-		if (auto* OtherSocket = OverlappedActor->GetComponentByClass<USocketComponent>())
-		{
-			Sockets.Add(OtherSocket);
-		}
-	}
-
-	if (Sockets.IsEmpty())
-	{
-		// TODO: Snap on ground with raycast or smth
-		return;
-	}
-
-	// TODO: Sort the best socket to drop into (in front for exemple)
-	USocketComponent* ChosenSocket = Sockets[0];
-	ChosenSocket->Put(*Socketable);
+	if (BestSocket)
+		BestSocket->Put(*Socketable);
 }
 
 void APotionPanicCharacter::PickupObject()
 {
-	TArray<FOverlapResult> Overlaps;
-	FCollisionQueryParams QueryParams;
-	QueryParams.AddIgnoredActor(this);
-
-	GetWorld()->OverlapMultiByObjectType(
-		Overlaps,
-		PickupRange->GetComponentLocation(),
-		FQuat::Identity,
-		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldDynamic),
-		FCollisionShape::MakeSphere(PickupRange->GetScaledSphereRadius()),
-		QueryParams
-	);
-
-	TArray<USocketableComponent*> Socketables;
-	for (const FOverlapResult& Result : Overlaps)
-	{
-		AActor* OverlappedActor = Result.GetActor();
-		if (!OverlappedActor)
-			continue;
-
-		if (auto* Socketable = OverlappedActor->GetComponentByClass<USocketableComponent>())
-		{
-			Socketables.Add(Socketable);
-		}
-	}
-
-	if (Socketables.IsEmpty())
-		return;
-
-	// TODO: Sort the best socketable to pickup (in front for exemple)
-	USocketableComponent* ToGrab = Socketables[0];
-
-	Socket->Put(*ToGrab);
+	if (BestSocketable)
+		Socket->Put(*BestSocketable);
 }
 
 bool APotionPanicCharacter::IsHolding() const

@@ -21,13 +21,19 @@ private:
 
 	AFlyingSocket();
 
-	UFUNCTION()
-	void OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	void BeginPlay() override;
+	void EndPlay(EEndPlayReason::Type) override;
 
+	UFUNCTION() void OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION() void OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	
 protected: // Components
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Flying Socket")
-	TObjectPtr<USphereComponent> Collision;
+	TObjectPtr<USphereComponent> SocketCollision;
+
+	UPROPERTY(VisibleDefaultsOnly, Category = "Flying Socket")
+	TObjectPtr<USphereComponent> DropOrBreakCollision;
 
 	UPROPERTY(VisibleAnywhere, Category = "Flying Socket")
 	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
@@ -51,5 +57,6 @@ protected: // Properties
 
 public:
 
+	void IgnoreActor(AActor* ActorToIgnore);
 	void Launch(USocketableComponent& Socketable, const FVector& Force);
 };
