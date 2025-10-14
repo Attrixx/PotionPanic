@@ -51,5 +51,5 @@ protected: // Properties
 
 public:
 
-	void Launch(USocketableComponent& Socketable, const FVector& Direction, float Speed);
+	void Launch(USocketableComponent& Socketable, const FVector& Force);
 };

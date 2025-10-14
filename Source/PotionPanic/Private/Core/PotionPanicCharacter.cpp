@@ -1,25 +1,122 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "Core/PotionPanicCharacter.h"
 #include "Core/CamTargetComponent.h"
+#include "Core/SocketComponent.h"
+#include "Core/SocketableComponent.h"
+#include "Core/FlyingSocket.h"
+#include <Components/SphereComponent.h>
+#include <Engine/OverlapResult.h>
+#include <Logging/StructuredLog.h>
+
+DEFINE_LOG_CATEGORY_STATIC(MS_PotionPanicCharacter, Log, All);
 
 APotionPanicCharacter::APotionPanicCharacter()
 {
-	CamTargetComponent = CreateDefaultSubobject<UCamTargetComponent>(TEXT("CamTargetComponent"));
-}
+	PickupRange = CreateDefaultSubobject<USphereComponent>(TEXT("PickupRange"));
+	PickupRange->SetupAttachment(RootComponent);
 
-void APotionPanicCharacter::BeginPlay()
-{
-	Super::BeginPlay();
+	CamTargetComponent = CreateDefaultSubobject<UCamTargetComponent>(TEXT("CamTargetComponent"));
+
+	Socket = CreateDefaultSubobject<USocketComponent>(TEXT("Socket"));
+	Socket->SetupAttachment(RootComponent);
 }
 
 void APotionPanicCharacter::OnInteract()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON INTERACT"));
+	if (IsHolding())
+	{
+		ThrowHeldObject();
+	}
+	else
+	{
+		// Interract with nearby equipment
+	}
 }
 
 void APotionPanicCharacter::OnCarry()
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("ON CARRY"));
+	if (IsHolding())
+	{
+		DropObject();
+	}
+	else
+	{
+		PickupObject();
+	}
+}
+
+void APotionPanicCharacter::ThrowHeldObject()
+{
+	auto* Socketable = Socket->Take();
+	if (!Socketable)
+		return;
+
+	FVector Location = Socket->GetComponentLocation();
+	FRotator Rotation = GetActorRotation();
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	auto* FlyingSocket = GetWorld()->SpawnActor<AFlyingSocket>(FlyingSocketClass, Location, Rotation, SpawnParameters);
+	if (!FlyingSocket)
+	{
+		UE_LOGFMT(MS_PotionPanicCharacter, Error, "Could not spawn FlyingSocket.");
+		return;
+	}
+
+	FlyingSocket->Launch(*Socketable, GetActorForwardVector() * ObjectThrowSpeed);
+}
+
+void APotionPanicCharacter::Interract()
+{
+	// TODO
+}
+
+void APotionPanicCharacter::DropObject()
+{
+	if (auto* Socketable = Socket->Take())
+	{
+		// TODO: Snap on ground with raycast or smth
+	}
+}
+
+void APotionPanicCharacter::PickupObject()
+{
+	TArray<FOverlapResult> Overlaps;
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	GetWorld()->OverlapMultiByObjectType(
+		Overlaps,
+		PickupRange->GetComponentLocation(),
+		FQuat::Identity,
+		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldDynamic),
+		FCollisionShape::MakeSphere(PickupRange->GetScaledSphereRadius()),
+		QueryParams
+	);
+
+	TArray<USocketableComponent*> Socketables;
+	for (const FOverlapResult& Result : Overlaps)
+	{
+		AActor* OverlappedActor = Result.GetActor();
+		if (!OverlappedActor)
+			continue;
+
+		if (auto* Socketable = OverlappedActor->GetComponentByClass<USocketableComponent>())
+		{
+			Socketables.Add(Socketable);
+		}
+	}
+
+	if (Socketables.IsEmpty())
+		return;
+
+	// TODO: Sort the best socketable to pickup (in front for exemple)
+	USocketableComponent* ToGrab = Socketables[0];
+	
+	Socket->Put(*ToGrab);
+}
+
+bool APotionPanicCharacter::IsHolding() const
+{
+	return Socket->IsHolding();
 }

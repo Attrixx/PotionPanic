@@ -26,6 +26,9 @@ AFlyingSocket::AFlyingSocket()
 	Audio->SetupAttachment(RootComponent);
 	Audio->bAutoActivate = false;
 
+	Socket = CreateDefaultSubobject<USocketComponent>(TEXT("Socket"));
+	Socket->SetupAttachment(RootComponent);
+
 	// Bind de la détection d’impact
 	Collision->OnComponentHit.AddDynamic(this, &AFlyingSocket::OnHit);
 }
@@ -61,10 +64,10 @@ void AFlyingSocket::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPri
 	Destroy();
 }
 
-void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Direction, float Speed)
+void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Force)
 {
 	Socket->Put(Socketable);
-	ProjectileMovement->Velocity = Direction * Speed;
+	ProjectileMovement->AddForce(Force);
 	Niagara->Activate(true);
 	Audio->SetSound(LaunchSound);
 	Audio->Play();

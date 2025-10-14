@@ -50,6 +50,7 @@ void USocketComponent::Put(USocketableComponent& Socketable)
 	auto HeldLoc = Held->GetComponentLocation();
 	auto HolderLoc = GetComponentLocation();
 	HeldActor->AddActorWorldOffset(HolderLoc - HeldLoc);
+	HeldActor->AttachToComponent(this, FAttachmentTransformRules::KeepWorldTransform);
 }
 
 USocketableComponent* USocketComponent::Take()
@@ -57,6 +58,9 @@ USocketableComponent* USocketComponent::Take()
 	USocketableComponent* RetVal = nullptr;
 	if (Held)
 	{
+		if (auto* HeldActor = Held->GetOwner())
+			HeldActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
 		RetVal = Held;
 		Held->Holder = nullptr;
 		Held = nullptr;
