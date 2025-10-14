@@ -72,16 +72,50 @@ void APotionPanicCharacter::Interract()
 
 void APotionPanicCharacter::DropObject()
 {
-	if (auto* Socketable = Socket->Take())
+	auto* Socketable = Socket->Take();
+	if (!Socketable)
+		return;
+
+	TArray<FOverlapResult> Overlaps;
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this);
+
+	GetWorld()->OverlapMultiByObjectType(
+		Overlaps,
+		PickupRange->GetComponentLocation(),
+		FQuat::Identity,
+		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldDynamic),
+		FCollisionShape::MakeSphere(PickupRange->GetScaledSphereRadius()),
+		QueryParams
+	);
+
+	TArray<USocketComponent*> Sockets;
+	for (const FOverlapResult& Result : Overlaps)
+	{
+		AActor* OverlappedActor = Result.GetActor();
+		if (!OverlappedActor)
+			continue;
+
+		if (auto* OtherSocket = OverlappedActor->GetComponentByClass<USocketComponent>())
+		{
+			Sockets.Add(OtherSocket);
+		}
+	}
+
+	if (Sockets.IsEmpty())
 	{
 		// TODO: Snap on ground with raycast or smth
+		return;
 	}
+
+	// TODO: Sort the best socket to drop into (in front for exemple)
+	USocketComponent* ChosenSocket = Sockets[0];
+	ChosenSocket->Put(*Socketable);
 }
 
 void APotionPanicCharacter::PickupObject()
 {
 	TArray<FOverlapResult> Overlaps;
-
 	FCollisionQueryParams QueryParams;
 	QueryParams.AddIgnoredActor(this);
 
@@ -112,7 +146,7 @@ void APotionPanicCharacter::PickupObject()
 
 	// TODO: Sort the best socketable to pickup (in front for exemple)
 	USocketableComponent* ToGrab = Socketables[0];
-	
+
 	Socket->Put(*ToGrab);
 }
 
