@@ -6,6 +6,9 @@
 
 class USocketComponent;
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHolderChangedCallback, USocketComponent* OldHolder, USocketComponent* NewHolder);
+
+
 UCLASS(meta = (BlueprintSpawnableComponent))
 class USocketableComponent : public USceneComponent
 {
@@ -13,11 +16,13 @@ class USocketableComponent : public USceneComponent
 
 public:
 
-	void PutOn(USocketComponent& Socket);
-	void Take();
+	void PutOn(USocketComponent& Socket, bool bBroadcastCallback = true);
+	void Take(bool bBroadcastCallback = true);
 
 	bool IsHeld() const;
 	USocketComponent* GetHolder() const;
+
+	FOnHolderChangedCallback OnHolderChanged;
 
 private:
 

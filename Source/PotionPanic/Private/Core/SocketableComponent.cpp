@@ -1,17 +1,17 @@
 #include "Core/SocketableComponent.h"
 #include "Core/SocketComponent.h"
 
-void USocketableComponent::PutOn(USocketComponent& Socket)
+void USocketableComponent::PutOn(USocketComponent& Socket, bool bBroadcastCallback)
 {
-	Socket.Put(*this);
+	Socket.Put(*this, bBroadcastCallback);
 }
 
-void USocketableComponent::Take()
+void USocketableComponent::Take(bool bBroadcastCallback)
 {
 	if (Holder)
 	{
 		check(Holder->GetHeld() == this);
-		Holder->Take();
+		Holder->Take(bBroadcastCallback);
 	}
 }
 

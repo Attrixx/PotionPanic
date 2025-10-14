@@ -19,22 +19,24 @@ FString GetOwnerName(UActorComponent* Component)
 }
 }
 
-void USocketComponent::Put(USocketableComponent& Socketable)
+void USocketComponent::Put(USocketableComponent& Socketable, bool bBroadcastCallback)
 {
+	USocketableComponent* OldHeld = Held;
 	if (Held)
 	{
-		UE_LOGFMT(MS_SocketComponent, Warning, "Putting {0} onto {1}, but it is already holding {2}!",
+		UE_LOGFMT(MS_SocketComponent, Warning, "Putting {0} onto {1}, but it was already holding {2}!",
 			GetOwnerName(&Socketable), GetOwnerName(this), GetOwnerName(Held));
 
-		Take();
+		Take(false);
 	}
 
+	USocketComponent* OldHolder = Socketable.Holder;
 	if (Socketable.Holder)
 	{
 		UE_LOGFMT(MS_SocketComponent, Warning, "Putting {0} onto {1}, but it was already held by {2}!",
 			GetOwnerName(&Socketable), GetOwnerName(this), GetOwnerName(Socketable.Holder));
 
-		Socketable.Holder->Take();
+		Socketable.Holder->Take(false);
 	}
 
 	Held = &Socketable;
@@ -51,9 +53,20 @@ void USocketComponent::Put(USocketableComponent& Socketable)
 	auto HolderLoc = GetComponentLocation();
 	HeldActor->AddActorWorldOffset(HolderLoc - HeldLoc);
 	HeldActor->AttachToComponent(this, FAttachmentTransformRules::KeepWorldTransform);
+
+	if (bBroadcastCallback)
+	{
+		if (OldHeld)
+			OldHeld->OnHolderChanged.Broadcast(this, nullptr);
+		if (OldHolder)
+			OldHolder->OnHeldChanged.Broadcast(&Socketable, nullptr);
+
+		Socketable.OnHolderChanged.Broadcast(OldHolder, this);
+		OnHeldChanged.Broadcast(OldHeld, Held.Get());
+	}
 }
 
-USocketableComponent* USocketComponent::Take()
+USocketableComponent* USocketComponent::Take(bool bBroadcastCallback)
 {
 	USocketableComponent* RetVal = nullptr;
 	if (Held)
@@ -64,6 +77,12 @@ USocketableComponent* USocketComponent::Take()
 		RetVal = Held;
 		Held->Holder = nullptr;
 		Held = nullptr;
+
+		if (bBroadcastCallback)
+		{
+			OnHeldChanged.Broadcast(RetVal, nullptr);
+			RetVal->OnHolderChanged.Broadcast(this, nullptr);
+		}
 	}
 	return RetVal;
 }
@@ -78,10 +97,22 @@ USocketableComponent* USocketComponent::GetHeld() const
 	return Held;
 }
 
-void USocketComponent::Swap(USocketComponent& Other)
+void USocketComponent::Swap(USocketComponent& Other, bool bBroadcastCallback)
 {
-	USocketableComponent* Mine = Take();
-	USocketableComponent* Theirs = Other.Take();
-	if (Mine) Other.Put(*Mine);
-	if (Theirs) Put(*Theirs);
+	USocketableComponent* Mine = Take(false);
+	USocketableComponent* Theirs = Other.Take(false);
+	if (Mine) Other.Put(*Mine, false);
+	if (Theirs) Put(*Theirs, false);
+
+
+	if (bBroadcastCallback)
+	{
+		if (Mine)
+			Mine->OnHolderChanged.Broadcast(this, &Other);
+		if (Theirs)
+			Theirs->OnHolderChanged.Broadcast(&Other, this);
+
+		Other.OnHeldChanged.Broadcast(Theirs, Mine);
+		OnHeldChanged.Broadcast(Mine, Theirs);
+	}
 }
