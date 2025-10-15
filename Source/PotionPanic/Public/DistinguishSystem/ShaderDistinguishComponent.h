@@ -4,7 +4,7 @@
 #include "DistinguishComponent.h"
 #include "ShaderDistinguishComponent.generated.h"
 
-UCLASS()
+UCLASS(Blueprintable)
 class POTIONPANIC_API UShaderDistinguishComponent : public UDistinguishComponent
 {
 	GENERATED_BODY()

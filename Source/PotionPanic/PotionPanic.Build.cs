@@ -15,8 +15,9 @@ public class PotionPanic : ModuleRules
 			"Engine",
 			"InputCore",
 			"EnhancedInput",
-			"Niagara"
-		});
+			"Niagara",
+            "UMG",
+        });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 

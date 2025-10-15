@@ -4,6 +4,7 @@ DEFINE_LOG_CATEGORY_STATIC(MS_ShaderDistinguishComponent, Log, All);
 
 UShaderDistinguishComponent::UShaderDistinguishComponent()
 {
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UShaderDistinguishComponent::BeginPlay()
