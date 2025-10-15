@@ -35,9 +35,11 @@ private:
 	void OnCarry();
 
 	void ThrowHeldObject();
-	void Interract();
+	void Interact();
 	void DropObject();
 	void PickupObject();
+
+	UActorComponent* GetBestInteractableComponent();
 
 public:
 

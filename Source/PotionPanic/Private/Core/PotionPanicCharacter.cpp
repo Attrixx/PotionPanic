@@ -3,6 +3,7 @@
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
 #include "Core/FlyingSocket.h"
+#include "Core/InteractionInterface.h"
 #include <Components/SphereComponent.h>
 #include <Engine/OverlapResult.h>
 #include <Logging/StructuredLog.h>
@@ -93,7 +94,7 @@ void APotionPanicCharacter::OnInteract()
 	}
 	else
 	{
-		// Interract with nearby equipment
+		Interact();
 	}
 }
 
@@ -135,9 +136,17 @@ void APotionPanicCharacter::ThrowHeldObject()
 	FlyingSocket->Launch(*Socketable, GetActorForwardVector() * ObjectThrowSpeed);
 }
 
-void APotionPanicCharacter::Interract()
+void APotionPanicCharacter::Interact()
 {
-	// TODO
+	UActorComponent* Interactable = GetBestInteractableComponent();
+	UE_LOG(LogTemp, Warning, TEXT("INTERACTABLE"));
+	
+	if (Interactable == nullptr) return;
+
+	if (IInteractionInterface* Interaction = Cast<IInteractionInterface>(Interactable))
+	{
+		Interaction->Interact(this);
+	}
 }
 
 void APotionPanicCharacter::DropObject()
@@ -154,6 +163,33 @@ void APotionPanicCharacter::PickupObject()
 {
 	if (BestSocketable)
 		Socket->Put(*BestSocketable);
+}
+
+UActorComponent* APotionPanicCharacter::GetBestInteractableComponent()
+{
+	UActorComponent* BestComponent = nullptr;
+	float BestDot = -1.0f;
+
+	TArray<AActor*> InRange;
+	ActorsInRange.GetKeys(InRange);
+	for (AActor* ActorInRange : InRange)
+	{
+		for (UActorComponent* Component : ActorInRange->GetComponents())
+		{
+			if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
+			{
+				// Get Angle between forward vector and direction to component
+				FVector ToActor = (ActorInRange->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+				float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor);
+				if (Dot > BestDot)
+				{
+					BestDot = Dot;
+					BestComponent = Component;
+				}
+			}
+		}
+	}
+	return BestComponent;
 }
 
 bool APotionPanicCharacter::IsHolding() const
