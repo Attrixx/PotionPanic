@@ -7,6 +7,7 @@
 #include <Components/SphereComponent.h>
 #include <Engine/OverlapResult.h>
 #include <Logging/StructuredLog.h>
+#include <limits>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_PotionPanicCharacter, Log, All);
 
@@ -31,10 +32,16 @@ void APotionPanicCharacter::BeginPlay()
 
 void APotionPanicCharacter::Tick(float DeltaTime)
 {
-	SortActorsInRange();
-	if (BestSocketable && !BestSocketable->GetDistinguish() && !IsHolding())
+	Super::Tick(DeltaTime);
+
+	if (InteractableActorsInRange.Num() >= 2)
 	{
-		BestSocketable->SetDistinguish(true);
+		SortInteractablesInRange();
+	}
+
+	if (SocketableComponentsInRange.Num() >= 2 && !IsHolding())
+	{
+		SortSocketablesInRange();
 	}
 }
 
@@ -48,63 +55,121 @@ void APotionPanicCharacter::EndPlay(EEndPlayReason::Type EndPlayReason)
 
 void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (OtherActor == this)
+	if (OtherComp->GetOwner() == this)
 		return;
 
-	++ActorsInRange.FindOrAdd(OtherActor);
+	// Only consider actors that implement the interaction interface or are socketable
+	if (OtherComp->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
+	{
+		++InteractableActorsInRange.FindOrAdd(OtherActor);
+
+		if (InteractableActorsInRange.Num() == 1)
+		{
+			BestInteractableComponent = OtherComp;
+			//BestInteractableComponent->SetDistinguish(true);
+		}
+	}
+	// TODO FRANCOIS - For each on all socketables instead
+	else if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
+	{
+		++SocketableComponentsInRange.FindOrAdd(SocketableComponent);
+
+		if (SocketableComponentsInRange.Num() == 1)
+		{
+			SetBestSocketable(SocketableComponent);
+		}
+	}
 }
 
 void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	int32* CountPtr = ActorsInRange.Find(OtherActor);
-	if (!CountPtr)
-		return;
-
-	if (--(*CountPtr) <= 0)
+	if (OtherComp->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
 	{
-		ActorsInRange.Remove(OtherActor);
+		int32* CountPtr = InteractableActorsInRange.Find(OtherActor);
+		if (!CountPtr)
+			return;
+		if (--(*CountPtr) <= 0)
+		{
+			InteractableActorsInRange.Remove(OtherActor);
+			if (BestInteractableComponent)
+				//BestInteractableComponent->SetDistinguish(false);
+			BestInteractableComponent = nullptr;
+		}
+
+		if (SocketableComponentsInRange.Num() == 1)
+		{
+			BestInteractableComponent = OtherComp;
+			//BestInteractableComponent->SetDistinguish(true);
+		}
+	}
+	else if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
+	{
+		int32* CountPtr = SocketableComponentsInRange.Find(SocketableComponent);
+		if (!CountPtr)
+			return;
+		if (--(*CountPtr) <= 0)
+		{
+			SocketableComponentsInRange.Remove(SocketableComponent);
+			SetBestSocketable(nullptr);
+		}
+
+		if (SocketableComponentsInRange.Num() == 1)
+		{
+			SortSocketablesInRange();
+		}
 	}
 }
 
-void APotionPanicCharacter::SortActorsInRange()
+void APotionPanicCharacter::SortInteractablesInRange()
 {
-	BestSocket = nullptr;
-	BestSocketable = nullptr;
-	BestInteractableComponent = nullptr;
-	float BestDot = -1.0f;
+	// Sort Interractable always
+	TArray<AActor*> IntarractableInRange;
+	InteractableActorsInRange.GetKeys(IntarractableInRange);
+	float MaxScore = -std::numeric_limits<float>::infinity();
 
-	TArray<AActor*> InRange;
-	ActorsInRange.GetKeys(InRange);
-	for (auto* ActorInRange : InRange)
+	for (auto* ActorInRange : IntarractableInRange)
 	{
-		// TODO: Better picking
-		if (auto* OtherSocket = ActorInRange->GetComponentByClass<USocketComponent>())
-		{
-			if (OtherSocket->IsHolding())
-				continue;
-
-			BestSocket = OtherSocket;
-		}
-		else if (auto* Socketable = ActorInRange->GetComponentByClass<USocketableComponent>())
-		{
-			BestSocketable = Socketable;
-		}
-
+		ActorInRange->GetComponentByClass(UInteractionInterface::StaticClass());
 		for (UActorComponent* Component : ActorInRange->GetComponents())
 		{
 			if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
 			{
-				// Get Angle between forward vector and direction to component
-				FVector ToActor = (ActorInRange->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-				float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor);
-				if (Dot > BestDot)
+				float Score = ComputeLocationScore(ActorInRange->GetActorLocation());
+				if (Score > MaxScore)
 				{
-					BestDot = Dot;
+					MaxScore = Score;
 					BestInteractableComponent = Component;
+					//BestInteractableComponent->SetDistinguish(true);
 				}
 			}
 		}
 	}
+}
+
+void APotionPanicCharacter::SortSocketablesInRange()
+{
+	TArray<USocketableComponent*> SocketableInRange;
+	SocketableComponentsInRange.GetKeys(SocketableInRange);
+	float MaxScore = std::numeric_limits<float>::lowest();
+
+	for (auto* Socketable : SocketableInRange)
+	{
+		float Score = ComputeLocationScore(Socketable->GetOwner()->GetActorLocation());
+		if (Score >= MaxScore)
+		{
+			MaxScore = Score;
+			SetBestSocketable(Socketable);
+		}
+	}
+}
+
+float APotionPanicCharacter::ComputeLocationScore(FVector Location)
+{
+	// Get Angle between forward vector and direction to component
+	FVector ToActor = (Location - GetActorLocation());
+	float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor.GetSafeNormal());
+	
+	return Dot - ToActor.Length() / PickupRange->GetScaledSphereRadius();
 }
 
 void APotionPanicCharacter::OnInteract()
@@ -175,6 +240,8 @@ void APotionPanicCharacter::DropObject()
 
 	if (BestSocket)
 		BestSocket->Put(*Socketable);
+
+	SortSocketablesInRange();
 }
 
 void APotionPanicCharacter::PickupObject()
@@ -182,8 +249,21 @@ void APotionPanicCharacter::PickupObject()
 	if (BestSocketable)
 	{
 		Socket->Put(*BestSocketable);
+		SetBestSocketable(nullptr);
+	}
+
+	SortInteractablesInRange();
+}
+
+void APotionPanicCharacter::SetBestSocketable(USocketableComponent* NewBestSocketable)
+{
+	if (BestSocketable == NewBestSocketable)
+		return;
+	if (BestSocketable)
 		BestSocketable->SetDistinguish(false);
-	}	
+	BestSocketable = NewBestSocketable;
+	if (BestSocketable)
+		BestSocketable->SetDistinguish(true);
 }
 
 bool APotionPanicCharacter::IsHolding() const
