@@ -41,6 +41,7 @@ void APotionPanicPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(MoveAction,		ETriggerEvent::Triggered, this, &ThisClass::Move);
 		EnhancedInputComponent->BindAction(InteractAction,	ETriggerEvent::Triggered, this, &ThisClass::Interact);
 		EnhancedInputComponent->BindAction(CarryAction,		ETriggerEvent::Triggered, this, &ThisClass::Carry);
+		EnhancedInputComponent->BindAction(DashAction,		ETriggerEvent::Triggered, this, &ThisClass::Dash);
 	}
 }
 
@@ -73,4 +74,19 @@ void APotionPanicPlayerController::Carry(const FInputActionValue& Value)
 	if (PotionPanicCharacter == nullptr) return;
 
 	PotionPanicCharacter->OnCarry();
+}
+
+void APotionPanicPlayerController::Dash(const FInputActionValue& Value)
+{
+	if (!bCanDash) return;
+
+	ACharacter* CurrentCharacter = GetCharacter();
+	if (CurrentCharacter == nullptr) return;
+
+	bCanDash = false;
+
+	CurrentCharacter->LaunchCharacter(CurrentCharacter->GetActorForwardVector() * DashStrength + FVector(0.f, 0.f, 50.f), false, false);
+
+	FTimerHandle TimerHandle;
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; }, DashCooldown, false);
 }

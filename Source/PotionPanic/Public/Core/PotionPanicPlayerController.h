@@ -25,6 +25,10 @@ protected:
 	void BeginPlay() override;
 	void SetupInputComponent() override;
 
+private:
+
+	bool bCanDash = true;
+
 protected:
 
 	APotionPanicCharacter* PotionPanicCharacter;
@@ -45,7 +49,16 @@ protected:
 	UInputAction* CarryAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* DashAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	float RotationSpeedScale = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	float DashCooldown = 1.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	float DashStrength = 1000.f;
 
 protected:
 
@@ -55,5 +68,6 @@ protected:
 	void Move(const FInputActionValue& Value);
 	void Interact(const FInputActionValue& Value);
 	void Carry(const FInputActionValue& Value);
+	void Dash(const FInputActionValue& Value);
 	
 };
