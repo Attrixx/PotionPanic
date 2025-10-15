@@ -16,6 +16,8 @@ class USocketableComponent : public USceneComponent
 
 public:
 
+	void BeginPlay() override;
+
 	void PutOn(USocketComponent& Socket, bool bBroadcastCallback = true);
 	void Take(bool bBroadcastCallback = true);
 
@@ -23,9 +25,13 @@ public:
 	USocketComponent* GetHolder() const;
 
 	FOnHolderChangedCallback OnHolderChanged;
-
+	void SetDistinguish(bool bDistinguish);
+	bool GetDistinguish() const;
 private:
 
 	friend USocketComponent;
 	TObjectPtr<USocketComponent> Holder;
+
+	UPROPERTY()
+	TArray<class UDistinguishComponent*> DistinguishComponents;
 };

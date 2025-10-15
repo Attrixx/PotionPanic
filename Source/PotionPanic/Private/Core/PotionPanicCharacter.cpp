@@ -32,6 +32,10 @@ void APotionPanicCharacter::BeginPlay()
 void APotionPanicCharacter::Tick(float DeltaTime)
 {
 	SortActorsInRange();
+	if (BestSocketable && !BestSocketable->GetDistinguish() && !IsHolding())
+	{
+		BestSocketable->SetDistinguish(true);
+	}
 }
 
 void APotionPanicCharacter::EndPlay(EEndPlayReason::Type EndPlayReason)
@@ -176,7 +180,10 @@ void APotionPanicCharacter::DropObject()
 void APotionPanicCharacter::PickupObject()
 {
 	if (BestSocketable)
+	{
 		Socket->Put(*BestSocketable);
+		BestSocketable->SetDistinguish(false);
+	}	
 }
 
 bool APotionPanicCharacter::IsHolding() const
