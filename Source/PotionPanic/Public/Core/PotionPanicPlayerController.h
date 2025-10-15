@@ -44,6 +44,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* CarryAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	float RotationSpeedScale = 3.f;
+
 protected:
 
 	/*

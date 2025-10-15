@@ -57,7 +57,7 @@ void APotionPanicPlayerController::Move(const FInputActionValue& Value)
 	const float TargetYaw = FMath::RadiansToDegrees(RotationAngle) + 90.f;
 	const float CurrentYaw = CurrentCharacter->GetActorRotation().Yaw;
 	const float DeltaYaw = UKismetMathLibrary::NormalizeAxis(TargetYaw - CurrentYaw);
-	float NormalizedYawInput = FMath::Clamp(DeltaYaw, -1.f, 1.f);
+	float NormalizedYawInput = FMath::Clamp(DeltaYaw, -1.f * RotationSpeedScale, 1.f * RotationSpeedScale);
 	CurrentCharacter->AddControllerYawInput(NormalizedYawInput);
 }
 
