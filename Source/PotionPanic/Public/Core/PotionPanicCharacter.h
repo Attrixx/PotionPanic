@@ -39,8 +39,6 @@ private:
 	void DropObject();
 	void PickupObject();
 
-	UActorComponent* GetBestInteractableComponent();
-
 public:
 
 	bool IsHolding() const;
@@ -66,4 +64,6 @@ private:
 
 	USocketComponent* BestSocket;
 	USocketableComponent* BestSocketable;
+	UActorComponent* BestInteractableComponent;
+
 };

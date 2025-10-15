@@ -66,6 +66,8 @@ void APotionPanicCharacter::SortActorsInRange()
 {
 	BestSocket = nullptr;
 	BestSocketable = nullptr;
+	BestInteractableComponent = nullptr;
+	float BestDot = -1.0f;
 
 	TArray<AActor*> InRange;
 	ActorsInRange.GetKeys(InRange);
@@ -82,6 +84,21 @@ void APotionPanicCharacter::SortActorsInRange()
 		else if (auto* Socketable = ActorInRange->GetComponentByClass<USocketableComponent>())
 		{
 			BestSocketable = Socketable;
+		}
+
+		for (UActorComponent* Component : ActorInRange->GetComponents())
+		{
+			if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
+			{
+				// Get Angle between forward vector and direction to component
+				FVector ToActor = (ActorInRange->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+				float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor);
+				if (Dot > BestDot)
+				{
+					BestDot = Dot;
+					BestInteractableComponent = Component;
+				}
+			}
 		}
 	}
 }
@@ -137,13 +154,10 @@ void APotionPanicCharacter::ThrowHeldObject()
 }
 
 void APotionPanicCharacter::Interact()
-{
-	UActorComponent* Interactable = GetBestInteractableComponent();
-	UE_LOG(LogTemp, Warning, TEXT("INTERACTABLE"));
-	
-	if (Interactable == nullptr) return;
+{	
+	if (BestInteractableComponent == nullptr) return;
 
-	if (IInteractionInterface* Interaction = Cast<IInteractionInterface>(Interactable))
+	if (IInteractionInterface* Interaction = Cast<IInteractionInterface>(BestInteractableComponent))
 	{
 		Interaction->Interact(this);
 	}
@@ -163,33 +177,6 @@ void APotionPanicCharacter::PickupObject()
 {
 	if (BestSocketable)
 		Socket->Put(*BestSocketable);
-}
-
-UActorComponent* APotionPanicCharacter::GetBestInteractableComponent()
-{
-	UActorComponent* BestComponent = nullptr;
-	float BestDot = -1.0f;
-
-	TArray<AActor*> InRange;
-	ActorsInRange.GetKeys(InRange);
-	for (AActor* ActorInRange : InRange)
-	{
-		for (UActorComponent* Component : ActorInRange->GetComponents())
-		{
-			if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
-			{
-				// Get Angle between forward vector and direction to component
-				FVector ToActor = (ActorInRange->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-				float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor);
-				if (Dot > BestDot)
-				{
-					BestDot = Dot;
-					BestComponent = Component;
-				}
-			}
-		}
-	}
-	return BestComponent;
 }
 
 bool APotionPanicCharacter::IsHolding() const
