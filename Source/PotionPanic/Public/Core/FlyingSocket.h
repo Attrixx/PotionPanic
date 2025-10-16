@@ -23,7 +23,7 @@ private:
 	void EndPlay(EEndPlayReason::Type) override;
 
 	UFUNCTION() void OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	UFUNCTION() void OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	UFUNCTION() void OnDropOrBreakHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 	
 protected: // Components
 
@@ -62,5 +62,6 @@ public:
 
 private:
 
+	// Actors that are ignored for collisions
 	TArray<TObjectPtr<AActor>> IgnoredActors;
 };

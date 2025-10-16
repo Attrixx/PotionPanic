@@ -14,12 +14,17 @@ AFlyingSocket::AFlyingSocket()
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 
 	SocketCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Socket Collision"));
-	SocketCollision->InitSphereRadius(50.f);
 	SocketCollision->SetCollisionProfileName("OverlapAll", false);
+	SocketCollision->InitSphereRadius(50.f);
+	SocketCollision->SetGenerateOverlapEvents(true);
 	SocketCollision->SetupAttachment(RootComponent);
 
 	DropOrBreakCollision = CreateDefaultSubobject<USphereComponent>(TEXT("Drop or Break Collision"));
-	DropOrBreakCollision->SetCollisionProfileName("OverlapAll", false);
+	DropOrBreakCollision->SetCollisionProfileName("BlockAll", false);
+	DropOrBreakCollision->SetGenerateOverlapEvents(false);
+	DropOrBreakCollision->SetSimulatePhysics(true);
+	DropOrBreakCollision->SetEnableGravity(true);
+	DropOrBreakCollision->SetNotifyRigidBodyCollision(true);
 	DropOrBreakCollision->InitSphereRadius(10.f);
 	DropOrBreakCollision->SetupAttachment(RootComponent);
 
@@ -41,7 +46,7 @@ AFlyingSocket::AFlyingSocket()
 void AFlyingSocket::EndPlay(EEndPlayReason::Type EndPlayReason)
 {
 	SocketCollision->OnComponentBeginOverlap.RemoveAll(this);
-	DropOrBreakCollision->OnComponentBeginOverlap.RemoveAll(this);
+	DropOrBreakCollision->OnComponentHit.RemoveAll(this);
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -70,7 +75,7 @@ void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponen
 	}
 }
 
-void AFlyingSocket::OnDropOrBreakBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AFlyingSocket::OnDropOrBreakHit( UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (IsIgnored(OtherActor))
 		return;
@@ -110,5 +115,5 @@ void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Forc
 	Audio->Play();
 
 	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
-	DropOrBreakCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnDropOrBreakBeginOverlap);
+	DropOrBreakCollision->OnComponentHit.AddDynamic(this, &AFlyingSocket::OnDropOrBreakHit);
 }
