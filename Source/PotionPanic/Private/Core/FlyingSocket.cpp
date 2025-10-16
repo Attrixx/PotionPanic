@@ -75,15 +75,22 @@ void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponen
 	}
 }
 
-void AFlyingSocket::OnDropOrBreakHit( UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AFlyingSocket::OnDropOrBreakHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (IsIgnored(OtherActor))
 		return;
 
+	// We did not hit a socket
 	if (auto* Socketable = Socket->Take())
 	{
-		// We did not hit a socket
-		// TODO: Break item if it is breakable
+		if (false /* TODO: bIsBreakable */)
+		{
+			// TODO: Break item if it is breakable
+		}
+		else
+		{
+			Socketable->SnapToGround();
+		}
 	}
 
 	Destroy();

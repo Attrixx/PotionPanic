@@ -25,8 +25,12 @@ public:
 	USocketComponent* GetHolder() const;
 
 	FOnHolderChangedCallback OnHolderChanged;
+
+	void SnapToGround();
+
 	void SetDistinguish(bool bDistinguish);
 	bool GetDistinguish() const;
+
 private:
 
 	friend USocketComponent;

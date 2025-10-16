@@ -1,6 +1,9 @@
 #include "Core/SocketableComponent.h"
 #include "Core/SocketComponent.h"
 #include "DistinguishSystem/DistinguishComponent.h"
+#include <Logging/StructuredLog.h>
+
+DEFINE_LOG_CATEGORY_STATIC(MS_SocketableComponent, Log, All);
 
 void USocketableComponent::BeginPlay()
 {
@@ -30,6 +33,36 @@ bool USocketableComponent::IsHeld() const
 USocketComponent* USocketableComponent::GetHolder() const
 {
 	return Holder;
+}
+
+void USocketableComponent::SnapToGround()
+{
+	FHitResult HitResult;
+	FVector CompLoc = GetComponentLocation();
+	FVector End = CompLoc - FVector(0, 0, 1000.0f);
+
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(GetOwner());
+
+	bool bHit = GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		CompLoc,
+		End,
+		ECC_WorldStatic, // ECC_Visibility ?
+		Params
+	);
+
+	if (!bHit)
+	{
+		UE_LOGFMT(MS_SocketableComponent, Error, "LineTrace did not hit.");
+		return;
+	}
+
+	FVector ActorLoc = GetOwner()->GetActorLocation();
+	FVector CompToActor = ActorLoc - CompLoc;
+	FVector SnapLoc = HitResult.Location + CompToActor;
+
+	GetOwner()->SetActorLocation(SnapLoc);
 }
 
 void USocketableComponent::SetDistinguish(bool bDistinguish)
