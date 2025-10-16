@@ -80,13 +80,13 @@ void APotionPanicPlayerController::Dash(const FInputActionValue& Value)
 {
 	if (!bCanDash) return;
 
-	ACharacter* CurrentCharacter = GetCharacter();
-	if (CurrentCharacter == nullptr) return;
+	if (PotionPanicCharacter == nullptr) return;
 
 	bCanDash = false;
+	PotionPanicCharacter->OnDashStart();
 
-	CurrentCharacter->LaunchCharacter(CurrentCharacter->GetActorForwardVector() * DashStrength + FVector(0.f, 0.f, 50.f), false, false);
+	PotionPanicCharacter->LaunchCharacter(PotionPanicCharacter->GetActorForwardVector() * DashStrength + FVector(0.f, 0.f, DashZForce), false, false);
 
 	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; }, DashCooldown, false);
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; PotionPanicCharacter->OnDashEnd(); }, DashCooldown, false);
 }

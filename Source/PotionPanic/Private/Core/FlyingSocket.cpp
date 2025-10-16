@@ -1,10 +1,14 @@
 #include "Core/FlyingSocket.h"
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
+#include "Core/PotionPanicCharacter.h"
+#include "RecipeSystem/StationComponent.h"
 #include <GameFramework/ProjectileMovementComponent.h>
+#include <Kismet/GameplayStatics.h>
 #include <Components/SphereComponent.h>
 #include <Components/AudioComponent.h>
 #include <NiagaraComponent.h>
+#include "NiagaraFunctionLibrary.h"
 #include <Logging/StructuredLog.h>
 
 AFlyingSocket::AFlyingSocket()
@@ -31,13 +35,9 @@ AFlyingSocket::AFlyingSocket()
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
 	ProjectileMovement->bRotationFollowsVelocity = false;
 
-	Niagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara"));
-	Niagara->SetupAttachment(RootComponent);
-	Niagara->bAutoActivate = false;
-
-	Audio = CreateDefaultSubobject<UAudioComponent>(TEXT("Audio"));
-	Audio->SetupAttachment(RootComponent);
-	Audio->bAutoActivate = false;
+	NiagaraTrail = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara"));
+	NiagaraTrail->SetupAttachment(RootComponent);
+	NiagaraTrail->bAutoActivate = false;
 
 	Socket = CreateDefaultSubobject<USocketComponent>(TEXT("Socket"));
 	Socket->SetupAttachment(RootComponent);
@@ -56,6 +56,9 @@ void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponen
 	if (IsIgnored(OtherActor))
 		return;
 
+	TObjectPtr<USocketComponent> TargetSocket = nullptr;
+	bool bTargetIsStation = false;
+
 	TSet Components = OtherActor->GetComponents();
 	for (auto* Comp : Components)
 	{
@@ -64,15 +67,31 @@ void AFlyingSocket::OnSocketBeginOverlap(UPrimitiveComponent* OverlappedComponen
 			if (OtherSocket->IsHolding())
 				continue; // Until we find one that can hold ours
 
-			auto* Socketable = Socket->Take();
-			if (Socketable)
-				OtherSocket->Put(*Socketable);
-
-			Audio->SetSound(CatchSound);
-			Audio->Play();
-			break;
+			TargetSocket = OtherSocket;
+		}
+		else if (UStationComponent* Station = Cast<UStationComponent>(Comp))
+		{
+			bTargetIsStation = true;
 		}
 	}
+
+	if (TargetSocket == nullptr) return;
+	bool bTargetIsCharacter = Cast<APotionPanicCharacter>(OtherActor) != nullptr;
+
+	auto* Socketable = Socket->Take();
+	if (Socketable)
+		TargetSocket->Put(*Socketable);
+
+
+	if (bTargetIsCharacter)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, CatchSound, TargetSocket->GetComponentLocation(), 1.f, 2.f);
+	}
+	else if (bTargetIsStation)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, SnapOnSocketSound, TargetSocket->GetComponentLocation());
+	}
+	UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, NiagaraHit, TargetSocket->GetComponentLocation(), FRotator::ZeroRotator, FVector(0.5f), true, true, ENCPoolMethod::AutoRelease);
 }
 
 void AFlyingSocket::OnDropOrBreakHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
@@ -117,9 +136,8 @@ void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Forc
 
 	Socket->Put(Socketable);
 	ProjectileMovement->Velocity = Force;
-	Niagara->Activate(true);
-	Audio->SetSound(LaunchSound);
-	Audio->Play();
+	NiagaraTrail->Activate(true);
+	UGameplayStatics::PlaySoundAtLocation(this, LaunchSound, GetActorLocation());
 
 	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
 	DropOrBreakCollision->OnComponentHit.AddDynamic(this, &AFlyingSocket::OnDropOrBreakHit);

@@ -28,6 +28,7 @@ protected:
 private:
 
 	bool bCanDash = true;
+	float DashZForce = 50.f;
 
 protected:
 
@@ -69,5 +70,9 @@ protected:
 	void Interact(const FInputActionValue& Value);
 	void Carry(const FInputActionValue& Value);
 	void Dash(const FInputActionValue& Value);
+
+public:
+
+	bool IsDashAvailable() const { return bCanDash; }
 	
 };

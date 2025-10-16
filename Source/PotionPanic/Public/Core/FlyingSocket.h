@@ -7,6 +7,7 @@
 class USphereComponent;
 class UProjectileMovementComponent;
 class UNiagaraComponent;
+class UNiagaraSystem;
 class UAudioComponent;
 class USocketComponent;
 class USocketableComponent;
@@ -37,10 +38,10 @@ protected: // Components
 	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
 
 	UPROPERTY(VisibleAnywhere, Category = "Flying Socket")
-	TObjectPtr<UNiagaraComponent> Niagara;
+	TObjectPtr<UNiagaraComponent> NiagaraTrail;
 
-	UPROPERTY(VisibleAnywhere, Category = "Flying Socket")
-	TObjectPtr<UAudioComponent> Audio;
+	UPROPERTY(EditAnywhere, Category = "Flying Socket")
+	TObjectPtr<UNiagaraSystem> NiagaraHit;
 
 	UPROPERTY(VisibleAnywhere, Category = "Flying Socket")
 	TObjectPtr<USocketComponent> Socket;
@@ -52,6 +53,9 @@ protected: // Properties
 
 	UPROPERTY(EditAnywhere, Category = "Flying Socket")
 	TObjectPtr<USoundBase> CatchSound;
+
+	UPROPERTY(EditAnywhere, Category = "Flying Socket")
+	TObjectPtr<USoundBase> SnapOnSocketSound;
 
 public:
 

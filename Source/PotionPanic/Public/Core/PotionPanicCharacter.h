@@ -27,6 +27,7 @@ private:
 
 	UFUNCTION() void OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	UFUNCTION() void OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	UFUNCTION() void OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	void SortInteractablesInRange();
 	void SortSocketablesInRange();
@@ -37,6 +38,8 @@ private:
 	friend class APotionPanicPlayerController;
 	void OnInteract();
 	void OnCarry();
+	void OnDashStart();
+	void OnDashEnd();
 
 	void ThrowHeldObject();
 	void Interact();
@@ -74,5 +77,7 @@ private:
 	USocketComponent* BestSocket;
 	USocketableComponent* BestSocketable;
 	UActorComponent* BestInteractableComponent;
+
+	bool bCanHitDash = true;
 
 };

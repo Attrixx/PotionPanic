@@ -1,10 +1,12 @@
 #include "Core/PotionPanicCharacter.h"
+#include "Core/PotionPanicPlayerController.h"
 #include "Core/CamTargetComponent.h"
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
 #include "Core/FlyingSocket.h"
 #include "Core/InteractionInterface.h"
 #include <Components/SphereComponent.h>
+#include <Components/CapsuleComponent.h>
 #include <Engine/OverlapResult.h>
 #include <Logging/StructuredLog.h>
 #include <limits>
@@ -28,6 +30,7 @@ void APotionPanicCharacter::BeginPlay()
 
 	PickupRange->OnComponentBeginOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentBeginOverlap);
 	PickupRange->OnComponentEndOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentEndOverlap);
+	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &APotionPanicCharacter::OnHit);
 }
 
 void APotionPanicCharacter::Tick(float DeltaTime)
@@ -157,6 +160,33 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 	}
 }
 
+void APotionPanicCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (!bCanHitDash)
+		return;
+
+	if (APotionPanicCharacter* OtherCharacter = Cast<APotionPanicCharacter>(OtherActor))
+	{
+		if (APotionPanicPlayerController* PC = Cast<APotionPanicPlayerController>(GetController()))
+		{
+			if (PC->IsDashAvailable()) return;
+		}
+
+		bCanHitDash = false;
+
+		bool bCurrentIsHolding = IsHolding();
+		bool bTargetIsHolding = OtherCharacter->IsHolding();
+		if (bCurrentIsHolding)
+		{
+			DropObject();
+		}
+		if (bTargetIsHolding)
+		{
+			OtherCharacter->DropObject();
+		}
+	}
+}
+
 void APotionPanicCharacter::SortInteractablesInRange()
 {
 	// Sort Interractable always
@@ -241,6 +271,15 @@ void APotionPanicCharacter::OnCarry()
 	{
 		PickupObject();
 	}
+}
+
+void APotionPanicCharacter::OnDashStart()
+{
+}
+
+void APotionPanicCharacter::OnDashEnd()
+{
+	bCanHitDash = true;
 }
 
 void APotionPanicCharacter::ThrowHeldObject()
