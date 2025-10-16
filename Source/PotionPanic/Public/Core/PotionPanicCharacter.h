@@ -30,7 +30,7 @@ private:
 
 	void SortInteractablesInRange();
 	void SortSocketablesInRange();
-
+	void SortSocketsInRange();
 
 	float ComputeLocationScore(FVector Location);
 
@@ -69,6 +69,7 @@ private:
 
 	TMap<AActor*, int32> InteractableActorsInRange;
 	TMap<USocketableComponent*, int32> SocketableComponentsInRange;
+	TMap<USocketComponent*, int32> SocketComponentsInRange;
 
 	USocketComponent* BestSocket;
 	USocketableComponent* BestSocketable;

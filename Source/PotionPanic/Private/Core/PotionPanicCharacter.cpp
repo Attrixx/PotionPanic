@@ -43,6 +43,11 @@ void APotionPanicCharacter::Tick(float DeltaTime)
 	{
 		SortSocketablesInRange();
 	}
+
+	if (SocketComponentsInRange.Num() >= 2 && IsHolding())
+	{
+		SortSocketsInRange();
+	}
 }
 
 void APotionPanicCharacter::EndPlay(EEndPlayReason::Type EndPlayReason)
@@ -79,6 +84,15 @@ void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* Overlap
 			SetBestSocketable(SocketableComponent);
 		}
 	}
+	// TODO FRANCOUIS - Better group of information here
+	else if (auto* SocketComponent = OtherActor->GetComponentByClass<USocketComponent>())
+	{
+		++SocketComponentsInRange.FindOrAdd(SocketComponent);
+		if (SocketComponentsInRange.Num() == 1)
+		{
+			BestSocket = SocketComponent;
+		}
+	}
 }
 
 void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
@@ -98,7 +112,7 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 
 		if (SocketableComponentsInRange.Num() == 1)
 		{
-			BestInteractableComponent = OtherComp;
+			SortInteractablesInRange();
 			//BestInteractableComponent->SetDistinguish(true);
 		}
 	}
@@ -113,9 +127,24 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 			SetBestSocketable(nullptr);
 		}
 
-		if (SocketableComponentsInRange.Num() == 1)
+		if (SocketableComponentsInRange.Num() == 1 && !IsHolding())
 		{
 			SortSocketablesInRange();
+		}
+	}
+	else if (auto* SocketComponent = OtherActor->GetComponentByClass<USocketComponent>())
+	{
+		int32* CountPtr = SocketComponentsInRange.Find(SocketComponent);
+		if (!CountPtr)
+			return;
+		if (--(*CountPtr) <= 0)
+		{
+			SocketComponentsInRange.Remove(SocketComponent);
+			BestSocket = nullptr;
+		}
+		if (SocketComponentsInRange.Num() == 1)
+		{
+			SortSocketsInRange();
 		}
 	}
 }
@@ -159,6 +188,23 @@ void APotionPanicCharacter::SortSocketablesInRange()
 		{
 			MaxScore = Score;
 			SetBestSocketable(Socketable);
+		}
+	}
+}
+
+void APotionPanicCharacter::SortSocketsInRange()
+{
+	TArray<USocketComponent*> SocketsInRange;
+	SocketComponentsInRange.GetKeys(SocketsInRange);
+	float MaxScore = std::numeric_limits<float>::lowest();
+
+	for (auto* SocketInRange : SocketsInRange)
+	{
+		float Score = ComputeLocationScore(SocketInRange->GetOwner()->GetActorLocation());
+		if (Score >= MaxScore)
+		{
+			MaxScore = Score;
+			BestSocket = SocketInRange;
 		}
 	}
 }
@@ -234,6 +280,7 @@ void APotionPanicCharacter::Interact()
 
 void APotionPanicCharacter::DropObject()
 {
+	// TODO FRANCOIS
 	auto* Socketable = Socket->Take();
 	if (!Socketable)
 		return;
