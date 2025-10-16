@@ -287,7 +287,13 @@ void APotionPanicCharacter::DropObject()
 		return;
 
 	if (BestSocket)
+	{
 		BestSocket->Put(*Socketable);
+	}
+	else
+	{
+		Socketable->SnapToGround();
+	}
 
 	SortSocketablesInRange();
 }
