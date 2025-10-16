@@ -184,7 +184,7 @@ void APotionPanicCharacter::SortSocketablesInRange()
 
 	for (auto* Socketable : SocketableInRange)
 	{
-		float Score = ComputeLocationScore(Socketable->GetOwner()->GetActorLocation());
+		float Score = ComputeLocationScore(Socketable->GetComponentLocation());
 		if (Score >= MaxScore)
 		{
 			MaxScore = Score;
@@ -201,7 +201,7 @@ void APotionPanicCharacter::SortSocketsInRange()
 
 	for (auto* SocketInRange : SocketsInRange)
 	{
-		float Score = ComputeLocationScore(SocketInRange->GetOwner()->GetActorLocation());
+		float Score = ComputeLocationScore(SocketInRange->GetComponentLocation());
 		if (Score >= MaxScore)
 		{
 			MaxScore = Score;
