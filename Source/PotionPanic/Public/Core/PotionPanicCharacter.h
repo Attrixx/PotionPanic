@@ -67,7 +67,7 @@ private:
 
 	TObjectPtr<UCamTargetComponent> CamTargetComponent;
 
-	TMap<AActor*, int32> InteractableActorsInRange;
+	TMap<UActorComponent*, int32> InteractableActorsInRange;
 	TMap<USocketableComponent*, int32> SocketableComponentsInRange;
 	TMap<USocketComponent*, int32> SocketComponentsInRange;
 

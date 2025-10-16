@@ -64,18 +64,8 @@ void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* Overlap
 		return;
 
 	// Only consider actors that implement the interaction interface or are socketable
-	if (OtherComp->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
-	{
-		++InteractableActorsInRange.FindOrAdd(OtherActor);
-
-		if (InteractableActorsInRange.Num() == 1)
-		{
-			BestInteractableComponent = OtherComp;
-			//BestInteractableComponent->SetDistinguish(true);
-		}
-	}
 	// TODO FRANCOIS - For each on all socketables instead
-	else if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
+	if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
 	{
 		++SocketableComponentsInRange.FindOrAdd(SocketableComponent);
 
@@ -84,7 +74,7 @@ void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* Overlap
 			SetBestSocketable(SocketableComponent);
 		}
 	}
-	// TODO FRANCOUIS - Better group of information here
+	// TODO FRANCOIS - Better group of information here
 	else if (auto* SocketComponent = OtherActor->GetComponentByClass<USocketComponent>())
 	{
 		++SocketComponentsInRange.FindOrAdd(SocketComponent);
@@ -93,30 +83,25 @@ void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* Overlap
 			BestSocket = SocketComponent;
 		}
 	}
+
+	for (auto* Component : OtherActor->GetComponents())
+	{
+		if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
+		{
+			++InteractableActorsInRange.FindOrAdd(Component);
+
+			if (InteractableActorsInRange.Num() == 1)
+			{
+				BestInteractableComponent = Component;
+				//BestInteractableComponent->SetDistinguish(true);
+			}
+		}
+	}
 }
 
 void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (OtherComp->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
-	{
-		int32* CountPtr = InteractableActorsInRange.Find(OtherActor);
-		if (!CountPtr)
-			return;
-		if (--(*CountPtr) <= 0)
-		{
-			InteractableActorsInRange.Remove(OtherActor);
-			if (BestInteractableComponent)
-				//BestInteractableComponent->SetDistinguish(false);
-			BestInteractableComponent = nullptr;
-		}
-
-		if (SocketableComponentsInRange.Num() == 1)
-		{
-			SortInteractablesInRange();
-			//BestInteractableComponent->SetDistinguish(true);
-		}
-	}
-	else if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
+	if (auto* SocketableComponent = OtherActor->GetComponentByClass<USocketableComponent>())
 	{
 		int32* CountPtr = SocketableComponentsInRange.Find(SocketableComponent);
 		if (!CountPtr)
@@ -147,30 +132,46 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 			SortSocketsInRange();
 		}
 	}
+
+	for (auto* Component : OtherActor->GetComponents())
+	{
+		if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
+		{
+			int32* CountPtr = InteractableActorsInRange.Find(Component);
+			if (!CountPtr)
+				return;
+			if (--(*CountPtr) <= 0)
+			{
+				InteractableActorsInRange.Remove(Component);
+				//if (BestInteractableComponent)
+					//BestInteractableComponent->SetDistinguish(false);
+				BestInteractableComponent = nullptr;
+			}
+
+			if (SocketableComponentsInRange.Num() == 1)
+			{
+				SortInteractablesInRange();
+				//BestInteractableComponent->SetDistinguish(true);
+			}
+		}
+	}
 }
 
 void APotionPanicCharacter::SortInteractablesInRange()
 {
 	// Sort Interractable always
-	TArray<AActor*> IntarractableInRange;
+	TArray<UActorComponent*> IntarractableInRange;
 	InteractableActorsInRange.GetKeys(IntarractableInRange);
 	float MaxScore = -std::numeric_limits<float>::infinity();
 
-	for (auto* ActorInRange : IntarractableInRange)
+	for (auto* Component : IntarractableInRange)
 	{
-		ActorInRange->GetComponentByClass(UInteractionInterface::StaticClass());
-		for (UActorComponent* Component : ActorInRange->GetComponents())
+		float Score = ComputeLocationScore(Component->GetOwner()->GetActorLocation());
+		if (Score > MaxScore)
 		{
-			if (Component->GetClass()->ImplementsInterface(UInteractionInterface::StaticClass()))
-			{
-				float Score = ComputeLocationScore(ActorInRange->GetActorLocation());
-				if (Score > MaxScore)
-				{
-					MaxScore = Score;
-					BestInteractableComponent = Component;
-					//BestInteractableComponent->SetDistinguish(true);
-				}
-			}
+			MaxScore = Score;
+			BestInteractableComponent = Component;
+			//BestInteractableComponent->SetDistinguish(true);
 		}
 	}
 }
