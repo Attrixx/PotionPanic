@@ -50,6 +50,7 @@ private:
 
 public:
 
+	UFUNCTION(BlueprintCallable)
 	bool IsHolding() const;
 
 protected:
