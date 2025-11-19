@@ -30,28 +30,44 @@ void UStationComponent::StartProcessItem(APawn* Instigator)
 	TObjectPtr<AActor> InputItem = GetItemOnSocket();
 	OnBeginProcess.Broadcast(Instigator, InputItem);
 
-	int ItemIndex = 0;
-	if (InputItem != nullptr && InputItems.Num())
+	int RecipeIndex = -1;
+	if (InputItems.Num() == 0) // Spawner case
 	{
-		ItemIndex = InputItems.Find(InputItem->GetClass());
+		RecipeIndex = 0;
 	}
+	else // Default case
+	{
+		if (InputItem) // Not cauldron
+			InternalStorage.Add(InputItem.GetClass());
+		RecipeIndex = InputItems.Find(InternalStorage);
+	}
+
+	if (RecipeIndex == -1)
+		return;
 
 	// Get corresponding output item
 	TSubclassOf<AActor> OutputItem = nullptr;
-	if (OutputItems.Num() > ItemIndex)
+	if (OutputItems.Num() > RecipeIndex)
 	{
-		OutputItem = OutputItems[ItemIndex];
+		OutputItem = OutputItems[RecipeIndex];
 	}
 
 	// Process item with strategies
-	if (Strategies.Num() > ItemIndex && Strategies[ItemIndex] != nullptr && Strategies[ItemIndex]->GetClass()->ImplementsInterface(UStrategyInterface::StaticClass()))
+	if (Strategies.Num() > RecipeIndex && Strategies[RecipeIndex] != nullptr && Strategies[RecipeIndex]->GetClass()->ImplementsInterface(UStrategyInterface::StaticClass()))
 	{
-		if (IStrategyInterface* Strategy = Cast<IStrategyInterface>(Strategies[ItemIndex]))
+		if (IStrategyInterface* Strategy = Cast<IStrategyInterface>(Strategies[RecipeIndex]))
 		{
 			Strategy->ExecuteStrategy(this, InputItem->GetClass(), OutputItem);
 		}
 	}
 
 	// Notify when done
+	InternalStorage.Clear();
 	OnEndProcess.Broadcast(Instigator, OutputItem);
+}
+
+void UStationComponent::Store(TSubclassOf<AActor> Item)
+{
+	InternalStorage.Add(Item);
+	UE_LOGFMT(LogTemp, Log, "Current {0} storage: {1}", GetOwner()->GetName(), InternalStorage.Print());
 }

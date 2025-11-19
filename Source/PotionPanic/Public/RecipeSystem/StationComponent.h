@@ -10,6 +10,58 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEndProcessDelegate, APawn*, TSubclassOf<
 
 class UStrategyInterface;
 
+USTRUCT(BlueprintType)
+struct FInputItemGroup
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TMap<TSubclassOf<AActor>, int32> Counts;
+
+	void Clear()
+	{
+		Counts.Empty();
+	}
+
+	void Add(TSubclassOf<AActor> Item)
+	{
+		int32& Value = Counts.FindOrAdd(Item);
+		++Value;
+	}
+
+	bool operator==(const FInputItemGroup& Other) const
+	{
+		if (Counts.Num() != Other.Counts.Num())
+			return false;
+
+		for (const auto& KVP : Counts)
+		{
+			const int32* OtherVal = Other.Counts.Find(KVP.Key);
+			if (!OtherVal || *OtherVal != KVP.Value)
+				return false;
+		}
+		return true;
+	}
+
+	// DEBUG
+	FString Print()
+	{
+		FString S;
+		for (const auto& P : Counts)
+		{
+			if (!S.IsEmpty())
+				S += TEXT(", ");
+
+			S += FString::Printf(
+				TEXT("(%s : %d)"),
+				P.Key ? *P.Key->GetName() : TEXT("None"),
+				P.Value
+			);
+		}
+		return S;
+	}
+};
+
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class UStationComponent : public UActorComponent, public IInteractionInterface
 {
@@ -26,7 +78,7 @@ public:
 protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TSubclassOf<AActor>> InputItems;
+	TArray<FInputItemGroup> InputItems;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<TObjectPtr<UObject>> Strategies;
@@ -45,4 +97,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void StartProcessItem(APawn* Instigator);
 
+	void Store(TSubclassOf<AActor> Item);
+
+private:
+
+	FInputItemGroup InternalStorage;
 };
