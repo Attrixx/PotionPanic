@@ -14,14 +14,14 @@ void UDeliveryComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-TObjectPtr<USocketComponent> UDeliveryComponent::GetSpawnSocket(AActor* TargetActor)
+TObjectPtr<USocketComponent> UDeliveryComponent::GetSocket(AActor* TargetActor)
 {
 	TSet<UActorComponent*> ActorComponents = TargetActor->GetComponents();
 	for (UActorComponent* Component : ActorComponents)
 	{
 		if (USocketComponent* Socket = Cast<USocketComponent>(Component))
 		{
-			if (Socket->IsHolding()) continue;
+			if (!Socket->IsHolding()) continue;
 
 			return Socket;
 		}
@@ -32,10 +32,14 @@ TObjectPtr<USocketComponent> UDeliveryComponent::GetSpawnSocket(AActor* TargetAc
 void UDeliveryComponent::Deliver(APawn* Instigator, TObjectPtr<AActor> Item)
 {
 	// Get Socket
-	TObjectPtr<USocketComponent> TargetSocket = GetSpawnSocket(GetOwner());
+	TObjectPtr<USocketComponent> TargetSocket = GetSocket(GetOwner());
 	if (!TargetSocket) return;
+
+	// Discard held item
+	TargetSocket->Take();
 
 	//GetWorld()->GetSubsystem<UScoreSubsystem>()->AddScore(24);
 	Item->Destroy();
+	UE_LOG(LogTemp, Log, TEXT("Delivered an item"));
 }
 

@@ -18,7 +18,7 @@ public:
 
 protected:
 	void BeginPlay() override;
-	TObjectPtr<USocketComponent> GetSpawnSocket(AActor* TargetActor);
+	TObjectPtr<USocketComponent> GetSocket(AActor* TargetActor);
 
 public:
 
