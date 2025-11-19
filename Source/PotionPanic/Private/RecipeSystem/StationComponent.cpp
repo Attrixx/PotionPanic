@@ -28,6 +28,7 @@ void UStationComponent::StartProcessItem(APawn* Instigator)
 {
 	// Get item from socket
 	TObjectPtr<AActor> InputItem = GetItemOnSocket();
+	OnBeginProcess.Broadcast(Instigator, InputItem);
 
 	int ItemIndex = 0;
 	if (InputItem != nullptr && InputItems.Num())

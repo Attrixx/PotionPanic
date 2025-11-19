@@ -5,6 +5,7 @@
 #include "Core/InteractionInterface.h"
 #include "StationComponent.generated.h"
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnBeginProcessDelegate, APawn*, TObjectPtr<AActor>);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEndProcessDelegate, APawn*, TSubclassOf<AActor>);
 
 class UStrategyInterface;
@@ -19,6 +20,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	FText Name;
 
+	FOnBeginProcessDelegate OnBeginProcess;
 	FOnEndProcessDelegate OnEndProcess;
 
 protected:
