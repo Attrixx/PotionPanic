@@ -11,6 +11,8 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
+class UScoreHUDWidget;
+
 UCLASS()
 class POTIONPANIC_API APotionPanicPlayerController : public APlayerController
 {
@@ -61,6 +63,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	float DashStrength = 1000.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UScoreHUDWidget> ScoreWidgetClass;
+
+	UPROPERTY()
+	UScoreHUDWidget* ScoreWidgetInstance = nullptr;
 protected:
 
 	/*

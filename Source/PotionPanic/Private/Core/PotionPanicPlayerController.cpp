@@ -7,6 +7,7 @@
 #include "UserSettings/EnhancedInputUserSettings.h"
 #include "Core/PotionPanicCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "ScoreSystem/ScoreHUDWidget.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
@@ -27,6 +28,18 @@ void APotionPanicPlayerController::BeginPlay()
 			if (!UserSettings->IsMappingContextRegistered(InputMappingContext))
 			{
 				UserSettings->RegisterInputMappingContext(InputMappingContext);
+			}
+		}
+	}
+
+	if (IsLocalController())
+	{
+		if (ScoreWidgetClass)
+		{
+			ScoreWidgetInstance = CreateWidget<UScoreHUDWidget>(this, ScoreWidgetClass);
+			if (ScoreWidgetInstance)
+			{
+				ScoreWidgetInstance->AddToViewport();
 			}
 		}
 	}
