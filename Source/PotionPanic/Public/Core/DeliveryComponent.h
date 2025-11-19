@@ -7,6 +7,7 @@
 #include "DeliveryComponent.generated.h"
 
 class USocketComponent;
+class AOrderClient;
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class POTIONPANIC_API UDeliveryComponent : public UActorComponent
@@ -19,9 +20,16 @@ public:
 protected:
 	void BeginPlay() override;
 	TObjectPtr<USocketComponent> GetSocket(AActor* TargetActor);
+	TObjectPtr<AOrderClient> ResolveOrderClient() const;
 
 public:
 
 	void Deliver(APawn* Instigator, TObjectPtr<AActor> Item);
 
+private:
+	UPROPERTY(EditAnywhere, Category = "Order")
+	TObjectPtr<AOrderClient> LinkedOrderClient;
+
+	UPROPERTY()
+	TObjectPtr<AOrderClient> CachedOrderClient;
 };
