@@ -3,6 +3,7 @@
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
 #include "GameFramework/Actor.h"
+#include "ScoreSystem/ScoreWorldSubsystem.h"
 
 UDeliveryComponent::UDeliveryComponent()
 {
@@ -37,9 +38,14 @@ void UDeliveryComponent::Deliver(APawn* Instigator, TObjectPtr<AActor> Item)
 
 	// Discard held item
 	TargetSocket->Take();
-
-	//GetWorld()->GetSubsystem<UScoreSubsystem>()->AddScore(24);
 	Item->Destroy();
+
+	// Check if acceptable recipe
+	// TODO FRANCOIS
+
+	// Incr Score
+	GetWorld()->GetSubsystem<UScoreWorldSubsystem>()->AddScore(1);
+
 	UE_LOG(LogTemp, Log, TEXT("Delivered an item"));
 }
 
