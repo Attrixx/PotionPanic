@@ -28,7 +28,6 @@ void UStationComponent::StartProcessItem(APawn* Instigator)
 {
 	// Get item from socket
 	TObjectPtr<AActor> InputItem = GetItemOnSocket();
-	OnBeginProcess.Broadcast(Instigator, InputItem);
 
 	int RecipeIndex = -1;
 	if (InputItems.Num() == 0) // Spawner case

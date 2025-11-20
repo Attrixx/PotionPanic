@@ -6,9 +6,7 @@
 
 class UStaticMeshComponent;
 class USocketComponent;
-class UStationComponent;
 class USpawnerComponent;
-class UDeliveryComponent;
 
 UCLASS()
 class ADeliveryStation : public AActor
@@ -21,6 +19,9 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+private:
+	void Deliver(class USocketableComponent* OldHeld, class USocketableComponent* NewHeld);
+
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -28,10 +29,4 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USocketComponent> SocketComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UStationComponent> StationComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UDeliveryComponent> DeliveryComponent;
 };
