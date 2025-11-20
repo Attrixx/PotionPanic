@@ -1,9 +1,14 @@
 #include "OrderSystem/OrderClient.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/SceneComponent.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
 #include "ScoreSystem/ScoreWorldSubsystem.h"
 #include "OrderSystem/CommandeManagerWorldSubsystem.h"
+
+#include "Kismet/GameplayStatics.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Math/RotationMatrix.h"
 
 #if WITH_EDITOR
 #include "Engine/Blueprint.h"
@@ -18,6 +23,10 @@ AOrderClient::AOrderClient()
 
     OrderTextComp = CreateDefaultSubobject<UTextRenderComponent>(TEXT("OrderTextComp"));
     OrderTextComp->SetupAttachment(RootComponent);
+
+    OrderTextComp->SetMobility(EComponentMobility::Movable);
+
+    OrderTextComp->SetUsingAbsoluteRotation(true);
 
     OrderTextComp->SetHorizontalAlignment(EHTA_Center);
     OrderTextComp->SetVerticalAlignment(EVRTA_TextCenter);
@@ -42,25 +51,26 @@ void AOrderClient::Tick(float DeltaTime)
 
     if (!OrderTextComp) return;
 
-    UWorld* World = GetWorld();
-    if (!World) return;
+    APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+    if (!PC || !PC->PlayerCameraManager) return;
 
-    APlayerController* PC = World->GetFirstPlayerController();
-    if (!PC) return;
+    if (!PC->IsLocalController()) return;
 
-    FVector CamLocation;
-    FRotator CamRotation;
-    PC->GetPlayerViewPoint(CamLocation, CamRotation);
+    const FVector CamLoc = PC->PlayerCameraManager->GetCameraLocation();
+    const FVector TextLoc = OrderTextComp->GetComponentLocation();
 
-    const FVector TextLocation = OrderTextComp->GetComponentLocation();
-    FVector ToCam = CamLocation - TextLocation;
+    FVector ToCam = CamLoc - TextLoc;
     ToCam.Z = 0.f;
 
-    if (!ToCam.IsNearlyZero())
-    {
-        FRotator LookAtRot = FRotationMatrix::MakeFromX(ToCam).Rotator();
-        OrderTextComp->SetWorldRotation(LookAtRot);
-    }
+    if (ToCam.IsNearlyZero()) return;
+
+    ToCam.Normalize();
+
+    FRotator Rot = FRotationMatrix::MakeFromX(ToCam).Rotator();
+    Rot.Pitch = 0.f;
+    Rot.Roll = 0.f;
+
+    OrderTextComp->SetWorldRotation(Rot);
 }
 
 void AOrderClient::UpdateText3D(const FText& NewText)
