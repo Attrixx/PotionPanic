@@ -18,6 +18,9 @@ public class PotionPanic : ModuleRules
 			"Niagara",
             "UMG",
 			"DeveloperSettings",
+            "GameplayAbilities",
+			"GameplayTags",
+			"GameplayTasks",
         });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

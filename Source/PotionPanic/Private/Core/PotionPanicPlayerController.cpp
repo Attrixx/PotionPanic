@@ -2,12 +2,16 @@
 
 
 #include "Core/PotionPanicPlayerController.h"
+#include "Core/PotionPanicCharacter.h"
+#include "Core/GameplayAbilitySystem/PotionPanicTags.h"
+
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
 #include "UserSettings/EnhancedInputUserSettings.h"
-#include "Core/PotionPanicCharacter.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "ScoreSystem/ScoreHUDWidget.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
@@ -53,7 +57,7 @@ void APotionPanicPlayerController::SetupInputComponent()
 	{
 		EnhancedInputComponent->BindAction(MoveAction,		ETriggerEvent::Triggered, this, &ThisClass::Move);
 		EnhancedInputComponent->BindAction(InteractAction,	ETriggerEvent::Triggered, this, &ThisClass::Interact);
-		EnhancedInputComponent->BindAction(CarryAction,		ETriggerEvent::Triggered, this, &ThisClass::Carry);
+		EnhancedInputComponent->BindAction(PickUpAction,	ETriggerEvent::Triggered, this, &ThisClass::PickUp);
 		EnhancedInputComponent->BindAction(DashAction,		ETriggerEvent::Triggered, this, &ThisClass::Dash);
 	}
 }
@@ -77,29 +81,45 @@ void APotionPanicPlayerController::Move(const FInputActionValue& Value)
 
 void APotionPanicPlayerController::Interact(const FInputActionValue& Value)
 {
-	if (PotionPanicCharacter == nullptr) return;
-
-	PotionPanicCharacter->OnInteract();
+	if (!IsValid(PotionPanicCharacter)) return;
+	if (ActivateAbility(PotionPanicTags::Abilities::Throw)) return;
+	ActivateAbility(PotionPanicTags::Abilities::Interact);
 }
 
-void APotionPanicPlayerController::Carry(const FInputActionValue& Value)
+void APotionPanicPlayerController::PickUp(const FInputActionValue& Value)
 {
-	if (PotionPanicCharacter == nullptr) return;
+	if (!IsValid(PotionPanicCharacter)) return;
 
-	PotionPanicCharacter->OnCarry();
+	if (ActivateAbility(PotionPanicTags::Abilities::PickUp)) return;
+	ActivateAbility(PotionPanicTags::Abilities::Drop);
 }
 
 void APotionPanicPlayerController::Dash(const FInputActionValue& Value)
 {
-	if (!bCanDash) return;
+	if (!IsValid(PotionPanicCharacter)) return;
 
-	if (PotionPanicCharacter == nullptr) return;
+	ActivateAbility(PotionPanicTags::Abilities::Dash);
 
-	bCanDash = false;
+	/*bCanDash = false;
 	PotionPanicCharacter->OnDashStart();
 
 	PotionPanicCharacter->LaunchCharacter(PotionPanicCharacter->GetActorForwardVector() * DashStrength + FVector(0.f, 0.f, DashZForce), false, false);
 
 	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; PotionPanicCharacter->OnDashEnd(); }, DashCooldown, false);
+	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; PotionPanicCharacter->OnDashEnd(); }, DashCooldown, false);*/
+}
+
+bool APotionPanicPlayerController::ActivateAbility(const FGameplayTag& AbilityTag) const
+{
+	if (!IsValid(PotionPanicCharacter)) return false;
+
+	UAbilitySystemComponent* AbilitySystemComponent = PotionPanicCharacter->GetAbilitySystemComponent();
+	if (!IsValid(AbilitySystemComponent)) return false;
+
+	return AbilitySystemComponent->TryActivateAbilitiesByTag(AbilityTag.GetSingleTagContainer());
+}
+
+void APotionPanicPlayerController::ForceDropOnHit()
+{
+	ActivateAbility(PotionPanicTags::Abilities::Drop);
 }

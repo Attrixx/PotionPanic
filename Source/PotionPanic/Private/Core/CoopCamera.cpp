@@ -35,10 +35,15 @@ void ACoopCamera::OnConstruction(const FTransform& Transform)
 void ACoopCamera::BeginPlay()
 {
     Super::BeginPlay();
-    if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+
+    FTimerHandle TimerHandle;
+    GetWorldTimerManager().SetTimer(TimerHandle, [this]()
     {
-        PC->SetViewTarget(this);
-    }
+        if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+        {
+            PC->SetViewTarget(this);
+        }
+	}, 1.f, false);
 }
 
 bool ACoopCamera::GatherPlayerPositions(TArray<FVector2D>& OutXY, FVector& OutAvg3D) const

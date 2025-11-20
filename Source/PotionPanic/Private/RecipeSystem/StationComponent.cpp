@@ -2,6 +2,8 @@
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
 #include "Core/StrategyInterface.h"
+#include "Core/StationActor.h"
+#include "Core/PotionPanicCharacter.h"
 
 TObjectPtr<AActor> UStationComponent::GetItemOnSocket()
 {
@@ -21,7 +23,18 @@ TObjectPtr<AActor> UStationComponent::GetItemOnSocket()
 
 void UStationComponent::Interact(APawn* Instigator)
 {
-	StartProcessItem(Instigator);
+	APotionPanicCharacter* CharacterInstigator = Cast<APotionPanicCharacter>(Instigator);
+	if (!IsValid(CharacterInstigator) || CharacterInstigator->IsHolding()) return;
+
+	AStationActor* Station = Cast<AStationActor>(GetOwner());
+	if (IsValid(Station))
+	{
+		Station->StartProcessing(Instigator, InternalStorage);
+	}
+	else
+	{
+		StartProcessItem(Instigator);
+	}
 }
 
 void UStationComponent::StartProcessItem(APawn* Instigator)

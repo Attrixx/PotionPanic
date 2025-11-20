@@ -137,7 +137,6 @@ void AFlyingSocket::Launch(USocketableComponent& Socketable, const FVector& Forc
 	Socket->Put(Socketable);
 	ProjectileMovement->Velocity = Force;
 	NiagaraTrail->Activate(true);
-	UGameplayStatics::PlaySoundAtLocation(this, LaunchSound, GetActorLocation());
 
 	SocketCollision->OnComponentBeginOverlap.AddDynamic(this, &AFlyingSocket::OnSocketBeginOverlap);
 	DropOrBreakCollision->OnComponentHit.AddDynamic(this, &AFlyingSocket::OnDropOrBreakHit);

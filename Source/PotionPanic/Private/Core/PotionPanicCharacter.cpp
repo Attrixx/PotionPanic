@@ -1,15 +1,19 @@
 #include "Core/PotionPanicCharacter.h"
 #include "Core/PotionPanicPlayerController.h"
+#include "Core/PotionPanicPlayerState.h"
 #include "Core/CamTargetComponent.h"
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
 #include "Core/FlyingSocket.h"
 #include "Core/InteractionInterface.h"
+#include "Core/GameplayAbilitySystem/PotionPanicTags.h"
+
 #include <Components/SphereComponent.h>
 #include <Components/CapsuleComponent.h>
 #include <Engine/OverlapResult.h>
 #include <Logging/StructuredLog.h>
 #include <limits>
+#include <AbilitySystemComponent.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_PotionPanicCharacter, Log, All);
 
@@ -31,6 +35,7 @@ void APotionPanicCharacter::BeginPlay()
 	PickupRange->OnComponentBeginOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentBeginOverlap);
 	PickupRange->OnComponentEndOverlap.AddDynamic(this, &APotionPanicCharacter::OnComponentEndOverlap);
 	GetCapsuleComponent()->OnComponentHit.AddDynamic(this, &APotionPanicCharacter::OnHit);
+	Socket->OnHeldChanged.AddUObject(this, &APotionPanicCharacter::OnHeldChanged);
 }
 
 void APotionPanicCharacter::Tick(float DeltaTime)
@@ -59,6 +64,80 @@ void APotionPanicCharacter::EndPlay(EEndPlayReason::Type EndPlayReason)
 	PickupRange->OnComponentEndOverlap.RemoveAll(this);
 
 	Super::EndPlay(EndPlayReason);
+}
+
+UAbilitySystemComponent* APotionPanicCharacter::GetAbilitySystemComponent() const
+{
+	APotionPanicPlayerState* CurrentPlayerState = GetPlayerState<APotionPanicPlayerState>();
+	if (!IsValid(CurrentPlayerState)) return nullptr;
+	
+	return CurrentPlayerState->GetAbilitySystemComponent();
+}
+
+void APotionPanicCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	// Initialize the Ability System Component when possessed by a controller
+	if (!IsValid(GetAbilitySystemComponent()) || !HasAuthority()) return;
+
+	GetAbilitySystemComponent()->InitAbilityActorInfo(GetPlayerState(), this);
+	GiveStartupAbilities();
+}
+
+void APotionPanicCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	// Initialize the Ability System Component when the PlayerState is valid
+	if (!IsValid(GetAbilitySystemComponent())) return;
+
+	GetAbilitySystemComponent()->InitAbilityActorInfo(GetPlayerState(), this);
+}
+
+void APotionPanicCharacter::GiveStartupAbilities()
+{
+	if (!IsValid(GetAbilitySystemComponent())) return;
+
+	for (const auto& Ability : StartupAbilities)
+	{
+		FGameplayAbilitySpec Spec = FGameplayAbilitySpec(Ability);
+		GetAbilitySystemComponent()->GiveAbility(Spec);
+	}
+}
+
+void APotionPanicCharacter::ApplyEffectToSelf(TSubclassOf<UGameplayEffect> EffectClass)
+{
+	if (!IsValid(GetAbilitySystemComponent())) return;
+
+	FGameplayEffectContextHandle EffectContext = GetAbilitySystemComponent()->MakeEffectContext();
+	FGameplayEffectSpecHandle SpecHandle = GetAbilitySystemComponent()->MakeOutgoingSpec(EffectClass, 1.f, EffectContext);
+
+	if (SpecHandle.IsValid())
+	{
+		GetAbilitySystemComponent()->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+	}
+	else
+	{
+		UE_LOG(MS_PotionPanicCharacter, Warning, TEXT("Failed to apply effect to self: SpecHandle is invalid"));
+	}
+}
+
+void APotionPanicCharacter::RemoveEffectByGrantedTag(const FGameplayTag& TagToRemove)
+{
+	if (!IsValid(GetAbilitySystemComponent())) return;
+
+	GetAbilitySystemComponent()->RemoveActiveEffectsWithGrantedTags(FGameplayTagContainer(TagToRemove));
+}
+
+void APotionPanicCharacter::OnHeldChanged(USocketableComponent* OldHeld, USocketableComponent* NewHeld)
+{
+	if (OldHeld == nullptr && NewHeld != nullptr)
+	{
+		// Picked up an item
+		ApplyEffectToSelf(PickUpEffect);
+		ApplyEffectToSelf(CarryingEffect);
+	}
 }
 
 void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -97,6 +176,7 @@ void APotionPanicCharacter::OnComponentBeginOverlap(UPrimitiveComponent* Overlap
 			{
 				BestInteractableComponent = Component;
 				//BestInteractableComponent->SetDistinguish(true);
+				ApplyEffectToSelf(CanInteractEffect);
 			}
 		}
 	}
@@ -149,6 +229,7 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 				//if (BestInteractableComponent)
 					//BestInteractableComponent->SetDistinguish(false);
 				BestInteractableComponent = nullptr;
+				RemoveEffectByGrantedTag(PotionPanicTags::Character::State::CanInteract);
 			}
 
 			if (SocketableComponentsInRange.Num() == 1)
@@ -162,28 +243,23 @@ void APotionPanicCharacter::OnComponentEndOverlap(UPrimitiveComponent* Overlappe
 
 void APotionPanicCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (!bCanHitDash)
-		return;
+	if (!GetAbilitySystemComponent()) return;
+	if (!GetAbilitySystemComponent()->HasMatchingGameplayTag(PotionPanicTags::Character::State::Dashing)) return;
+	if (IsHolding())
+	{
+		APotionPanicPlayerController* PlayerController = Cast<APotionPanicPlayerController>(GetController());
+		if (!PlayerController) return;
+
+		PlayerController->ForceDropOnHit();
+	}
 
 	if (APotionPanicCharacter* OtherCharacter = Cast<APotionPanicCharacter>(OtherActor))
 	{
-		if (APotionPanicPlayerController* PC = Cast<APotionPanicPlayerController>(GetController()))
-		{
-			if (PC->IsDashAvailable()) return;
-		}
+		if (!OtherCharacter->IsHolding()) return;
 
-		bCanHitDash = false;
-
-		bool bCurrentIsHolding = IsHolding();
-		bool bTargetIsHolding = OtherCharacter->IsHolding();
-		if (bCurrentIsHolding)
-		{
-			DropObject();
-		}
-		if (bTargetIsHolding)
-		{
-			OtherCharacter->DropObject();
-		}
+		APotionPanicPlayerController* OtherPlayerController = Cast<APotionPanicPlayerController>(OtherCharacter->GetController());
+		if (!OtherPlayerController) return;
+		OtherPlayerController->ForceDropOnHit();
 	}
 }
 
@@ -202,6 +278,7 @@ void APotionPanicCharacter::SortInteractablesInRange()
 			MaxScore = Score;
 			BestInteractableComponent = Component;
 			//BestInteractableComponent->SetDistinguish(true);
+			ApplyEffectToSelf(CanInteractEffect);
 		}
 	}
 }
@@ -249,39 +326,6 @@ float APotionPanicCharacter::ComputeLocationScore(FVector Location)
 	return Dot - ToActor.Length() / PickupRange->GetScaledSphereRadius();
 }
 
-void APotionPanicCharacter::OnInteract()
-{
-	if (IsHolding())
-	{
-		ThrowHeldObject();
-	}
-	else
-	{
-		Interact();
-	}
-}
-
-void APotionPanicCharacter::OnCarry()
-{
-	if (IsHolding())
-	{
-		DropObject();
-	}
-	else
-	{
-		PickupObject();
-	}
-}
-
-void APotionPanicCharacter::OnDashStart()
-{
-}
-
-void APotionPanicCharacter::OnDashEnd()
-{
-	bCanHitDash = true;
-}
-
 void APotionPanicCharacter::ThrowHeldObject()
 {
 	auto* Socketable = Socket->Take();
@@ -306,6 +350,7 @@ void APotionPanicCharacter::ThrowHeldObject()
 
 	FlyingSocket->IgnoreActor(this);
 	FlyingSocket->Launch(*Socketable, GetActorForwardVector() * ObjectThrowSpeed);
+	ApplyEffectToSelf(ThrowEffect);
 }
 
 void APotionPanicCharacter::Interact()
@@ -316,6 +361,12 @@ void APotionPanicCharacter::Interact()
 	{
 		Interaction->Interact(this);
 	}
+}
+
+void APotionPanicCharacter::OnDash()
+{
+	ApplyEffectToSelf(DashEffect);
+	ApplyEffectToSelf(DashingEffect);
 }
 
 void APotionPanicCharacter::DropObject()
@@ -335,13 +386,15 @@ void APotionPanicCharacter::DropObject()
 	}
 
 	SortSocketablesInRange();
+	ApplyEffectToSelf(DropEffect);
 }
 
-void APotionPanicCharacter::PickupObject()
+void APotionPanicCharacter::PickupObject(USocketableComponent* ForceSocketable)
 {
-	if (BestSocketable)
+	USocketableComponent* TargetSocketable = IsValid(ForceSocketable) ? ForceSocketable : BestSocketable;
+	if (TargetSocketable)
 	{
-		Socket->Put(*BestSocketable);
+		Socket->Put(*TargetSocketable);
 		SetBestSocketable(nullptr);
 	}
 
@@ -357,6 +410,15 @@ void APotionPanicCharacter::SetBestSocketable(USocketableComponent* NewBestSocke
 	BestSocketable = NewBestSocketable;
 	if (BestSocketable)
 		BestSocketable->SetDistinguish(true);
+
+	if (IsValid(BestSocketable))
+	{
+		ApplyEffectToSelf(CanPickUpItemEffect);
+	}
+	else
+	{
+		RemoveEffectByGrantedTag(PotionPanicTags::Character::State::CanPickUpItem);
+	}
 }
 
 bool APotionPanicCharacter::IsHolding() const

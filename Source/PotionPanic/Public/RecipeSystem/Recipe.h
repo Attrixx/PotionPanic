@@ -5,29 +5,31 @@
 #include "Recipe.generated.h"
 
 class UStationComponent;
-class UItemComponent;
 class URecipeStep;
+struct FStationStep;
+struct FGameplayTag;
 
-UCLASS()
-class URecipe : public UDataAsset
+USTRUCT(BlueprintType)
+struct FRecipe : public FTableRowBase
 {
 	GENERATED_BODY()
 
-public:
-
-	// The stations where this recipe can be performed
 	UPROPERTY(EditAnywhere)
-	TArray<TSubclassOf<UStationComponent>> Stations;
+	FText Name;
 
-	// Ingredients needed to perform the recipe
 	UPROPERTY(EditAnywhere)
-	TArray<TSubclassOf<UItemComponent>> Ingredients;
+	FText Description;
 
-	// Steps to be followed to perform the recipe
 	UPROPERTY(EditAnywhere)
-	TArray<TSubclassOf<URecipeStep>> Steps;
+	TArray<FGameplayTag> Stations;
 
-	// Products given out after performing the recipe
 	UPROPERTY(EditAnywhere)
-	TArray<TSubclassOf<UItemComponent>> Products;
+	TMap<TSubclassOf<AActor>, int32> Ingredients;
+
+	UPROPERTY(EditAnywhere)
+	TArray<FStationStep> Steps;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AActor> Product;
+
 };

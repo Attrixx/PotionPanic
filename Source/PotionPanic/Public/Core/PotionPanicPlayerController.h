@@ -10,6 +10,7 @@ class APotionPanicCharacter;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
+struct FGameplayTag;
 
 class UScoreHUDWidget;
 
@@ -29,7 +30,6 @@ protected:
 
 private:
 
-	bool bCanDash = true;
 	float DashZForce = 50.f;
 
 protected:
@@ -49,7 +49,7 @@ protected:
 	UInputAction* InteractAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
-	UInputAction* CarryAction;
+	UInputAction* PickUpAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	UInputAction* DashAction;
@@ -75,11 +75,13 @@ protected:
 	*/
 	void Move(const FInputActionValue& Value);
 	void Interact(const FInputActionValue& Value);
-	void Carry(const FInputActionValue& Value);
+	void PickUp(const FInputActionValue& Value);
 	void Dash(const FInputActionValue& Value);
+
+	bool ActivateAbility(const FGameplayTag& AbilityTag) const;
 
 public:
 
-	bool IsDashAvailable() const { return bCanDash; }
+	void ForceDropOnHit();
 	
 };

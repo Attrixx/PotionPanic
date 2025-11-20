@@ -9,11 +9,6 @@
 
 ADeliveryStation::ADeliveryStation()
 {
-	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
-	RootComponent = MeshComponent;
-
-	SocketComponent = CreateDefaultSubobject<USocketComponent>(TEXT("SocketComponent"));
-	SocketComponent->SetupAttachment(RootComponent);
 }
 
 void ADeliveryStation::BeginPlay()

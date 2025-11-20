@@ -2,6 +2,7 @@
 #include "Core/SpawnerComponent.h"
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
+#include "Core/PotionPanicCharacter.h"
 #include "GameFramework/Actor.h"
 
 USpawnerComponent::USpawnerComponent()
@@ -39,6 +40,17 @@ void USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
 
 	// Spawn Item
 	TObjectPtr<AActor> SpawnedItem = GetWorld()->SpawnActor<AActor>(Item, TargetSocket->GetComponentLocation(), TargetSocket->GetComponentRotation());
+
+	// Destroy previous item
+	if (!bSpawnOnInstigatorSocket)
+	{
+		USocketableComponent* ItemComponent = TargetSocket->Take();
+		if (ItemComponent)
+		{
+			AActor* ItemActor = ItemComponent->GetOwner();
+			ItemActor->Destroy();
+		}
+	}
 
 	// Put on socket
 	USocketableComponent* Socketable = SpawnedItem->GetComponentByClass<USocketableComponent>();

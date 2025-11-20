@@ -49,9 +49,6 @@ protected: // Components
 protected: // Properties
 
 	UPROPERTY(EditAnywhere, Category = "Flying Socket")
-	TObjectPtr<USoundBase> LaunchSound;
-
-	UPROPERTY(EditAnywhere, Category = "Flying Socket")
 	TObjectPtr<USoundBase> CatchSound;
 
 	UPROPERTY(EditAnywhere, Category = "Flying Socket")
