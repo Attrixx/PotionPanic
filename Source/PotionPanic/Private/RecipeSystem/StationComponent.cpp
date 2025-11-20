@@ -37,8 +37,15 @@ void UStationComponent::StartProcessItem(APawn* Instigator)
 	else // Default case
 	{
 		if (InputItem) // Not cauldron
-			InternalStorage.Add(InputItem.GetClass());
-		RecipeIndex = InputItems.Find(InternalStorage);
+		{
+			FInputItemGroup UniqueGroup{};
+			UniqueGroup.Add(InputItem->GetClass());
+			RecipeIndex = InputItems.Find(UniqueGroup);
+		}
+		else
+		{
+			RecipeIndex = InputItems.Find(InternalStorage);
+		}
 	}
 
 	if (RecipeIndex == -1)
