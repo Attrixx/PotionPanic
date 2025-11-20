@@ -2,24 +2,24 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "DeliveryStation.generated.h"
+#include "BinStation.generated.h"
 
 class UStaticMeshComponent;
 class USocketComponent;
 
 UCLASS()
-class ADeliveryStation : public AActor
+class ABinStation : public AActor
 {
 	GENERATED_BODY()
 
 public:
-	ADeliveryStation();
+	ABinStation();
 
 protected:
 	virtual void BeginPlay() override;
 
 private:
-	void Deliver(class USocketableComponent* OldHeld, class USocketableComponent* NewHeld);
+	void ThrowAway(class USocketableComponent* OldHeld, class USocketableComponent* NewHeld);
 
 protected:
 
