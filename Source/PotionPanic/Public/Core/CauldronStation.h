@@ -35,5 +35,5 @@ protected:
 	TObjectPtr<USpawnerComponent> SpawnerComponent;
 
 private:
-	void Store();
+	void Store(class USocketableComponent* OldHeld, class USocketableComponent* NewHeld);
 };

@@ -7,7 +7,6 @@
 class USocketableComponent;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHeldChangedCallback, USocketableComponent* OldHeld, USocketableComponent* NewHeld);
-DECLARE_MULTICAST_DELEGATE(FOnPutCallback);
 
 UCLASS(meta = (BlueprintSpawnableComponent))
 class USocketComponent : public USceneComponent
@@ -35,7 +34,6 @@ public:
 public:
 
 	FOnHeldChangedCallback OnHeldChanged;
-	FOnPutCallback OnPut;
 
 private:
 

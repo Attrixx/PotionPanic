@@ -6,7 +6,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "Core/SocketableComponent.h"
-#include "Core/SpawnerComponent.h"
 
 ACauldronStation::ACauldronStation()
 {
@@ -25,12 +24,15 @@ void ACauldronStation::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SocketComponent->OnPut.AddUObject(this, &ACauldronStation::Store);
+	SocketComponent->OnHeldChanged.AddUObject(this, &ACauldronStation::Store);
 	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::SpawnItem);
 }
 
-void ACauldronStation::Store()
+void ACauldronStation::Store(USocketableComponent* OldHeld, USocketableComponent* NewHeld)
 {
+	if (OldHeld || !NewHeld) // Only fire when placed on socket
+		return;
+
 	if (!SocketComponent->IsHolding())
 		return;
 

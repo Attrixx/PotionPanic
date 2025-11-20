@@ -64,8 +64,6 @@ void USocketComponent::Put(USocketableComponent& Socketable, bool bBroadcastCall
 		Socketable.OnHolderChanged.Broadcast(OldHolder, this);
 		OnHeldChanged.Broadcast(OldHeld, Held.Get());
 	}
-
-	OnPut.Broadcast();
 }
 
 USocketableComponent* USocketComponent::Take(bool bBroadcastCallback)
