@@ -17,6 +17,7 @@ public class PotionPanic : ModuleRules
 			"EnhancedInput",
 			"Niagara",
             "UMG",
+			"DeveloperSettings",
         });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

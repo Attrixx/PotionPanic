@@ -1,10 +1,10 @@
 #include "OrderSystem/OrderClient.h"
 #include "Components/TextRenderComponent.h"
-#include "Core/PotionPanicPlayerController.h"
-#include "Core/CoopCamera.h"
-#include "ScoreSystem/ScoreWorldSubsystem.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
+#include "ScoreSystem/ScoreWorldSubsystem.h"
+#include "OrderSystem/CommandeManagerWorldSubsystem.h"
+
 #if WITH_EDITOR
 #include "Engine/Blueprint.h"
 #endif
@@ -13,7 +13,7 @@ AOrderClient::AOrderClient()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    USceneComponent *Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+    USceneComponent* Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
     RootComponent = Root;
 
     OrderTextComp = CreateDefaultSubobject<UTextRenderComponent>(TEXT("OrderTextComp"));
@@ -24,39 +24,29 @@ AOrderClient::AOrderClient()
     OrderTextComp->SetWorldSize(50.f);
     OrderTextComp->SetTextRenderColor(FColor::White);
     OrderTextComp->SetText(FText::GetEmpty());
-
-    OrderDuration = 30.f;
-    RemainingTime = 0.f;
-    bHasActiveOrder = false;
 }
 
 void AOrderClient::BeginPlay()
 {
     Super::BeginPlay();
 
-    StartOrder();
+    if (UCommandeManagerWorldSubsystem* CmdSub = GetWorld()->GetSubsystem<UCommandeManagerWorldSubsystem>())
+    {
+        CmdSub->RegisterClient(this);
+    }
 }
 
 void AOrderClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (!OrderTextComp)
-    {
-        return;
-    }
+    if (!OrderTextComp) return;
 
-    UWorld *World = GetWorld();
-    if (!World)
-    {
-        return;
-    }
+    UWorld* World = GetWorld();
+    if (!World) return;
 
-    APlayerController *PC = World->GetFirstPlayerController();
-    if (!PC)
-    {
-        return;
-    }
+    APlayerController* PC = World->GetFirstPlayerController();
+    if (!PC) return;
 
     FVector CamLocation;
     FRotator CamRotation;
@@ -64,7 +54,6 @@ void AOrderClient::Tick(float DeltaTime)
 
     const FVector TextLocation = OrderTextComp->GetComponentLocation();
     FVector ToCam = CamLocation - TextLocation;
-
     ToCam.Z = 0.f;
 
     if (!ToCam.IsNearlyZero())
@@ -74,7 +63,7 @@ void AOrderClient::Tick(float DeltaTime)
     }
 }
 
-void AOrderClient::UpdateText3D(const FText &NewText)
+void AOrderClient::UpdateText3D(const FText& NewText)
 {
     if (OrderTextComp)
     {
@@ -82,45 +71,39 @@ void AOrderClient::UpdateText3D(const FText &NewText)
     }
 }
 
-void AOrderClient::StartOrder()
+void AOrderClient::BeginOrder(const FClientOrderEntry& NewOrder)
 {
-    if (PossibleOrders.Num() == 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AOrderClient::StartOrder - PossibleOrders is empty!"));
-        UpdateText3D(FText::FromString(TEXT("Aucune commande dispo")));
-        return;
-    }
+    GetWorldTimerManager().ClearTimer(OrderTimerHandle);
 
-    const int32 Index = FMath::RandRange(0, PossibleOrders.Num() - 1);
-    CurrentOrder = PossibleOrders[Index];
-
+    CurrentOrder = NewOrder;
     bHasActiveOrder = true;
-    RemainingTime = OrderDuration;
+    RemainingTime = CurrentOrder.Duration;
 
     const FText OrderName = CurrentOrder.DisplayText.IsEmpty()
-                                ? FText::FromName(CurrentOrder.OrderId)
-                                : CurrentOrder.DisplayText;
+        ? FText::FromName(CurrentOrder.OrderId)
+        : CurrentOrder.DisplayText;
 
     FText FormattedText = FText::Format(
         NSLOCTEXT("Order", "OrderInitialText", "Commande : {0}\nTemps : {1}s"),
         OrderName,
-        FText::AsNumber(FMath::CeilToInt(RemainingTime)));
+        FText::AsNumber(FMath::CeilToInt(RemainingTime))
+    );
     UpdateText3D(FormattedText);
+
+    OnOrderStarted.Broadcast(CurrentOrder);
 
     GetWorldTimerManager().SetTimer(
         OrderTimerHandle,
         this,
         &AOrderClient::OrderTimerTick,
         1.0f,
-        true);
+        true
+    );
 }
 
 void AOrderClient::OrderTimerTick()
 {
-    if (!bHasActiveOrder)
-    {
-        return;
-    }
+    if (!bHasActiveOrder) return;
 
     RemainingTime -= 1.f;
 
@@ -130,12 +113,15 @@ void AOrderClient::OrderTimerTick()
         return;
     }
 
-    const FText OrderName = CurrentOrder.DisplayText.IsEmpty() ? FText::FromName(CurrentOrder.OrderId) : CurrentOrder.DisplayText;
+    const FText OrderName = CurrentOrder.DisplayText.IsEmpty()
+        ? FText::FromName(CurrentOrder.OrderId)
+        : CurrentOrder.DisplayText;
 
     FText FormattedText = FText::Format(
         NSLOCTEXT("Order", "OrderTickText", "Commande : {0}\nTemps : {1}s"),
         OrderName,
-        FText::AsNumber(FMath::CeilToInt(RemainingTime)));
+        FText::AsNumber(FMath::CeilToInt(RemainingTime))
+    );
     UpdateText3D(FormattedText);
 }
 
@@ -146,21 +132,21 @@ void AOrderClient::CancelOrder()
 
     GetWorldTimerManager().ClearTimer(OrderTimerHandle);
 
-    UpdateText3D(
-        NSLOCTEXT("Order", "OrderFailed", "Commande ratée"));
+    UpdateText3D(NSLOCTEXT("Order", "OrderFailed", "Commande ratée"));
+
+    OnOrderFinished.Broadcast(this, CurrentOrder, false);
 }
 
-void AOrderClient::CompleteOrder(AActor *DishActor)
+void AOrderClient::CompleteOrder(AActor* DishActor)
 {
     bHasActiveOrder = false;
     GetWorldTimerManager().ClearTimer(OrderTimerHandle);
 
-    UpdateText3D(
-        NSLOCTEXT("Order", "OrderSuccess", "Commande validée !"));
+    UpdateText3D(NSLOCTEXT("Order", "OrderSuccess", "Commande validée !"));
 
-    if (UWorld *World = GetWorld())
+    if (UWorld* World = GetWorld())
     {
-        if (UScoreWorldSubsystem *ScoreSubsystem = World->GetSubsystem<UScoreWorldSubsystem>())
+        if (UScoreWorldSubsystem* ScoreSubsystem = World->GetSubsystem<UScoreWorldSubsystem>())
         {
             ScoreSubsystem->AddScore(1);
         }
@@ -170,43 +156,47 @@ void AOrderClient::CompleteOrder(AActor *DishActor)
     {
         DishActor->Destroy();
     }
+
+    OnOrderFinished.Broadcast(this, CurrentOrder, true);
 }
 
-void AOrderClient::TryServeDish(AActor *DishActor)
+void AOrderClient::TryServeDish(AActor* DishActor)
 {
     if (!bHasActiveOrder || !DishActor)
     {
         return;
     }
 
-    if (!DoesDishMatchCurrentOrder(DishActor))
+    bool bValid = false;
+
+    if (UCommandeManagerWorldSubsystem* CmdSub = GetWorld()->GetSubsystem<UCommandeManagerWorldSubsystem>())
     {
-        const FText OrderName = CurrentOrder.DisplayText.IsEmpty()
-                                    ? FText::FromName(CurrentOrder.OrderId)
-                                    : CurrentOrder.DisplayText;
+        bValid = CmdSub->ValidateDishForClient(this, DishActor);
+    }
+    else
+    {
+        bValid = CheckDishMatchesCurrentOrder(DishActor);
+    }
 
-        UE_LOG(LogTemp, Warning, TEXT("Commande refusée : %s n'est pas %s"),
-               *GetNameSafe(DishActor),
-               *OrderName.ToString());
-
-        UpdateText3D(
-            NSLOCTEXT("Order", "OrderWrongDish", "Ce n'est pas la bonne commande !"));
+    if (!bValid)
+    {
+        UpdateText3D(NSLOCTEXT("Order", "OrderWrongDish", "Ce n'est pas la bonne commande !"));
         return;
     }
 
     CompleteOrder(DishActor);
 }
 
-bool AOrderClient::DoesDishMatchCurrentOrder(AActor *DishActor) const
+bool AOrderClient::CheckDishMatchesCurrentOrder(AActor* DishActor) const
 {
     if (!DishActor || !bHasActiveOrder)
     {
         return false;
     }
 
-    if (UObject *PayloadObject = CurrentOrder.Payload.Get())
+    if (UObject* PayloadObject = CurrentOrder.Payload.Get())
     {
-        if (const UClass *ExpectedClass = Cast<UClass>(PayloadObject))
+        if (const UClass* ExpectedClass = Cast<UClass>(PayloadObject))
         {
             if (DishActor->IsA(ExpectedClass))
             {
@@ -215,7 +205,7 @@ bool AOrderClient::DoesDishMatchCurrentOrder(AActor *DishActor) const
         }
 
 #if WITH_EDITOR
-        if (const UBlueprint *BlueprintAsset = Cast<UBlueprint>(PayloadObject))
+        if (const UBlueprint* BlueprintAsset = Cast<UBlueprint>(PayloadObject))
         {
             if (BlueprintAsset->GeneratedClass && DishActor->IsA(BlueprintAsset->GeneratedClass))
             {
@@ -224,7 +214,7 @@ bool AOrderClient::DoesDishMatchCurrentOrder(AActor *DishActor) const
         }
 #endif
 
-        if (const AActor *ActorTemplate = Cast<AActor>(PayloadObject))
+        if (const AActor* ActorTemplate = Cast<AActor>(PayloadObject))
         {
             if (DishActor->IsA(ActorTemplate->GetClass()))
             {

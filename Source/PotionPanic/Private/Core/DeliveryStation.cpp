@@ -1,10 +1,11 @@
 #include "Core/DeliveryStation.h"
 #include "Core/SocketComponent.h"
 #include "Core/SocketableComponent.h"
-#include "ScoreSystem/ScoreWorldSubsystem.h"
-#include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "OrderSystem/OrderClient.h"
+#include "OrderSystem/CommandeManagerWorldSubsystem.h"
 
 ADeliveryStation::ADeliveryStation()
 {
@@ -19,20 +20,62 @@ void ADeliveryStation::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SocketComponent->OnHeldChanged.AddUObject(this, &ADeliveryStation::Deliver);
+	if (SocketComponent)
+	{
+		SocketComponent->OnHeldChanged.AddUObject(this, &ADeliveryStation::Deliver);
+	}
+}
+
+AOrderClient* ADeliveryStation::FindTargetClient() const
+{
+	UWorld* World = GetWorld();
+	if (!World) return nullptr;
+
+	AOrderClient* Fallback = nullptr;
+
+	for (TActorIterator<AOrderClient> It(World); It; ++It)
+	{
+		AOrderClient* Client = *It;
+		if (!Fallback)
+		{
+			Fallback = Client;
+		}
+		if (Client && Client->HasActiveOrder())
+		{
+			return Client;
+		}
+	}
+
+	return Fallback;
 }
 
 void ADeliveryStation::Deliver(USocketableComponent* OldHeld, USocketableComponent* NewHeld)
 {
-	if (OldHeld || !NewHeld) // Only fire on put
+	if (OldHeld || !NewHeld)
 		return;
 
-	// TODO FRANCOIS NATH // Vérifier si l'objet est aceptable pour ce niveau ici
-	if (false)
+	AActor* DishActor = NewHeld->GetOwner();
+	if (!DishActor)
 		return;
 
-	GetWorld()->GetSubsystem<UScoreWorldSubsystem>()->AddScore(1);
+	AOrderClient* Client = FindTargetClient();
+	if (!Client)
+		return;
+
+	bool bValid = false;
+
+	if (UCommandeManagerWorldSubsystem* Sub = GetWorld()->GetSubsystem<UCommandeManagerWorldSubsystem>())
+	{
+		bValid = Sub->ValidateDishForClient(Client, DishActor);
+	}
+	else
+	{
+		bValid = Client->CheckDishMatchesCurrentOrder(DishActor);
+	}
+
+	if (!bValid)
+		return;
 
 	SocketComponent->Take();
-	NewHeld->GetOwner()->Destroy();
+	Client->TryServeDish(DishActor);
 }

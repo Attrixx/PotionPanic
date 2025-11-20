@@ -6,26 +6,27 @@
 
 class UStaticMeshComponent;
 class USocketComponent;
+class USocketableComponent;
+class AOrderClient;
 
 UCLASS()
-class ADeliveryStation : public AActor
+class POTIONPANIC_API ADeliveryStation : public AActor
 {
 	GENERATED_BODY()
 
 public:
 	ADeliveryStation();
-
-protected:
 	virtual void BeginPlay() override;
 
-private:
-	void Deliver(class USocketableComponent* OldHeld, class USocketableComponent* NewHeld);
-
 protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	UStaticMeshComponent* MeshComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<UStaticMeshComponent> MeshComponent;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	USocketComponent* SocketComponent;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TObjectPtr<USocketComponent> SocketComponent;
+	UFUNCTION()
+	void Deliver(USocketableComponent* OldHeld, USocketableComponent* NewHeld);
+
+	AOrderClient* FindTargetClient() const;
 };
