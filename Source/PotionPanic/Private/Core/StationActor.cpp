@@ -8,6 +8,9 @@
 #include "Core/SocketableComponent.h"
 #include "Core/CamTargetComponent.h"
 #include "Core/GameplayAbilitySystem/Abilities/TransformProcessAbility.h"
+#include "UserInterface/StationWidget.h"
+
+#include "Components/WidgetComponent.h"
 
 AStationActor::AStationActor()
 {
@@ -26,6 +29,9 @@ AStationActor::AStationActor()
 	SpawnerComponent = CreateDefaultSubobject<USpawnerComponent>(TEXT("SpawnerComponent"));
 
 	CamTargetComponent = CreateDefaultSubobject<UCamTargetComponent>(TEXT("CamTargetComponent"));
+
+	WidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("WidgetComponent"));
+	WidgetComponent->SetupAttachment(RootComponent);
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
@@ -148,5 +154,42 @@ void AStationActor::StartProcessing(APawn* ProcessInstigator, FInputItemGroup& I
     if (AbilitySystemComponent->TryActivateAbilitiesByTag(FGameplayTagContainer(PotionPanicTags::Abilities::TransformItem)))
     {
         Items.Clear();
+    }
+}
+
+void AStationActor::ShowInteractionUI(bool bShow)
+{
+    if (!IsValid(WidgetComponent)) return;
+    if (UStationWidget* StationWidget = Cast<UStationWidget>(WidgetComponent->GetWidget()))
+    {
+        if (bShow) StationWidget->ShowInteractKey();
+		else StationWidget->HideInteractKey();
+    }
+}
+
+void AStationActor::ShowAnimatedProgress(float Duration, bool bAutoHide)
+{
+    if (!IsValid(WidgetComponent)) return;
+    if (UStationWidget* StationWidget = Cast<UStationWidget>(WidgetComponent->GetWidget()))
+    {
+        StationWidget->ShowAnimatedProgress(Duration, bAutoHide);
+    }
+}
+
+void AStationActor::UpdateProgressUI(float Progress)
+{
+    if (!IsValid(WidgetComponent)) return;
+    if (UStationWidget* StationWidget = Cast<UStationWidget>(WidgetComponent->GetWidget()))
+    {
+		StationWidget->ShowProgress(Progress);
+    }
+}
+
+void AStationActor::HideProgressUI()
+{
+    if (!IsValid(WidgetComponent)) return;
+    if (UStationWidget* StationWidget = Cast<UStationWidget>(WidgetComponent->GetWidget()))
+    {
+        StationWidget->HideProgress();
     }
 }

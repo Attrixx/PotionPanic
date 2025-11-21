@@ -25,6 +25,12 @@ void UTransformProcessAbility::ExecuteNextStep()
 {
 	if (CurrentStepIndex >= ProcessSteps.Num())
 	{
+		AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+		if (IsValid(Station))
+		{
+			Station->ShowInteractionUI(false);
+			Station->HideProgressUI();
+		}
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 		return;
 	}
@@ -49,6 +55,12 @@ void UTransformProcessAbility::ExecuteNextStep()
 
 void UTransformProcessAbility::ExecuteTimerStep(const FStationStep& Step)
 {
+	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+	if (IsValid(Station))
+	{
+		Station->ShowAnimatedProgress(Step.Duration, false);
+	}
+
 	auto* Task = UAbilityTask_WaitDelay::WaitDelay(this, Step.Duration);
 	if (Task)
 	{
@@ -61,7 +73,12 @@ void UTransformProcessAbility::ExecuteQuickTimeEvent(const FStationStep& Step)
 {
 	CurrentStep = Step;
 
-	GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Purple, TEXT("Waiting for interaction to start QTE!"));
+	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+	if (IsValid(Station))
+	{
+		Station->HideProgressUI();
+		Station->ShowInteractionUI(true);
+	}
 
 	// Wait for interaction
 	auto* Task = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, Step.EventTag);
@@ -72,8 +89,6 @@ void UTransformProcessAbility::ExecuteQuickTimeEvent(const FStationStep& Step)
 	}
 
 	QuickTimeEventTracker = FQuickTimeEventSequenceTracker();
-	QuickTimeEventTracker.CurrentInputIndex = 0;
-	QuickTimeEventTracker.SuccessfulInputs = 0;
 }
 
 void UTransformProcessAbility::ExecuteWaitForGameplayEventStep(const FStationStep& Step)
@@ -92,15 +107,18 @@ void UTransformProcessAbility::ExecuteWaitForPlayerInteractionStep(const FStatio
 
 void UTransformProcessAbility::NextQuickTimeEvent(FGameplayEventData Payload)
 {
+	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+	if (!IsValid(Station)) return;
+	APotionPanicCharacter* Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
+	if (!IsValid(Character)) return;
 	if (QuickTimeEventTracker.CurrentInputIndex == 0)
 	{
-		AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
-		if (IsValid(Station))
-		{
-			APotionPanicCharacter* Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
-			if (IsValid(Character)) Character->OnStartUsingStation();
-		}
+		Station->ShowInteractionUI(false);
+		Character->OnStartUsingStation();
 	}
+
+	Character->ShowQuickTimeEventInputKey(CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex].KeyTag);
+
 	auto* Task = UQuickTimeEventTask::QuickTimeEvent(this, CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex]);
 	if (Task)
 	{
@@ -126,6 +144,17 @@ void UTransformProcessAbility::OnQuickTimeEventEnded(bool bIsSuccess)
 		{
 			CurrentStepIndex--;
 		}
+
+		AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+		if (IsValid(Station))
+		{
+			APotionPanicCharacter* Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
+			if (IsValid(Character))
+			{
+				Character->HideQuickTimeEventWidget();
+			}
+		}
+
 		OnStepCompleted();
 	}
 }

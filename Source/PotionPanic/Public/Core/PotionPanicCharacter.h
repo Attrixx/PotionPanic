@@ -13,6 +13,7 @@ class USocketableComponent;
 class UGameplayAbility;
 class UGameplayEffect;
 struct FGameplayTag;
+class UQuickTimeEventWidget;
 
 UCLASS(Abstract)
 class POTIONPANIC_API APotionPanicCharacter : public ACharacter, public IAbilitySystemInterface
@@ -65,6 +66,8 @@ public:
 
 	void OnDash();
 	void OnStartUsingStation();
+	void ShowQuickTimeEventInputKey(const FGameplayTag& InputKeyTag);
+	void HideQuickTimeEventWidget();
 
 	AActor* GetBestInteractableActor() const;
 
@@ -112,6 +115,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|Effects")
 	TSubclassOf<UGameplayEffect> UsingStationEffect;
 
+
+	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|UI")
+	TSubclassOf<UQuickTimeEventWidget> QuickTimeEventWidgetClass;
+
 private:
 
 	TObjectPtr<UCamTargetComponent> CamTargetComponent;
@@ -125,5 +132,7 @@ private:
 	UActorComponent* BestInteractableComponent;
 
 	bool bCanHitDash = true;
+
+	TObjectPtr<UQuickTimeEventWidget> QuickTimeEventWidget;
 
 };

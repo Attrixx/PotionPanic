@@ -7,6 +7,7 @@
 #include "Core/FlyingSocket.h"
 #include "Core/InteractionInterface.h"
 #include "Core/GameplayAbilitySystem/PotionPanicTags.h"
+#include "UserInterface/QuickTimeEventWidget.h"
 
 #include <Components/SphereComponent.h>
 #include <Components/CapsuleComponent.h>
@@ -372,6 +373,29 @@ void APotionPanicCharacter::OnDash()
 void APotionPanicCharacter::OnStartUsingStation()
 {
 	ApplyEffectToSelf(UsingStationEffect);
+	if (!QuickTimeEventWidgetClass) return;
+	if (APotionPanicPlayerController* PC = Cast<APotionPanicPlayerController>(GetController()))
+	{
+		QuickTimeEventWidget = CreateWidget<UQuickTimeEventWidget>(PC, QuickTimeEventWidgetClass);
+		QuickTimeEventWidget->AddToViewport();
+	}
+}
+
+void APotionPanicCharacter::ShowQuickTimeEventInputKey(const FGameplayTag& InputKeyTag)
+{
+	if (IsValid(QuickTimeEventWidget))
+	{
+		QuickTimeEventWidget->ShowInputKey(InputKeyTag);
+	}
+}
+
+void APotionPanicCharacter::HideQuickTimeEventWidget()
+{
+	if (IsValid(QuickTimeEventWidget))
+	{
+		QuickTimeEventWidget->RemoveFromParent();
+		QuickTimeEventWidget = nullptr;
+	}
 }
 
 AActor* APotionPanicCharacter::GetBestInteractableActor() const

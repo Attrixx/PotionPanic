@@ -13,6 +13,7 @@ class USocketComponent;
 class UStationComponent;
 class USpawnerComponent;
 class UCamTargetComponent;
+class UWidgetComponent;
 struct FInputItemGroup;
 struct FAbilityEndedData;
 struct FGameplayTag;
@@ -47,6 +48,11 @@ public:
 	FRecipe* GetCurrentRecipe() const { return CurrentRecipe; }
 	APawn* GetCurrentProcessInstigator() const { return CurrentProcessInstigator; }
 
+	void ShowInteractionUI(bool bShow);
+	void ShowAnimatedProgress(float Duration, bool bAutoHide);
+	void UpdateProgressUI(float Progress);
+	void HideProgressUI();
+
 protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -63,6 +69,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UCamTargetComponent> CamTargetComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UWidgetComponent> WidgetComponent;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;

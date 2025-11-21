@@ -11,7 +11,8 @@
 			"AdditionalDependencies": [
 				"Engine",
 				"GameplayAbilities",
-				"GameplayTasks"
+				"GameplayTasks",
+				"UMG"
 			]
 		}
 	],
