@@ -32,6 +32,7 @@ namespace PotionPanicTags
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(Stunned);
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(CanPickUpItem);
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(CanInteract);
+			UE_DECLARE_GAMEPLAY_TAG_EXTERN(UsingStation);
 		}
 	}
 
@@ -55,5 +56,13 @@ namespace PotionPanicTags
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(FairyDust);
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(Flask);
 		}
+	}
+
+	namespace Keys
+	{
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Square);
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Triangle);
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cross);
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Circle);
 	}
 }

@@ -64,6 +64,9 @@ public:
 	void Interact();
 
 	void OnDash();
+	void OnStartUsingStation();
+
+	AActor* GetBestInteractableActor() const;
 
 protected:
 
@@ -105,6 +108,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|Effects")
 	TSubclassOf<UGameplayEffect> DashingEffect;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|Effects")
+	TSubclassOf<UGameplayEffect> UsingStationEffect;
 
 private:
 

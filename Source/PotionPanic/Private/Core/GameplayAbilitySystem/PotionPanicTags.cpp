@@ -30,6 +30,7 @@ namespace PotionPanicTags
 			UE_DEFINE_GAMEPLAY_TAG(Stunned, "Character.State.Stunned");
 			UE_DEFINE_GAMEPLAY_TAG(CanPickUpItem, "Character.State.CanPickUpItem");
 			UE_DEFINE_GAMEPLAY_TAG(CanInteract, "Character.State.CanInteract");
+			UE_DEFINE_GAMEPLAY_TAG(UsingStation, "Character.State.UsingStation");
 		}
 	}
 
@@ -53,5 +54,13 @@ namespace PotionPanicTags
 			UE_DEFINE_GAMEPLAY_TAG(FairyDust, "Stations.Spawner.FairyDust");
 			UE_DEFINE_GAMEPLAY_TAG(Flask, "Stations.Spawner.Flask");
 		}
+	}
+
+	namespace Keys
+	{
+		UE_DEFINE_GAMEPLAY_TAG(Interact, "Keys.Square");
+		UE_DEFINE_GAMEPLAY_TAG(Dash, "Keys.Triangle");
+		UE_DEFINE_GAMEPLAY_TAG(PickUp, "Keys.Cross");
+		UE_DEFINE_GAMEPLAY_TAG(Drop, "Keys.Circle");
 	}
 }

@@ -4,12 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "Abilities/GameplayAbility.h"
+#include "Core/GameplayAbilitySystem/Abilities/Tasks/QuickTimeEventTask.h"
 #include "TransformProcessAbility.generated.h"
+
+class APotionPanicCharacter;
 
 UENUM(BlueprintType)
 enum class EStationStepType : uint8
 {
 	Timer,
+	QuickTimeEvent,
 	WaitForGameplayEvent,
 	WaitForPlayerInteraction
 };
@@ -27,20 +31,18 @@ struct FStationStep
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag EventTag;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<FQuickTimeEventInput> QuickTimeEventInputs;
 };
 
-//USTRUCT()
-//struct FTransformProcessAbilitySpec : public FGameplayAbilitySpec
-//{
-//	GENERATED_BODY()
-//
-//	FRecipe Recipe;
-//
-//	FTransformProcessAbilitySpec() {};
-//	FTransformProcessAbilitySpec(TSubclassOf<UGameplayAbility> InAbility, int32 Level)
-//		: FGameplayAbilitySpec(InAbility, Level)
-//	{};
-//};
+USTRUCT()
+struct FQuickTimeEventSequenceTracker
+{
+	GENERATED_BODY()
+	int32 CurrentInputIndex = 0;
+	int32 SuccessfulInputs = 0;
+};
 
 UCLASS()
 class POTIONPANIC_API UTransformProcessAbility : public UGameplayAbility
@@ -60,8 +62,13 @@ private:
 	void ExecuteNextStep();
 
 	void ExecuteTimerStep(const FStationStep& Step);
+	void ExecuteQuickTimeEvent(const FStationStep& Step);
 	void ExecuteWaitForGameplayEventStep(const FStationStep& Step);
 	void ExecuteWaitForPlayerInteractionStep(const FStationStep& Step);
+
+	UFUNCTION()
+	void NextQuickTimeEvent(FGameplayEventData Payload);
+	void OnQuickTimeEventEnded(bool bIsSuccess);
 
 	UFUNCTION()
 	void OnEventReceived(FGameplayEventData Payload);
@@ -74,5 +81,7 @@ private:
 
 	TArray<FStationStep> ProcessSteps;
 	int32 CurrentStepIndex = 0;
+	FStationStep CurrentStep;
+	FQuickTimeEventSequenceTracker QuickTimeEventTracker;
 	
 };

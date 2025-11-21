@@ -52,6 +52,8 @@ void USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
 		}
 	}
 
+	if (!SpawnedItem) return;
+
 	// Put on socket
 	USocketableComponent* Socketable = SpawnedItem->GetComponentByClass<USocketableComponent>();
 	if (Socketable)

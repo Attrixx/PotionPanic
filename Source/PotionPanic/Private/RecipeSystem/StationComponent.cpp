@@ -5,6 +5,8 @@
 #include "Core/StationActor.h"
 #include "Core/PotionPanicCharacter.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
+
 TObjectPtr<AActor> UStationComponent::GetItemOnSocket()
 {
 	TSet<UActorComponent*> ActorComponents = GetOwner()->GetComponents();
@@ -23,6 +25,11 @@ TObjectPtr<AActor> UStationComponent::GetItemOnSocket()
 
 void UStationComponent::Interact(APawn* Instigator)
 {
+	FGameplayEventData EventData;
+	EventData.EventTag = FGameplayTag::RequestGameplayTag(FName("Abilities.Interact"));
+	EventData.Instigator = Instigator;
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(GetOwner(), EventData.EventTag, EventData);
+
 	APotionPanicCharacter* CharacterInstigator = Cast<APotionPanicCharacter>(Instigator);
 	if (!IsValid(CharacterInstigator) || CharacterInstigator->IsHolding()) return;
 

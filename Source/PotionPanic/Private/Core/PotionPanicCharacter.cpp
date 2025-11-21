@@ -369,6 +369,17 @@ void APotionPanicCharacter::OnDash()
 	ApplyEffectToSelf(DashingEffect);
 }
 
+void APotionPanicCharacter::OnStartUsingStation()
+{
+	ApplyEffectToSelf(UsingStationEffect);
+}
+
+AActor* APotionPanicCharacter::GetBestInteractableActor() const
+{
+	if (BestInteractableComponent == nullptr) return nullptr;
+	return BestInteractableComponent->GetOwner();
+}
+
 void APotionPanicCharacter::DropObject()
 {
 	// TODO FRANCOIS

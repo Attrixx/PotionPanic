@@ -12,6 +12,7 @@
 class USocketComponent;
 class UStationComponent;
 class USpawnerComponent;
+class UCamTargetComponent;
 struct FInputItemGroup;
 struct FAbilityEndedData;
 struct FGameplayTag;
@@ -44,6 +45,7 @@ public:
 
 	void StartProcessing(APawn* ProcessInstigator, FInputItemGroup& Items);
 	FRecipe* GetCurrentRecipe() const { return CurrentRecipe; }
+	APawn* GetCurrentProcessInstigator() const { return CurrentProcessInstigator; }
 
 protected:
 
@@ -58,6 +60,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USpawnerComponent> SpawnerComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UCamTargetComponent> CamTargetComponent;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;

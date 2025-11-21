@@ -77,6 +77,25 @@ void APotionPanicPlayerController::Move(const FInputActionValue& Value)
 	const float DeltaYaw = UKismetMathLibrary::NormalizeAxis(TargetYaw - CurrentYaw);
 	float NormalizedYawInput = FMath::Clamp(DeltaYaw, -1.f * RotationSpeedScale, 1.f * RotationSpeedScale);
 	CurrentCharacter->AddControllerYawInput(NormalizedYawInput);
+
+	if (!IsValid(PotionPanicCharacter)) return;
+
+	UAbilitySystemComponent* AbilitySystemComponent = PotionPanicCharacter->GetAbilitySystemComponent();
+	if (!IsValid(AbilitySystemComponent)) return;
+
+	if (!AbilitySystemComponent->HasMatchingGameplayTag(PotionPanicTags::Character::State::UsingStation)) return;
+
+	FGameplayTag KeyTag;
+	if (MovementVector.Y > 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Triangle"));
+	else if (MovementVector.Y < 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Cross"));
+	else if (MovementVector.X > 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Circle"));
+	else if (MovementVector.X < 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Square"));
+	else return;
+
+	FGameplayEventData EventData;
+	EventData.EventTag = KeyTag;
+	EventData.Instigator = PotionPanicCharacter;
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(PotionPanicCharacter->GetBestInteractableActor(), EventData.EventTag, EventData);
 }
 
 void APotionPanicPlayerController::Interact(const FInputActionValue& Value)

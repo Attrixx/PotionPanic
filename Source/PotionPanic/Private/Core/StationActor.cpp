@@ -6,6 +6,7 @@
 #include "Core/SocketComponent.h"
 #include "Core/SpawnerComponent.h"
 #include "Core/SocketableComponent.h"
+#include "Core/CamTargetComponent.h"
 #include "Core/GameplayAbilitySystem/Abilities/TransformProcessAbility.h"
 
 AStationActor::AStationActor()
@@ -23,6 +24,8 @@ AStationActor::AStationActor()
 	StationComponent = CreateDefaultSubobject<UStationComponent>(TEXT("StationComponent"));
 
 	SpawnerComponent = CreateDefaultSubobject<USpawnerComponent>(TEXT("SpawnerComponent"));
+
+	CamTargetComponent = CreateDefaultSubobject<UCamTargetComponent>(TEXT("CamTargetComponent"));
 
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	AbilitySystemComponent->SetIsReplicated(true);
