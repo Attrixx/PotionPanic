@@ -11,8 +11,15 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 struct FGameplayTag;
+enum class EOrderRoundResult : uint8;
+class AOrderClient;
 
 class UScoreHUDWidget;
+class UMainMenuWidget;
+class UEndMenuWidget;
+class UUserWidget;
+class UScoreWorldSubsystem;
+class UCommandeManagerWorldSubsystem;
 
 UCLASS()
 class POTIONPANIC_API APotionPanicPlayerController : public APlayerController
@@ -26,6 +33,7 @@ public:
 protected:
 
 	void BeginPlay() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	void SetupInputComponent() override;
 
 private:
@@ -65,9 +73,29 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UScoreHUDWidget> ScoreWidgetClass;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UMainMenuWidget> MainMenuWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UEndMenuWidget> EndMenuWidgetClass;
 
 	UPROPERTY()
 	UScoreHUDWidget* ScoreWidgetInstance = nullptr;
+
+	UPROPERTY()
+	UMainMenuWidget* MainMenuWidgetInstance = nullptr;
+
+	UPROPERTY()
+	UEndMenuWidget* EndMenuWidgetInstance = nullptr;
+
+	UPROPERTY()
+	UScoreWorldSubsystem* ScoreSubsystem = nullptr;
+
+	UPROPERTY()
+	UCommandeManagerWorldSubsystem* CommandeManagerSubsystem = nullptr;
+
+	bool bGameStarted = false;
 protected:
 
 	/*
@@ -83,5 +111,30 @@ protected:
 public:
 
 	void ForceDropOnHit();
+
+private:
+	void ShowMainMenu();
+	void HideMainMenu();
+	void ShowEndMenu(bool bIsVictory, int32 Score);
+	void HideEndMenu();
+
+	UFUNCTION()
+	void HandlePlayRequested();
+
+	UFUNCTION()
+	void HandleReplayRequested();
+
+	UFUNCTION()
+	void HandleReturnToMenuRequested();
+
+	UFUNCTION()
+	void HandleRoundEnded(AOrderClient* Client, EOrderRoundResult Result, int32 SuccessCount);
+
+	void StartAllRounds();
+	void ResetScore();
+	int32 GetCurrentScore() const;
+
+	void ApplyInputModeUI(UUserWidget* FocusWidget);
+	void ApplyInputModeGame();
 	
 };

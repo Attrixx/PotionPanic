@@ -10,8 +10,15 @@
 #include "UserSettings/EnhancedInputUserSettings.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "ScoreSystem/ScoreHUDWidget.h"
+#include "ScoreSystem/ScoreWorldSubsystem.h"
+#include "OrderSystem/CommandeManagerWorldSubsystem.h"
+#include "OrderSystem/OrderClient.h"
+#include "UserInterface/MainMenuWidget.h"
+#include "UserInterface/EndMenuWidget.h"
+#include "Blueprint/UserWidget.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
@@ -44,9 +51,23 @@ void APotionPanicPlayerController::BeginPlay()
 			if (ScoreWidgetInstance)
 			{
 				ScoreWidgetInstance->AddToViewport();
+				ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 			}
 		}
 	}
+
+	if (UWorld* World = GetWorld())
+	{
+		ScoreSubsystem = World->GetSubsystem<UScoreWorldSubsystem>();
+		CommandeManagerSubsystem = World->GetSubsystem<UCommandeManagerWorldSubsystem>();
+	}
+
+	if (CommandeManagerSubsystem)
+	{
+		CommandeManagerSubsystem->OnRoundEnded.AddDynamic(this, &ThisClass::HandleRoundEnded);
+	}
+
+	ShowMainMenu();
 }
 
 void APotionPanicPlayerController::SetupInputComponent()
@@ -60,6 +81,27 @@ void APotionPanicPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(PickUpAction,	ETriggerEvent::Triggered, this, &ThisClass::PickUp);
 		EnhancedInputComponent->BindAction(DashAction,		ETriggerEvent::Triggered, this, &ThisClass::Dash);
 	}
+}
+
+void APotionPanicPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (CommandeManagerSubsystem)
+	{
+		CommandeManagerSubsystem->OnRoundEnded.RemoveDynamic(this, &ThisClass::HandleRoundEnded);
+	}
+
+	if (MainMenuWidgetInstance)
+	{
+		MainMenuWidgetInstance->OnPlayRequested.RemoveAll(this);
+	}
+
+	if (EndMenuWidgetInstance)
+	{
+		EndMenuWidgetInstance->OnReplayRequested.RemoveAll(this);
+		EndMenuWidgetInstance->OnReturnToMenuRequested.RemoveAll(this);
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void APotionPanicPlayerController::Move(const FInputActionValue& Value)
@@ -141,4 +183,187 @@ bool APotionPanicPlayerController::ActivateAbility(const FGameplayTag& AbilityTa
 void APotionPanicPlayerController::ForceDropOnHit()
 {
 	ActivateAbility(PotionPanicTags::Abilities::Drop);
+}
+
+void APotionPanicPlayerController::ShowMainMenu()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (!MainMenuWidgetInstance && MainMenuWidgetClass)
+	{
+		MainMenuWidgetInstance = CreateWidget<UMainMenuWidget>(this, MainMenuWidgetClass);
+		if (MainMenuWidgetInstance)
+		{
+			MainMenuWidgetInstance->OnPlayRequested.AddDynamic(this, &ThisClass::HandlePlayRequested);
+		}
+	}
+
+	if (MainMenuWidgetInstance && !MainMenuWidgetInstance->IsInViewport())
+	{
+		MainMenuWidgetInstance->AddToViewport();
+	}
+
+	if (ScoreWidgetInstance)
+	{
+		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	ApplyInputModeUI(MainMenuWidgetInstance);
+}
+
+void APotionPanicPlayerController::HideMainMenu()
+{
+	if (MainMenuWidgetInstance)
+	{
+		MainMenuWidgetInstance->RemoveFromParent();
+	}
+}
+
+void APotionPanicPlayerController::ShowEndMenu(bool bIsVictory, int32 Score)
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+
+	if (!EndMenuWidgetInstance && EndMenuWidgetClass)
+	{
+		EndMenuWidgetInstance = CreateWidget<UEndMenuWidget>(this, EndMenuWidgetClass);
+		if (EndMenuWidgetInstance)
+		{
+			EndMenuWidgetInstance->OnReplayRequested.AddDynamic(this, &ThisClass::HandleReplayRequested);
+			EndMenuWidgetInstance->OnReturnToMenuRequested.AddDynamic(this, &ThisClass::HandleReturnToMenuRequested);
+		}
+	}
+
+	if (EndMenuWidgetInstance)
+	{
+		EndMenuWidgetInstance->SetEndState(bIsVictory, Score);
+
+		if (!EndMenuWidgetInstance->IsInViewport())
+		{
+			EndMenuWidgetInstance->AddToViewport();
+		}
+	}
+
+	if (ScoreWidgetInstance)
+	{
+		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	ApplyInputModeUI(EndMenuWidgetInstance);
+}
+
+void APotionPanicPlayerController::HideEndMenu()
+{
+	if (EndMenuWidgetInstance)
+	{
+		EndMenuWidgetInstance->RemoveFromParent();
+	}
+}
+
+void APotionPanicPlayerController::HandlePlayRequested()
+{
+	HideMainMenu();
+	HideEndMenu();
+
+	ResetScore();
+	StartAllRounds();
+	ApplyInputModeGame();
+	bGameStarted = true;
+}
+
+void APotionPanicPlayerController::HandleReplayRequested()
+{
+	HideEndMenu();
+
+	ResetScore();
+	StartAllRounds();
+	ApplyInputModeGame();
+	bGameStarted = true;
+}
+
+void APotionPanicPlayerController::HandleReturnToMenuRequested()
+{
+	HideEndMenu();
+
+	ResetScore();
+	bGameStarted = false;
+	ShowMainMenu();
+}
+
+void APotionPanicPlayerController::HandleRoundEnded(AOrderClient* Client, EOrderRoundResult Result, int32 SuccessCount)
+{
+	if (!bGameStarted)
+	{
+		return;
+	}
+
+	const bool bIsVictory = (Result != EOrderRoundResult::Lose);
+	const int32 CurrentScore = GetCurrentScore();
+	ShowEndMenu(bIsVictory, CurrentScore);
+	bGameStarted = false;
+}
+
+void APotionPanicPlayerController::StartAllRounds()
+{
+	if (!CommandeManagerSubsystem || !GetWorld())
+	{
+		return;
+	}
+
+	TArray<AActor*> Clients;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AOrderClient::StaticClass(), Clients);
+	for (AActor* Actor : Clients)
+	{
+		if (AOrderClient* Client = Cast<AOrderClient>(Actor))
+		{
+			CommandeManagerSubsystem->StartRound(Client);
+		}
+	}
+}
+
+void APotionPanicPlayerController::ResetScore()
+{
+	if (ScoreSubsystem)
+	{
+		ScoreSubsystem->ResetScore();
+	}
+}
+
+int32 APotionPanicPlayerController::GetCurrentScore() const
+{
+	return ScoreSubsystem ? ScoreSubsystem->GetScore() : 0;
+}
+
+void APotionPanicPlayerController::ApplyInputModeUI(UUserWidget* FocusWidget)
+{
+	UGameplayStatics::SetGamePaused(this, true);
+
+	FInputModeUIOnly InputMode;
+	InputMode.SetWidgetToFocus(FocusWidget ? FocusWidget->TakeWidget() : TSharedPtr<SWidget>());
+	SetInputMode(InputMode);
+
+	bShowMouseCursor = true;
+}
+
+void APotionPanicPlayerController::ApplyInputModeGame()
+{
+	HideMainMenu();
+	HideEndMenu();
+
+	UGameplayStatics::SetGamePaused(this, false);
+
+	if (ScoreWidgetInstance)
+	{
+		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+
+	bShowMouseCursor = false;
 }
