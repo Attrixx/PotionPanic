@@ -12,9 +12,11 @@ class UInputAction;
 struct FInputActionValue;
 struct FGameplayTag;
 enum class EOrderRoundResult : uint8;
+struct FClientOrderEntry;
 class AOrderClient;
 
 class UScoreHUDWidget;
+class UOrderHUDWidget;
 class UMainMenuWidget;
 class UEndMenuWidget;
 class UUserWidget;
@@ -73,6 +75,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UScoreHUDWidget> ScoreWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TSubclassOf<UOrderHUDWidget> OrderWidgetClass;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
 	TSubclassOf<UMainMenuWidget> MainMenuWidgetClass;
@@ -82,6 +87,9 @@ protected:
 
 	UPROPERTY()
 	UScoreHUDWidget* ScoreWidgetInstance = nullptr;
+
+	UPROPERTY()
+	UOrderHUDWidget* OrderWidgetInstance = nullptr;
 
 	UPROPERTY()
 	UMainMenuWidget* MainMenuWidgetInstance = nullptr;
@@ -94,6 +102,9 @@ protected:
 
 	UPROPERTY()
 	UCommandeManagerWorldSubsystem* CommandeManagerSubsystem = nullptr;
+
+	UPROPERTY()
+	TWeakObjectPtr<AOrderClient> BoundOrderClient;
 
 	bool bGameStarted = false;
 protected:
@@ -131,10 +142,23 @@ private:
 	void HandleRoundEnded(AOrderClient* Client, EOrderRoundResult Result, int32 SuccessCount);
 
 	void StartAllRounds();
+	AOrderClient* FindOrCreateOrderClient() const;
 	void ResetScore();
 	int32 GetCurrentScore() const;
 
 	void ApplyInputModeUI(UUserWidget* FocusWidget);
 	void ApplyInputModeGame();
+
+	void BindToOrderClient(AOrderClient* Client);
+	void UnbindFromOrderClient();
+
+	UFUNCTION()
+	void HandleOrderStarted(const FClientOrderEntry& Order);
+
+	UFUNCTION()
+	void HandleOrderUpdated(const FClientOrderEntry& Order, float RemainingTime, bool bIsActive);
+
+	UFUNCTION()
+	void HandleOrderFinished(AOrderClient* Client, const FClientOrderEntry& Order, bool bSuccess);
 	
 };

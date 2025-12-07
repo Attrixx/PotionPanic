@@ -39,6 +39,15 @@ void AOrderClient::BeginPlay()
 {
     Super::BeginPlay();
 
+    if (OrderTextComp)
+    {
+        OrderTextComp->SetHiddenInGame(!bUseWorldText);
+        OrderTextComp->SetVisibility(bUseWorldText);
+        OrderTextComp->SetComponentTickEnabled(bUseWorldText);
+    }
+
+    SetActorTickEnabled(bUseWorldText);
+
     if (UCommandeManagerWorldSubsystem* CmdSub = GetWorld()->GetSubsystem<UCommandeManagerWorldSubsystem>())
     {
         CmdSub->RegisterClient(this);
@@ -49,7 +58,7 @@ void AOrderClient::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (!OrderTextComp) return;
+    if (!bUseWorldText || !OrderTextComp) return;
 
     APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
     if (!PC || !PC->PlayerCameraManager) return;
@@ -101,6 +110,7 @@ void AOrderClient::BeginOrder(const FClientOrderEntry& NewOrder)
     UpdateText3D(FormattedText);
 
     OnOrderStarted.Broadcast(CurrentOrder);
+    BroadcastOrderUpdated();
 
     GetWorldTimerManager().SetTimer(
         OrderTimerHandle,
@@ -133,6 +143,7 @@ void AOrderClient::OrderTimerTick()
         FText::AsNumber(FMath::CeilToInt(RemainingTime))
     );
     UpdateText3D(FormattedText);
+    BroadcastOrderUpdated();
 }
 
 void AOrderClient::CancelOrder()
@@ -143,6 +154,7 @@ void AOrderClient::CancelOrder()
     GetWorldTimerManager().ClearTimer(OrderTimerHandle);
 
     UpdateText3D(NSLOCTEXT("Order", "OrderFailed", "Commande ratée"));
+    BroadcastOrderUpdated();
 
     OnOrderFinished.Broadcast(this, CurrentOrder, false);
 }
@@ -153,6 +165,7 @@ void AOrderClient::CompleteOrder(AActor* DishActor)
     GetWorldTimerManager().ClearTimer(OrderTimerHandle);
 
     UpdateText3D(NSLOCTEXT("Order", "OrderSuccess", "Commande validée !"));
+    BroadcastOrderUpdated();
 
     if (UWorld* World = GetWorld())
     {
@@ -247,4 +260,9 @@ bool AOrderClient::CheckDishMatchesCurrentOrder(AActor* DishActor) const
     }
 
     return CurrentOrder.Payload == nullptr && CurrentOrder.OrderId == NAME_None;
+}
+
+void AOrderClient::BroadcastOrderUpdated()
+{
+    OnOrderUpdated.Broadcast(CurrentOrder, RemainingTime, bHasActiveOrder);
 }

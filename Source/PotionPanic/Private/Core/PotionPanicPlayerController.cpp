@@ -13,15 +13,18 @@
 #include "ScoreSystem/ScoreWorldSubsystem.h"
 #include "OrderSystem/CommandeManagerWorldSubsystem.h"
 #include "OrderSystem/OrderClient.h"
+#include "UserInterface/OrderHUDWidget.h"
 #include "UserInterface/MainMenuWidget.h"
 #include "UserInterface/EndMenuWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
+	OrderWidgetClass = UOrderHUDWidget::StaticClass();
 }
 
 void APotionPanicPlayerController::BeginPlay()
@@ -52,6 +55,16 @@ void APotionPanicPlayerController::BeginPlay()
 			{
 				ScoreWidgetInstance->AddToViewport();
 				ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+			}
+		}
+
+		if (OrderWidgetClass)
+		{
+			OrderWidgetInstance = CreateWidget<UOrderHUDWidget>(this, OrderWidgetClass);
+			if (OrderWidgetInstance)
+			{
+				OrderWidgetInstance->AddToViewport();
+				OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 			}
 		}
 	}
@@ -100,6 +113,8 @@ void APotionPanicPlayerController::EndPlay(const EEndPlayReason::Type EndPlayRea
 		EndMenuWidgetInstance->OnReplayRequested.RemoveAll(this);
 		EndMenuWidgetInstance->OnReturnToMenuRequested.RemoveAll(this);
 	}
+
+	UnbindFromOrderClient();
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -211,6 +226,11 @@ void APotionPanicPlayerController::ShowMainMenu()
 		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 	}
 
+	if (OrderWidgetInstance)
+	{
+		OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+	}
+
 	ApplyInputModeUI(MainMenuWidgetInstance);
 }
 
@@ -252,6 +272,11 @@ void APotionPanicPlayerController::ShowEndMenu(bool bIsVictory, int32 Score)
 	if (ScoreWidgetInstance)
 	{
 		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+	}
+
+	if (OrderWidgetInstance)
+	{
+		OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 	}
 
 	ApplyInputModeUI(EndMenuWidgetInstance);
@@ -317,12 +342,119 @@ void APotionPanicPlayerController::StartAllRounds()
 
 	TArray<AActor*> Clients;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AOrderClient::StaticClass(), Clients);
+
+	if (Clients.Num() == 0)
+	{
+		if (AOrderClient* NewClient = FindOrCreateOrderClient())
+		{
+			Clients.Add(NewClient);
+		}
+	}
+
+	AOrderClient* FirstClient = Clients.Num() > 0 ? Cast<AOrderClient>(Clients[0]) : nullptr;
+	if (FirstClient)
+	{
+		BindToOrderClient(FirstClient);
+	}
+
 	for (AActor* Actor : Clients)
 	{
 		if (AOrderClient* Client = Cast<AOrderClient>(Actor))
 		{
 			CommandeManagerSubsystem->StartRound(Client);
 		}
+	}
+}
+
+AOrderClient* APotionPanicPlayerController::FindOrCreateOrderClient() const
+{
+	if (!GetWorld())
+	{
+		return nullptr;
+	}
+
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AOrderClient* NewClient = GetWorld()->SpawnActor<AOrderClient>(AOrderClient::StaticClass(), FTransform::Identity, Params);
+	if (NewClient)
+	{
+		NewClient->SetActorHiddenInGame(true);
+		NewClient->SetActorEnableCollision(false);
+		NewClient->SetActorTickEnabled(false);
+	}
+
+	return NewClient;
+}
+
+void APotionPanicPlayerController::BindToOrderClient(AOrderClient* Client)
+{
+	if (BoundOrderClient.Get() == Client)
+	{
+		return;
+	}
+
+	UnbindFromOrderClient();
+
+	if (!Client)
+	{
+		if (OrderWidgetInstance)
+		{
+			OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+		}
+		return;
+	}
+
+	BoundOrderClient = Client;
+	Client->OnOrderStarted.AddDynamic(this, &ThisClass::HandleOrderStarted);
+	Client->OnOrderUpdated.AddDynamic(this, &ThisClass::HandleOrderUpdated);
+	Client->OnOrderFinished.AddDynamic(this, &ThisClass::HandleOrderFinished);
+
+	if (OrderWidgetInstance && Client->HasActiveOrder())
+	{
+		OrderWidgetInstance->UpdateOrder(Client->GetCurrentOrder(), Client->GetRemainingTime(), true);
+	}
+}
+
+void APotionPanicPlayerController::UnbindFromOrderClient()
+{
+	if (AOrderClient* Client = BoundOrderClient.Get())
+	{
+		Client->OnOrderStarted.RemoveDynamic(this, &ThisClass::HandleOrderStarted);
+		Client->OnOrderUpdated.RemoveDynamic(this, &ThisClass::HandleOrderUpdated);
+		Client->OnOrderFinished.RemoveDynamic(this, &ThisClass::HandleOrderFinished);
+	}
+
+	BoundOrderClient.Reset();
+
+	if (OrderWidgetInstance)
+	{
+		OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
+void APotionPanicPlayerController::HandleOrderStarted(const FClientOrderEntry& Order)
+{
+	const float Remaining = BoundOrderClient.IsValid()
+		? BoundOrderClient->GetRemainingTime()
+		: Order.Duration;
+
+	HandleOrderUpdated(Order, Remaining, true);
+}
+
+void APotionPanicPlayerController::HandleOrderUpdated(const FClientOrderEntry& Order, float RemainingTime, bool bIsActive)
+{
+	if (OrderWidgetInstance)
+	{
+		OrderWidgetInstance->UpdateOrder(Order, RemainingTime, bIsActive);
+	}
+}
+
+void APotionPanicPlayerController::HandleOrderFinished(AOrderClient* Client, const FClientOrderEntry& Order, bool bSuccess)
+{
+	if (OrderWidgetInstance)
+	{
+		OrderWidgetInstance->ShowResult(bSuccess);
 	}
 }
 
@@ -360,6 +492,12 @@ void APotionPanicPlayerController::ApplyInputModeGame()
 	if (ScoreWidgetInstance)
 	{
 		ScoreWidgetInstance->SetVisibility(ESlateVisibility::Visible);
+	}
+
+	if (OrderWidgetInstance)
+	{
+		const bool bShouldShowOrder = BoundOrderClient.IsValid() && BoundOrderClient->HasActiveOrder();
+		OrderWidgetInstance->SetVisibility(bShouldShowOrder ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Hidden);
 	}
 
 	FInputModeGameOnly InputMode;
