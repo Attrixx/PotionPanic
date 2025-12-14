@@ -97,7 +97,10 @@ public:
 
 	void Store(TSubclassOf<AActor> Item);
 
+	const FInputItemGroup& GetStoredItems() const { return InternalStorage; }
+
 private:
 
 	FInputItemGroup InternalStorage;
+
 };

@@ -8,6 +8,7 @@
 #include "Core/InteractionInterface.h"
 #include "Core/GameplayAbilitySystem/PotionPanicTags.h"
 #include "UserInterface/QuickTimeEventWidget.h"
+#include "Core/StationActor.h"
 
 #include <Components/SphereComponent.h>
 #include <Components/CapsuleComponent.h>
@@ -15,6 +16,8 @@
 #include <Logging/StructuredLog.h>
 #include <limits>
 #include <AbilitySystemComponent.h>
+#include <Kismet/GameplayStatics.h>
+#include <AbilitySystemBlueprintLibrary.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_PotionPanicCharacter, Log, All);
 
@@ -246,6 +249,8 @@ void APotionPanicCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* Oth
 {
 	if (!GetAbilitySystemComponent()) return;
 	if (!GetAbilitySystemComponent()->HasMatchingGameplayTag(PotionPanicTags::Character::State::Dashing)) return;
+	APotionPanicCharacter* OtherCharacter = Cast<APotionPanicCharacter>(OtherActor);
+	if (OtherCharacter == nullptr) return;
 	if (IsHolding())
 	{
 		APotionPanicPlayerController* PlayerController = Cast<APotionPanicPlayerController>(GetController());
@@ -254,14 +259,11 @@ void APotionPanicCharacter::OnHit(UPrimitiveComponent* HitComponent, AActor* Oth
 		PlayerController->ForceDropOnHit();
 	}
 
-	if (APotionPanicCharacter* OtherCharacter = Cast<APotionPanicCharacter>(OtherActor))
-	{
-		if (!OtherCharacter->IsHolding()) return;
+	if (!OtherCharacter->IsHolding()) return;
 
-		APotionPanicPlayerController* OtherPlayerController = Cast<APotionPanicPlayerController>(OtherCharacter->GetController());
-		if (!OtherPlayerController) return;
-		OtherPlayerController->ForceDropOnHit();
-	}
+	APotionPanicPlayerController* OtherPlayerController = Cast<APotionPanicPlayerController>(OtherCharacter->GetController());
+	if (!OtherPlayerController) return;
+	OtherPlayerController->ForceDropOnHit();
 }
 
 void APotionPanicCharacter::SortInteractablesInRange()
@@ -373,29 +375,72 @@ void APotionPanicCharacter::OnDash()
 void APotionPanicCharacter::OnStartUsingStation()
 {
 	ApplyEffectToSelf(UsingStationEffect);
-	if (!QuickTimeEventWidgetClass) return;
-	if (APotionPanicPlayerController* PC = Cast<APotionPanicPlayerController>(GetController()))
+}
+
+void APotionPanicCharacter::ShowQuickTimeEventWidget(const FGameplayTag& InputKeyTag, float Duration)
+{
+	if (!IsValid(QuickTimeEventWidget))
 	{
-		QuickTimeEventWidget = CreateWidget<UQuickTimeEventWidget>(PC, QuickTimeEventWidgetClass);
-		QuickTimeEventWidget->AddToViewport();
+		if (!QuickTimeEventWidgetClass) return;
+		if (APotionPanicPlayerController* PC = Cast<APotionPanicPlayerController>(GetController()))
+		{
+			QuickTimeEventWidget = CreateWidget<UQuickTimeEventWidget>(PC, QuickTimeEventWidgetClass);
+			QuickTimeEventWidget->AddToViewport();
+		}
+	}
+
+	if (IsValid(QuickTimeEventWidget))
+	{
+		QuickTimeEventWidget->StartQuickTimeEvent(InputKeyTag, Duration);
 	}
 }
 
-void APotionPanicCharacter::ShowQuickTimeEventInputKey(const FGameplayTag& InputKeyTag)
+void APotionPanicCharacter::Client_ShowQuickTimeEventWidget_Implementation(const FGameplayTag& InputKeyTag, float Duration)
 {
-	if (IsValid(QuickTimeEventWidget))
-	{
-		QuickTimeEventWidget->ShowInputKey(InputKeyTag);
-	}
+	ShowQuickTimeEventWidget(InputKeyTag, Duration);
+}
+
+void APotionPanicCharacter::Client_HideQuickTimeEventWidget_Implementation()
+{
+	HideQuickTimeEventWidget();
+}
+
+void APotionPanicCharacter::Server_SubmitQTEInput_Implementation(const FGameplayTag& InputTag, AActor* TargetStation)
+{
+	if (!IsValid(TargetStation)) return;
+
+	FGameplayEventData Payload;
+	Payload.EventTag = InputTag;
+	Payload.Instigator = this;
+	Payload.Target = TargetStation;
+
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(TargetStation, InputTag, Payload);
+}
+
+void APotionPanicCharacter::Client_OnQuickTimeEventStepEnd_Implementation(bool bSuccess)
+{
+	OnQuickTimeEventStepEnd(bSuccess);
 }
 
 void APotionPanicCharacter::HideQuickTimeEventWidget()
 {
 	if (IsValid(QuickTimeEventWidget))
 	{
+		QuickTimeEventWidget->StopQuickTimeEvent();
 		QuickTimeEventWidget->RemoveFromParent();
 		QuickTimeEventWidget = nullptr;
 	}
+}
+
+void APotionPanicCharacter::OnQuickTimeEventStepEnd(bool bSuccess)
+{
+	UGameplayStatics::PlaySound2D(this, bSuccess ? QTESuccessSound : QTEFailSound);
+}
+
+void APotionPanicCharacter::OnStopUsingStation()
+{
+	RemoveEffectByGrantedTag(PotionPanicTags::Character::State::UsingStation);
+	HideQuickTimeEventWidget();
 }
 
 AActor* APotionPanicCharacter::GetBestInteractableActor() const
@@ -406,7 +451,24 @@ AActor* APotionPanicCharacter::GetBestInteractableActor() const
 
 void APotionPanicCharacter::DropObject()
 {
-	// TODO FRANCOIS
+	if (!IsHolding()) return;
+
+	if (BestSocket)
+	{
+		if (AStationActor* Station = Cast<AStationActor>(BestSocket->GetOwner()))
+		{
+			USocketableComponent* HeldSocketable = Socket->GetHeld();
+			if (HeldSocketable)
+			{
+				if (!Station->CanAcceptItem(HeldSocketable->GetOwner()->GetClass()))
+				{
+					// Station cannot accept this item based on recipes
+					return; 
+				}
+			}
+		}
+	}
+
 	auto* Socketable = Socket->Take();
 	if (!Socketable)
 		return;

@@ -25,7 +25,7 @@ void ACauldronStation::BeginPlay()
 	Super::BeginPlay();
 
 	SocketComponent->OnHeldChanged.AddUObject(this, &ACauldronStation::Store);
-	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::SpawnItem);
+	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::RequestSpawnItem);
 }
 
 void ACauldronStation::Store(USocketableComponent* OldHeld, USocketableComponent* NewHeld)

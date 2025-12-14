@@ -4,10 +4,13 @@
 #include "Core/GameplayAbilitySystem/Abilities/Tasks/QuickTimeEventTask.h"
 #include "AbilitySystemComponent.h"
 #include "TimerManager.h"
+#include "GameplayTagsManager.h"
+#include "HAL/PlatformTime.h"
 
 UQuickTimeEventTask* UQuickTimeEventTask::QuickTimeEvent(UGameplayAbility* OwningAbility, const FQuickTimeEventInput& Input)
 {
 	UQuickTimeEventTask* MyObj = NewAbilityTask<UQuickTimeEventTask>(OwningAbility);
+	UE_LOG(LogTemp, Warning, TEXT("Creating Task for %s (%.6f)"), *Input.KeyTag.ToString(), FPlatformTime::Seconds());
 	MyObj->InputData = Input;
 	return MyObj;
 }
@@ -20,12 +23,17 @@ void UQuickTimeEventTask::Activate()
 		return;
 	}
 
-	GameplayEventHandle = AbilitySystemComponent->GenericGameplayEventCallbacks.FindOrAdd(InputData.KeyTag).AddUObject(
-		this,
-		&UQuickTimeEventTask::OnGameplayEventReceived
-	);
+	UGameplayTagsManager& TagsManager = UGameplayTagsManager::Get();
+	FGameplayTagContainer KeyTagContainer = TagsManager.RequestGameplayTagChildren(FGameplayTag::RequestGameplayTag("Keys"));
 
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Press %s within %.2f seconds"), *InputData.KeyTag.ToString().ToUpper(), InputData.InputTimeWindow));
+	for (const FGameplayTag& KeyTag : KeyTagContainer)
+	{
+		FDelegateHandle Handle = AbilitySystemComponent->GenericGameplayEventCallbacks.FindOrAdd(KeyTag).AddUObject(
+			this,
+			&UQuickTimeEventTask::OnGameplayEventReceived
+		);
+		GameplayEventHandles.Add(TPair<FGameplayTag, FDelegateHandle>(KeyTag, Handle));
+	}
 
 	Ability->GetWorld()->GetTimerManager().SetTimer(
 		WindowTimerHandle,
@@ -38,23 +46,49 @@ void UQuickTimeEventTask::Activate()
 
 void UQuickTimeEventTask::OnDestroy(bool bInOwnerFinished)
 {
-	if (AbilitySystemComponent.IsValid())
-	{
-		AbilitySystemComponent->GenericGameplayEventCallbacks.FindOrAdd(InputData.KeyTag).Remove(GameplayEventHandle);
-	}
+	UnregisterGameplayEvents();
 }
 
 void UQuickTimeEventTask::OnGameplayEventReceived(const FGameplayEventData* Payload)
 {
+	const float RemainingTime = Ability->GetWorld()->GetTimerManager().GetTimerRemaining(WindowTimerHandle);
 	Ability->GetWorld()->GetTimerManager().ClearTimer(WindowTimerHandle);
-	OnQuickTimeEventEnded.Broadcast(true);
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, FString::Printf(TEXT("QTE Success"), *InputData.KeyTag.ToString()));
+	UnregisterGameplayEvents();
+
+	if (bIsFinished) return;
+	bIsFinished = true;
+	
+	if (InputData.KeyTag != Payload->EventTag)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("QTE Fail: Wrong Key %s"), *InputData.KeyTag.ToString()));
+		OnQuickTimeEventEnded.Broadcast(false, RemainingTime);
+		EndTask();
+		return;
+	}
+
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Purple, FString::Printf(TEXT("QTE Success: %s"), *InputData.KeyTag.ToString()));
+	OnQuickTimeEventEnded.Broadcast(true, RemainingTime);
 	EndTask();
+}
+
+void UQuickTimeEventTask::UnregisterGameplayEvents()
+{
+	if (AbilitySystemComponent.IsValid())
+	{
+		for (const TPair<FGameplayTag, FDelegateHandle>& Pair : GameplayEventHandles)
+		{
+			AbilitySystemComponent->GenericGameplayEventCallbacks.FindOrAdd(Pair.Key).Remove(Pair.Value);
+		}
+		GameplayEventHandles.Empty();
+	}
 }
 
 void UQuickTimeEventTask::OnTimeWindowExpired()
 {
-	OnQuickTimeEventEnded.Broadcast(false);
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("QTE Fail"), *InputData.KeyTag.ToString()));
+	UnregisterGameplayEvents();
+	if (bIsFinished) return;
+	bIsFinished = true;
+	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, FString::Printf(TEXT("QTE Fail: %s"), *InputData.KeyTag.ToString()));
+	OnQuickTimeEventEnded.Broadcast(false, 0.f);
 	EndTask();
 }

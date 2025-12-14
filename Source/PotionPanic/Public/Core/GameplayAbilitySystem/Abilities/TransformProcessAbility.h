@@ -42,6 +42,7 @@ struct FQuickTimeEventSequenceTracker
 	GENERATED_BODY()
 	int32 CurrentInputIndex = 0;
 	int32 SuccessfulInputs = 0;
+	float CumulativePrecision = 0.f;
 };
 
 UCLASS()
@@ -68,7 +69,7 @@ private:
 
 	UFUNCTION()
 	void NextQuickTimeEvent(FGameplayEventData Payload);
-	void OnQuickTimeEventEnded(bool bIsSuccess);
+	void OnQuickTimeEventEnded(bool bIsSuccess, float RemainingTime);
 
 	UFUNCTION()
 	void OnEventReceived(FGameplayEventData Payload);

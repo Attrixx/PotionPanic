@@ -31,12 +31,17 @@ TObjectPtr<USocketComponent> USpawnerComponent::GetSpawnSocket(AActor* TargetAct
 	return nullptr;
 }
 
-void USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
+void USpawnerComponent::RequestSpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
+{
+	SpawnItem(Instigator, Item);
+}
+
+TObjectPtr<AActor> USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
 {
 	// Get Socket
 	AActor* TargetActor = bSpawnOnInstigatorSocket && Instigator ? Instigator : GetOwner();
 	TObjectPtr<USocketComponent> TargetSocket = GetSpawnSocket(TargetActor);
-	if (!TargetSocket) return;
+	if (!TargetSocket) return nullptr;
 
 	// Spawn Item
 	TObjectPtr<AActor> SpawnedItem = GetWorld()->SpawnActor<AActor>(Item, TargetSocket->GetComponentLocation(), TargetSocket->GetComponentRotation());
@@ -52,7 +57,7 @@ void USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
 		}
 	}
 
-	if (!SpawnedItem) return;
+	if (!SpawnedItem) return nullptr;
 
 	// Put on socket
 	USocketableComponent* Socketable = SpawnedItem->GetComponentByClass<USocketableComponent>();
@@ -60,5 +65,7 @@ void USpawnerComponent::SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item)
 	{
 		TargetSocket->Put(*Socketable);
 	}
+
+	return SpawnedItem;
 }
 

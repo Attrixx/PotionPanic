@@ -14,6 +14,8 @@
 AFlyingSocket::AFlyingSocket()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+	SetReplicateMovement(true);
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 

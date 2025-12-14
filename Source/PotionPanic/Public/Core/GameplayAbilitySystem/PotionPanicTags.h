@@ -49,6 +49,7 @@ namespace PotionPanicTags
 		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Cauldron);
 		UE_DECLARE_GAMEPLAY_TAG_EXTERN(CuttingBoard);
 		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Spawner);
+		UE_DECLARE_GAMEPLAY_TAG_EXTERN(Delivery);
 		namespace Spawners
 		{
 			UE_DECLARE_GAMEPLAY_TAG_EXTERN(Sugar);

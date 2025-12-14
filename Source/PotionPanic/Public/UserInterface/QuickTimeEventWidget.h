@@ -19,14 +19,28 @@ public:
 	void NativeConstruct() override;
 	void NativeDestruct() override;
 
-	void ShowInputKey(const FGameplayTag& KeyTag);
+	void StartQuickTimeEvent(const FGameplayTag& KeyTag, float Duration);
+	void StopQuickTimeEvent();
 
 protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> Image_InputKey;
 
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UImage> Image_ShinyBorder;
+
+	UPROPERTY(meta = (BindWidgetAnim), Transient)
+	TObjectPtr<UWidgetAnimation> Animation_Progress;
+
 	UPROPERTY(EditDefaultsOnly)
 	TMap<FGameplayTag, TObjectPtr<UTexture2D>> InputKeyTextures;
+
+	UPROPERTY(EditDefaultsOnly)
+	float PerfectTimingWindow = 0.25f;
+
+private:
+
+	FTimerHandle TimerHandle_PerfectTiming;
 	
 };
