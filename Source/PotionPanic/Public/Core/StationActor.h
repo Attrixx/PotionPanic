@@ -47,11 +47,21 @@ public:
 	void StartProcessing(APawn* ProcessInstigator, FInputItemGroup& Items);
 	FRecipe* GetCurrentRecipe() const { return CurrentRecipe; }
 	APawn* GetCurrentProcessInstigator() const { return CurrentProcessInstigator; }
+	bool CanAcceptItem(TSubclassOf<AActor> ItemClass) const;
 
 	void ShowInteractionUI(bool bShow);
 	void ShowAnimatedProgress(float Duration, bool bAutoHide);
 	void UpdateProgressUI(float Progress);
 	void HideProgressUI();
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ShowInteractionUI(bool bShow);
+	
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ShowAnimatedProgress(float Duration, bool bAutoHide);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_HideProgressUI();
 
 protected:
 
@@ -90,5 +100,7 @@ private:
 	FRecipe* CurrentRecipe;
 	APawn* CurrentProcessInstigator;
 	bool bDestroySpawnedItem = true;
+	bool bUsedSocketItem = false;
+	AActor* SpawnedItem = nullptr;
 
 };

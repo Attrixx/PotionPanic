@@ -65,6 +65,18 @@ protected:
 	UInputAction* DashAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* QTEAction1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* QTEAction2;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* QTEAction3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+	UInputAction* QTEAction4;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
 	float RotationSpeedScale = 3.f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
@@ -116,6 +128,12 @@ protected:
 	void Interact(const FInputActionValue& Value);
 	void PickUp(const FInputActionValue& Value);
 	void Dash(const FInputActionValue& Value);
+	void QuickTimeEvent1(const FInputActionValue& Value);
+	void QuickTimeEvent2(const FInputActionValue& Value);
+	void QuickTimeEvent3(const FInputActionValue& Value);
+	void QuickTimeEvent4(const FInputActionValue& Value);
+
+	void OnQuickTimeEventInput(const FGameplayTag& KeyTag) const;
 
 	bool ActivateAbility(const FGameplayTag& AbilityTag) const;
 

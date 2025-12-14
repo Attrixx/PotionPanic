@@ -47,6 +47,7 @@ namespace PotionPanicTags
 		UE_DEFINE_GAMEPLAY_TAG(Cauldron, "Stations.Cauldron");
 		UE_DEFINE_GAMEPLAY_TAG(CuttingBoard, "Stations.CuttingBoard");
 		UE_DEFINE_GAMEPLAY_TAG(Spawner, "Stations.Spawner");
+		UE_DEFINE_GAMEPLAY_TAG(Delivery, "Stations.Delivery");
 		namespace Spawners
 		{
 			UE_DEFINE_GAMEPLAY_TAG(Sugar, "Stations.Spawner.Sugar");

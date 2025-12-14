@@ -23,5 +23,5 @@ void AObjectSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 
-	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::SpawnItem);
+	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::RequestSpawnItem);
 }

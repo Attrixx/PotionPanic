@@ -90,6 +90,11 @@ void UStationComponent::StartProcessItem(APawn* Instigator)
 	// Notify when done
 	InternalStorage.Clear();
 	OnEndProcess.Broadcast(Instigator, OutputItem);
+
+	if (InputItem)
+	{
+		InputItem->Destroy();
+	}
 }
 
 void UStationComponent::Store(TSubclassOf<AActor> Item)

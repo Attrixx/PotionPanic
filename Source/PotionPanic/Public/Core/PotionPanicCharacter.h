@@ -66,8 +66,22 @@ public:
 
 	void OnDash();
 	void OnStartUsingStation();
-	void ShowQuickTimeEventInputKey(const FGameplayTag& InputKeyTag);
+	UFUNCTION(Client, Reliable)
+	void Client_ShowQuickTimeEventWidget(const FGameplayTag& InputKeyTag, float Duration);
+	void ShowQuickTimeEventWidget(const FGameplayTag& InputKeyTag, float Duration);
+	
+	UFUNCTION(Client, Reliable)
+	void Client_HideQuickTimeEventWidget();
 	void HideQuickTimeEventWidget();
+
+	UFUNCTION(Client, Reliable)
+	void Client_OnQuickTimeEventStepEnd(bool bSuccess);
+	void OnQuickTimeEventStepEnd(bool bSuccess);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SubmitQTEInput(const FGameplayTag& InputTag, AActor* TargetStation);
+
+	void OnStopUsingStation();
 
 	AActor* GetBestInteractableActor() const;
 
@@ -118,6 +132,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|UI")
 	TSubclassOf<UQuickTimeEventWidget> QuickTimeEventWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Potion Panic|Sounds")
+	TObjectPtr<USoundBase> QTESuccessSound;
+
+	UPROPERTY(EditAnywhere, Category = "Potion Panic|Sounds")
+	TObjectPtr<USoundBase> QTEFailSound;
 
 private:
 

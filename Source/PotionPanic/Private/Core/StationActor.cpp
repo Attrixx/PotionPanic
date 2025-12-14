@@ -42,9 +42,10 @@ void AStationActor::BeginPlay()
 {
 	Super::BeginPlay();
 
+    GetAbilitySystemComponent()->InitAbilityActorInfo(this, this);
+
     if (HasAuthority())
     {
-        GetAbilitySystemComponent()->InitAbilityActorInfo(this, this);
         GiveStartupAbilities();
     }
 
@@ -106,14 +107,64 @@ FRecipe* AStationActor::FindMatchingRecipe(const FInputItemGroup& Items) const
     return nullptr;
 }
 
+bool AStationActor::CanAcceptItem(TSubclassOf<AActor> ItemClass) const
+{
+	if (!RecipesDataTable || !ItemClass)
+	{
+		return false;
+	}
+
+	TArray<FRecipe*> AllRecipes;
+	RecipesDataTable->GetAllRows<FRecipe>(TEXT("RecipeSearch"), AllRecipes);
+
+	FInputItemGroup PotentialItems = StationComponent->GetStoredItems();
+	PotentialItems.Add(ItemClass);
+
+	for (FRecipe* Recipe : AllRecipes)
+	{
+		if (!Recipe) continue;
+
+		if (StationTag.IsValid() && !Recipe->Stations.Contains(StationTag)) continue;
+		
+        if (StationTag.MatchesTag(PotionPanicTags::Stations::Spawner)) continue;
+
+		bool bIsSubset = true;
+		for (const auto& StoredPair : PotentialItems.Counts)
+		{
+			const TSubclassOf<AActor>& StoredItemClass = StoredPair.Key;
+			int32 StoredAmount = StoredPair.Value;
+
+			const int32* RecipeAmount = Recipe->Ingredients.Find(StoredItemClass);
+			
+			if (!RecipeAmount || StoredAmount > *RecipeAmount)
+			{
+				bIsSubset = false;
+				break;
+			}
+		}
+
+		if (bIsSubset)
+		{
+			return true; // Found at least one recipe where this combination is valid so far
+		}
+	}
+
+	return false;
+}
+
 void AStationActor::OnAbilityEnded(const FAbilityEndedData& AbilityEndedData)
 {
     if (HasAuthority())
     {
+        if (SpawnedItem != nullptr)
+        {
+            SpawnedItem->Destroy();
+            SpawnedItem = nullptr;
+		}
 		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("Ability Ended - Spawning Item"));
         if (CurrentRecipe == nullptr || CurrentRecipe->Product == nullptr) return;
 		bDestroySpawnedItem = false;
-        SpawnerComponent->SpawnItem(CurrentProcessInstigator, CurrentRecipe->Product);
+        SpawnedItem = SpawnerComponent->SpawnItem(CurrentProcessInstigator, CurrentRecipe->Product);
 		bDestroySpawnedItem = true;
     }
 }
@@ -147,7 +198,7 @@ void AStationActor::StartProcessing(APawn* ProcessInstigator, FInputItemGroup& I
     if (!IsValid(AbilitySystemComponent)) return;
 
 	FRecipe* MatchingRecipe = FindMatchingRecipe(Items);
-    if (MatchingRecipe == nullptr) return;
+	if (MatchingRecipe == nullptr) return;
 
 	CurrentRecipe = MatchingRecipe;
 	CurrentProcessInstigator = ProcessInstigator;
@@ -190,6 +241,21 @@ void AStationActor::HideProgressUI()
     if (!IsValid(WidgetComponent)) return;
     if (UStationWidget* StationWidget = Cast<UStationWidget>(WidgetComponent->GetWidget()))
     {
-        StationWidget->HideProgress();
+	StationWidget->HideProgress();
     }
+}
+
+void AStationActor::Multicast_ShowInteractionUI_Implementation(bool bShow)
+{
+	ShowInteractionUI(bShow);
+}
+
+void AStationActor::Multicast_ShowAnimatedProgress_Implementation(float Duration, bool bAutoHide)
+{
+	ShowAnimatedProgress(Duration, bAutoHide);
+}
+
+void AStationActor::Multicast_HideProgressUI_Implementation()
+{
+	HideProgressUI();
 }

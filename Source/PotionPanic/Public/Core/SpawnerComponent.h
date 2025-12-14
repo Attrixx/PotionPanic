@@ -26,6 +26,7 @@ protected:
 
 public:
 
-	void SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item);
+	void RequestSpawnItem(APawn* Instigator, TSubclassOf<AActor> Item);
+	TObjectPtr<AActor> SpawnItem(APawn* Instigator, TSubclassOf<AActor> Item);
 		
 };

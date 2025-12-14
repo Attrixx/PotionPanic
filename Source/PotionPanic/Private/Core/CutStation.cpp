@@ -25,7 +25,7 @@ void ACutStation::BeginPlay()
 	Super::BeginPlay();
 
 	StationComponent->OnEndProcess.AddUObject(this, &ACutStation::RemoveOnSocket);
-	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::SpawnItem);
+	StationComponent->OnEndProcess.AddUObject(SpawnerComponent, &USpawnerComponent::RequestSpawnItem);
 }
 
 void ACutStation::RemoveOnSocket(APawn* InInstigator, TSubclassOf<AActor> Item)

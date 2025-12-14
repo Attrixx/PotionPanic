@@ -93,6 +93,10 @@ void APotionPanicPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(InteractAction,	ETriggerEvent::Triggered, this, &ThisClass::Interact);
 		EnhancedInputComponent->BindAction(PickUpAction,	ETriggerEvent::Triggered, this, &ThisClass::PickUp);
 		EnhancedInputComponent->BindAction(DashAction,		ETriggerEvent::Triggered, this, &ThisClass::Dash);
+		EnhancedInputComponent->BindAction(QTEAction1,		ETriggerEvent::Triggered, this, &ThisClass::QuickTimeEvent1);
+		EnhancedInputComponent->BindAction(QTEAction2,		ETriggerEvent::Triggered, this, &ThisClass::QuickTimeEvent2);
+		EnhancedInputComponent->BindAction(QTEAction3,		ETriggerEvent::Triggered, this, &ThisClass::QuickTimeEvent3);
+		EnhancedInputComponent->BindAction(QTEAction4,		ETriggerEvent::Triggered, this, &ThisClass::QuickTimeEvent4);
 	}
 }
 
@@ -123,36 +127,29 @@ void APotionPanicPlayerController::Move(const FInputActionValue& Value)
 {
 	ACharacter* CurrentCharacter = GetCharacter();
 	if (CurrentCharacter == nullptr) return;
-	
 	FVector2D MovementVector = Value.Get<FVector2D>();
+
+	if (IsValid(PotionPanicCharacter))
+	{
+		UAbilitySystemComponent* AbilitySystemComponent = PotionPanicCharacter->GetAbilitySystemComponent();
+		if (IsValid(AbilitySystemComponent))
+		{
+			if (AbilitySystemComponent->HasMatchingGameplayTag(PotionPanicTags::Character::State::UsingStation))
+			{
+				return;
+			}
+		}
+	}
+
 	CurrentCharacter->AddMovementInput(FVector::ForwardVector, MovementVector.Y);
 	CurrentCharacter->AddMovementInput(FVector::RightVector, MovementVector.X);
-	
+
 	const float RotationAngle = FMath::Atan2(-MovementVector.Y, MovementVector.X);
 	const float TargetYaw = FMath::RadiansToDegrees(RotationAngle) + 90.f;
 	const float CurrentYaw = CurrentCharacter->GetActorRotation().Yaw;
 	const float DeltaYaw = UKismetMathLibrary::NormalizeAxis(TargetYaw - CurrentYaw);
 	float NormalizedYawInput = FMath::Clamp(DeltaYaw, -1.f * RotationSpeedScale, 1.f * RotationSpeedScale);
 	CurrentCharacter->AddControllerYawInput(NormalizedYawInput);
-
-	if (!IsValid(PotionPanicCharacter)) return;
-
-	UAbilitySystemComponent* AbilitySystemComponent = PotionPanicCharacter->GetAbilitySystemComponent();
-	if (!IsValid(AbilitySystemComponent)) return;
-
-	if (!AbilitySystemComponent->HasMatchingGameplayTag(PotionPanicTags::Character::State::UsingStation)) return;
-
-	FGameplayTag KeyTag;
-	if (MovementVector.Y > 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Triangle"));
-	else if (MovementVector.Y < 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Cross"));
-	else if (MovementVector.X > 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Circle"));
-	else if (MovementVector.X < 0.f) KeyTag = FGameplayTag::RequestGameplayTag(FName("Keys.Square"));
-	else return;
-
-	FGameplayEventData EventData;
-	EventData.EventTag = KeyTag;
-	EventData.Instigator = PotionPanicCharacter;
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(PotionPanicCharacter->GetBestInteractableActor(), EventData.EventTag, EventData);
 }
 
 void APotionPanicPlayerController::Interact(const FInputActionValue& Value)
@@ -183,6 +180,41 @@ void APotionPanicPlayerController::Dash(const FInputActionValue& Value)
 
 	FTimerHandle TimerHandle;
 	GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]() { bCanDash = true; PotionPanicCharacter->OnDashEnd(); }, DashCooldown, false);*/
+}
+
+void APotionPanicPlayerController::QuickTimeEvent1(const FInputActionValue& Value)
+{
+	OnQuickTimeEventInput(FGameplayTag::RequestGameplayTag(FName("Keys.Triangle")));
+}
+
+void APotionPanicPlayerController::QuickTimeEvent2(const FInputActionValue& Value)
+{
+	OnQuickTimeEventInput(FGameplayTag::RequestGameplayTag(FName("Keys.Square")));
+}
+
+void APotionPanicPlayerController::QuickTimeEvent3(const FInputActionValue& Value)
+{
+	OnQuickTimeEventInput(FGameplayTag::RequestGameplayTag(FName("Keys.Circle")));
+}
+
+void APotionPanicPlayerController::QuickTimeEvent4(const FInputActionValue& Value)
+{
+	OnQuickTimeEventInput(FGameplayTag::RequestGameplayTag(FName("Keys.Cross")));
+}
+
+void APotionPanicPlayerController::OnQuickTimeEventInput(const FGameplayTag& KeyTag) const
+{
+	if (!IsValid(PotionPanicCharacter)) return;
+	UAbilitySystemComponent* AbilitySystemComponent = PotionPanicCharacter->GetAbilitySystemComponent();
+	if (!IsValid(AbilitySystemComponent)) return;
+	if (!AbilitySystemComponent->HasMatchingGameplayTag(PotionPanicTags::Character::State::UsingStation)) return;
+	
+	//FGameplayEventData EventData;
+	//EventData.EventTag = KeyTag;
+	//EventData.Instigator = PotionPanicCharacter;
+	//UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(PotionPanicCharacter->GetBestInteractableActor(), EventData.EventTag, EventData);
+	
+	PotionPanicCharacter->Server_SubmitQTEInput(KeyTag, PotionPanicCharacter->GetBestInteractableActor());
 }
 
 bool APotionPanicPlayerController::ActivateAbility(const FGameplayTag& AbilityTag) const

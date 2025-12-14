@@ -6,7 +6,7 @@
 #include "Abilities/Tasks/AbilityTask.h"
 #include "QuickTimeEventTask.generated.h"
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FQuickTimeEventEnded, bool /* bSuccess */);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FQuickTimeEventEnded, bool /* bSuccess */, float /* RemainingTime */);
 
 USTRUCT(BlueprintType)
 struct FQuickTimeEventInput
@@ -38,6 +38,7 @@ protected:
 private:
 
 	void OnGameplayEventReceived(const FGameplayEventData* Payload);
+	void UnregisterGameplayEvents();
 
 	void OnTimeWindowExpired();
 
@@ -45,7 +46,9 @@ private:
 
 	FQuickTimeEventInput InputData;
 
-	FDelegateHandle GameplayEventHandle;
+	TArray<TPair<FGameplayTag, FDelegateHandle>> GameplayEventHandles;
 	FTimerHandle WindowTimerHandle;
+
+	bool bIsFinished = false;
 	
 };

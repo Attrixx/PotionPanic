@@ -28,8 +28,8 @@ void UTransformProcessAbility::ExecuteNextStep()
 		AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
 		if (IsValid(Station))
 		{
-			Station->ShowInteractionUI(false);
-			Station->HideProgressUI();
+			Station->Multicast_ShowInteractionUI(false);
+			Station->Multicast_HideProgressUI();
 		}
 		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 		return;
@@ -58,7 +58,7 @@ void UTransformProcessAbility::ExecuteTimerStep(const FStationStep& Step)
 	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
 	if (IsValid(Station))
 	{
-		Station->ShowAnimatedProgress(Step.Duration, false);
+		Station->Multicast_ShowAnimatedProgress(Step.Duration, false);
 	}
 
 	auto* Task = UAbilityTask_WaitDelay::WaitDelay(this, Step.Duration);
@@ -76,12 +76,12 @@ void UTransformProcessAbility::ExecuteQuickTimeEvent(const FStationStep& Step)
 	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
 	if (IsValid(Station))
 	{
-		Station->HideProgressUI();
-		Station->ShowInteractionUI(true);
+		Station->Multicast_HideProgressUI();
+		Station->Multicast_ShowInteractionUI(true);
 	}
 
 	// Wait for interaction
-	auto* Task = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, Step.EventTag);
+	auto* Task = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(this, Step.EventTag, nullptr, true);
 	if (Task)
 	{
 		Task->EventReceived.AddDynamic(this, &UTransformProcessAbility::NextQuickTimeEvent);
@@ -113,11 +113,11 @@ void UTransformProcessAbility::NextQuickTimeEvent(FGameplayEventData Payload)
 	if (!IsValid(Character)) return;
 	if (QuickTimeEventTracker.CurrentInputIndex == 0)
 	{
-		Station->ShowInteractionUI(false);
+		Station->Multicast_ShowInteractionUI(false);
 		Character->OnStartUsingStation();
 	}
 
-	Character->ShowQuickTimeEventInputKey(CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex].KeyTag);
+	Character->Client_ShowQuickTimeEventWidget(CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex].KeyTag, CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex].InputTimeWindow);
 
 	auto* Task = UQuickTimeEventTask::QuickTimeEvent(this, CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex]);
 	if (Task)
@@ -127,12 +127,30 @@ void UTransformProcessAbility::NextQuickTimeEvent(FGameplayEventData Payload)
 	}
 }
 
-void UTransformProcessAbility::OnQuickTimeEventEnded(bool bIsSuccess)
+void UTransformProcessAbility::OnQuickTimeEventEnded(bool bIsSuccess, float RemainingTime)
 {
 	if (bIsSuccess)
 	{
 		QuickTimeEventTracker.SuccessfulInputs++;
+		const float PerfectTimingWindow = CurrentStep.QuickTimeEventInputs[QuickTimeEventTracker.CurrentInputIndex].InputTimeWindow * 0.25f;
+		if (RemainingTime <= PerfectTimingWindow) QuickTimeEventTracker.CumulativePrecision += 1.f;
+		else
+		{
+			QuickTimeEventTracker.CumulativePrecision += 1.f - (RemainingTime - PerfectTimingWindow) / PerfectTimingWindow;
+		}
 	}
+
+	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
+	APotionPanicCharacter* Character = nullptr;
+	if (IsValid(Station))
+	{
+		Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
+		if (IsValid(Character))
+		{
+			Character->Client_OnQuickTimeEventStepEnd(bIsSuccess);
+		}
+	}
+
 	QuickTimeEventTracker.CurrentInputIndex++;
 	if (QuickTimeEventTracker.CurrentInputIndex < CurrentStep.QuickTimeEventInputs.Num())
 	{
@@ -145,14 +163,13 @@ void UTransformProcessAbility::OnQuickTimeEventEnded(bool bIsSuccess)
 			CurrentStepIndex--;
 		}
 
-		AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
-		if (IsValid(Station))
+		const float AveragePrecision = QuickTimeEventTracker.CumulativePrecision / CurrentStep.QuickTimeEventInputs.Num();
+		// TODO What to do with AveragePrecision?
+
+		if (IsValid(Character))
 		{
-			APotionPanicCharacter* Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
-			if (IsValid(Character))
-			{
-				Character->HideQuickTimeEventWidget();
-			}
+			Character->OnStopUsingStation();
+			Character->Client_HideQuickTimeEventWidget();
 		}
 
 		OnStepCompleted();
