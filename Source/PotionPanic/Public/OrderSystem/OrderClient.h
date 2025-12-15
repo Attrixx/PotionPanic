@@ -87,11 +87,20 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UTextRenderComponent* OrderTextComp;
 
-    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Order")
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = OnRep_OrderState, Category = "Order")
     FClientOrderEntry CurrentOrder;
 
-    bool bHasActiveOrder = false;
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = OnRep_OrderState, Category = "Order")
     float RemainingTime = 0.f;
+
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, ReplicatedUsing = OnRep_OrderState, Category = "Order")
+    bool bHasActiveOrder = false;
+
+    UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Replicated, Category = "Order")
+    bool bLastOrderSuccess = false;
+
+    // Local cache used to detect state transitions on clients when replicated data changes.
+    bool bCachedHadActiveOrder = false;
 
     FTimerHandle OrderTimerHandle;
 
@@ -101,4 +110,9 @@ protected:
 
     void UpdateText3D(const FText& NewText);
     void BroadcastOrderUpdated();
+
+    UFUNCTION()
+    void OnRep_OrderState();
+
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };

@@ -49,6 +49,9 @@ void ADeliveryStation::Deliver(USocketableComponent* OldHeld, USocketableCompone
 	if (OldHeld || !NewHeld)
 		return;
 
+	if (!HasAuthority())
+		return;
+
 	AActor* DishActor = NewHeld->GetOwner();
 	if (!DishActor)
 		return;

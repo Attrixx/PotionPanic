@@ -50,6 +50,7 @@ void UCommandeManagerWorldSubsystem::Deinitialize()
 void UCommandeManagerWorldSubsystem::RegisterClient(AOrderClient* Client)
 {
     if (!Client) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     States.FindOrAdd(Client);
 
@@ -68,6 +69,7 @@ void UCommandeManagerWorldSubsystem::StartRound(AOrderClient* Client)
 {
     if (!Client) return;
     if (CachedOrders.Num() == 0) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     FRoundState& State = States.FindOrAdd(Client);
     State.Served = 0;
@@ -92,12 +94,18 @@ bool UCommandeManagerWorldSubsystem::ValidateDishForClient(AOrderClient* Client,
         return false;
     }
 
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client)
+    {
+        return false;
+    }
+
     return Client->CheckDishMatchesCurrentOrder(DishActor);
 }
 
 void UCommandeManagerWorldSubsystem::HandleOrderFinished(AOrderClient* Client, const FClientOrderEntry&, bool bSuccess)
 {
     if (!Client) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     FRoundState* StatePtr = States.Find(Client);
     if (!StatePtr || !StatePtr->bInRound) return;
@@ -124,6 +132,7 @@ void UCommandeManagerWorldSubsystem::IssueNextOrder(AOrderClient* Client)
 {
     if (!Client) return;
     if (CachedOrders.Num() == 0) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     FRoundState& State = States.FindOrAdd(Client);
     const int32 Index = DrawFromPool(State);
@@ -135,6 +144,7 @@ void UCommandeManagerWorldSubsystem::IssueNextOrder(AOrderClient* Client)
 void UCommandeManagerWorldSubsystem::ScheduleNextOrder(AOrderClient* Client)
 {
     if (!Client) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     FRoundState& State = States.FindOrAdd(Client);
 
@@ -163,6 +173,7 @@ void UCommandeManagerWorldSubsystem::ScheduleNextOrder(AOrderClient* Client)
 void UCommandeManagerWorldSubsystem::EndRound(AOrderClient* Client)
 {
     if (!Client) return;
+    if (!GetWorld() || GetWorld()->GetNetMode() == NM_Client) return;
 
     FRoundState& State = States.FindOrAdd(Client);
     State.bInRound = false;
@@ -226,7 +237,7 @@ void UCommandeManagerWorldSubsystem::EndRound(AOrderClient* Client)
 void UCommandeManagerWorldSubsystem::ReloadCurrentLevel()
 {
     UWorld* World = GetWorld();
-    if (!World) return;
+    if (!World || World->GetNetMode() == NM_Client) return;
 
     const FName LevelName(*World->GetName());
     UGameplayStatics::OpenLevel(this, LevelName, true);

@@ -32,6 +32,8 @@ public:
 
 	APotionPanicPlayerController();
 
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
 protected:
 
 	void BeginPlay() override;
@@ -115,6 +117,9 @@ protected:
 	UPROPERTY()
 	UCommandeManagerWorldSubsystem* CommandeManagerSubsystem = nullptr;
 
+	UPROPERTY(ReplicatedUsing = OnRep_OrderClient)
+	AOrderClient* ReplicatedOrderClient = nullptr;
+
 	UPROPERTY()
 	TWeakObjectPtr<AOrderClient> BoundOrderClient;
 
@@ -159,6 +164,21 @@ private:
 	UFUNCTION()
 	void HandleRoundEnded(AOrderClient* Client, EOrderRoundResult Result, int32 SuccessCount);
 
+	UFUNCTION(Server, Reliable)
+	void ServerHandlePlayRequested();
+
+	UFUNCTION(Server, Reliable)
+	void ServerHandleReplayRequested();
+
+	UFUNCTION(Server, Reliable)
+	void ServerHandleReturnToMenuRequested();
+
+	UFUNCTION(Client, Reliable)
+	void ClientHandleRoundEnded(bool bIsVictory, int32 Score);
+
+	UFUNCTION(Client, Reliable)
+	void ClientScoreUpdated(int32 NewScore);
+
 	void StartAllRounds();
 	AOrderClient* FindOrCreateOrderClient() const;
 	void ResetScore();
@@ -171,6 +191,9 @@ private:
 	void UnbindFromOrderClient();
 
 	UFUNCTION()
+	void OnRep_OrderClient();
+
+	UFUNCTION()
 	void HandleOrderStarted(const FClientOrderEntry& Order);
 
 	UFUNCTION()
@@ -178,5 +201,8 @@ private:
 
 	UFUNCTION()
 	void HandleOrderFinished(AOrderClient* Client, const FClientOrderEntry& Order, bool bSuccess);
+
+	UFUNCTION()
+	void HandleServerScoreChanged(int32 NewScore);
 	
 };

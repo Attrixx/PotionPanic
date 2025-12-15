@@ -21,10 +21,18 @@
 #include "AbilitySystemComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "Net/UnrealNetwork.h"
 
 APotionPanicPlayerController::APotionPanicPlayerController()
 {
 	OrderWidgetClass = UOrderHUDWidget::StaticClass();
+}
+
+void APotionPanicPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(APotionPanicPlayerController, ReplicatedOrderClient);
 }
 
 void APotionPanicPlayerController::BeginPlay()
@@ -75,9 +83,32 @@ void APotionPanicPlayerController::BeginPlay()
 		CommandeManagerSubsystem = World->GetSubsystem<UCommandeManagerWorldSubsystem>();
 	}
 
-	if (CommandeManagerSubsystem)
+	if (HasAuthority())
 	{
-		CommandeManagerSubsystem->OnRoundEnded.AddDynamic(this, &ThisClass::HandleRoundEnded);
+		if (CommandeManagerSubsystem)
+		{
+			CommandeManagerSubsystem->OnRoundEnded.AddDynamic(this, &ThisClass::HandleRoundEnded);
+		}
+
+		if (ScoreSubsystem)
+		{
+			ScoreSubsystem->OnScoreChanged.AddDynamic(this, &ThisClass::HandleServerScoreChanged);
+
+			// Sync initial score to the owning client (for late joiners).
+			ClientScoreUpdated(ScoreSubsystem->GetScore());
+		}
+
+		// Late join support: if an order client already exists, replicate the reference immediately.
+		if (!ReplicatedOrderClient && GetWorld())
+		{
+			TArray<AActor*> Clients;
+			UGameplayStatics::GetAllActorsOfClass(GetWorld(), AOrderClient::StaticClass(), Clients);
+			if (Clients.Num() > 0)
+			{
+				ReplicatedOrderClient = Cast<AOrderClient>(Clients[0]);
+				BindToOrderClient(ReplicatedOrderClient);
+			}
+		}
 	}
 
 	ShowMainMenu();
@@ -102,7 +133,7 @@ void APotionPanicPlayerController::SetupInputComponent()
 
 void APotionPanicPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	if (CommandeManagerSubsystem)
+	if (CommandeManagerSubsystem && HasAuthority())
 	{
 		CommandeManagerSubsystem->OnRoundEnded.RemoveDynamic(this, &ThisClass::HandleRoundEnded);
 	}
@@ -110,6 +141,11 @@ void APotionPanicPlayerController::EndPlay(const EEndPlayReason::Type EndPlayRea
 	if (MainMenuWidgetInstance)
 	{
 		MainMenuWidgetInstance->OnPlayRequested.RemoveAll(this);
+	}
+
+	if (ScoreSubsystem && HasAuthority())
+	{
+		ScoreSubsystem->OnScoreChanged.RemoveDynamic(this, &ThisClass::HandleServerScoreChanged);
 	}
 
 	if (EndMenuWidgetInstance)
@@ -326,34 +362,80 @@ void APotionPanicPlayerController::HandlePlayRequested()
 {
 	HideMainMenu();
 	HideEndMenu();
-
-	ResetScore();
-	StartAllRounds();
 	ApplyInputModeGame();
 	bGameStarted = true;
+
+	if (HasAuthority())
+	{
+		ResetScore();
+		StartAllRounds();
+	}
+	else
+	{
+		ServerHandlePlayRequested();
+	}
 }
 
 void APotionPanicPlayerController::HandleReplayRequested()
 {
 	HideEndMenu();
-
-	ResetScore();
-	StartAllRounds();
 	ApplyInputModeGame();
 	bGameStarted = true;
+
+	if (HasAuthority())
+	{
+		ResetScore();
+		StartAllRounds();
+	}
+	else
+	{
+		ServerHandleReplayRequested();
+	}
 }
 
 void APotionPanicPlayerController::HandleReturnToMenuRequested()
 {
 	HideEndMenu();
+	ShowMainMenu();
+	bGameStarted = false;
 
+	if (HasAuthority())
+	{
+		ResetScore();
+	}
+	else
+	{
+		ServerHandleReturnToMenuRequested();
+	}
+}
+
+void APotionPanicPlayerController::ServerHandlePlayRequested_Implementation()
+{
+	ResetScore();
+	StartAllRounds();
+	bGameStarted = true;
+}
+
+void APotionPanicPlayerController::ServerHandleReplayRequested_Implementation()
+{
+	ResetScore();
+	StartAllRounds();
+	bGameStarted = true;
+}
+
+void APotionPanicPlayerController::ServerHandleReturnToMenuRequested_Implementation()
+{
 	ResetScore();
 	bGameStarted = false;
-	ShowMainMenu();
 }
 
 void APotionPanicPlayerController::HandleRoundEnded(AOrderClient* Client, EOrderRoundResult Result, int32 SuccessCount)
 {
+	if (!HasAuthority())
+	{
+		return;
+	}
+
 	if (!bGameStarted)
 	{
 		return;
@@ -361,13 +443,20 @@ void APotionPanicPlayerController::HandleRoundEnded(AOrderClient* Client, EOrder
 
 	const bool bIsVictory = (Result != EOrderRoundResult::Lose);
 	const int32 CurrentScore = GetCurrentScore();
-	ShowEndMenu(bIsVictory, CurrentScore);
+	if (IsLocalController())
+	{
+		ShowEndMenu(bIsVictory, CurrentScore);
+	}
+	else
+	{
+		ClientHandleRoundEnded(bIsVictory, CurrentScore);
+	}
 	bGameStarted = false;
 }
 
 void APotionPanicPlayerController::StartAllRounds()
 {
-	if (!CommandeManagerSubsystem || !GetWorld())
+	if (!HasAuthority() || !CommandeManagerSubsystem || !GetWorld())
 	{
 		return;
 	}
@@ -419,6 +508,11 @@ AOrderClient* APotionPanicPlayerController::FindOrCreateOrderClient() const
 	return NewClient;
 }
 
+void APotionPanicPlayerController::OnRep_OrderClient()
+{
+	BindToOrderClient(ReplicatedOrderClient);
+}
+
 void APotionPanicPlayerController::BindToOrderClient(AOrderClient* Client)
 {
 	if (BoundOrderClient.Get() == Client)
@@ -435,6 +529,11 @@ void APotionPanicPlayerController::BindToOrderClient(AOrderClient* Client)
 			OrderWidgetInstance->SetVisibility(ESlateVisibility::Hidden);
 		}
 		return;
+	}
+
+	if (HasAuthority())
+	{
+		ReplicatedOrderClient = Client;
 	}
 
 	BoundOrderClient = Client;
@@ -458,6 +557,10 @@ void APotionPanicPlayerController::UnbindFromOrderClient()
 	}
 
 	BoundOrderClient.Reset();
+	if (HasAuthority())
+	{
+		ReplicatedOrderClient = nullptr;
+	}
 
 	if (OrderWidgetInstance)
 	{
@@ -501,6 +604,26 @@ void APotionPanicPlayerController::ResetScore()
 int32 APotionPanicPlayerController::GetCurrentScore() const
 {
 	return ScoreSubsystem ? ScoreSubsystem->GetScore() : 0;
+}
+
+void APotionPanicPlayerController::HandleServerScoreChanged(int32 NewScore)
+{
+	// Propagate the new score to the owning client so its local UI can update.
+	ClientScoreUpdated(NewScore);
+}
+
+void APotionPanicPlayerController::ClientScoreUpdated_Implementation(int32 NewScore)
+{
+	if (ScoreSubsystem)
+	{
+		ScoreSubsystem->SetScore(NewScore);
+	}
+}
+
+void APotionPanicPlayerController::ClientHandleRoundEnded_Implementation(bool bIsVictory, int32 Score)
+{
+	ShowEndMenu(bIsVictory, Score);
+	bGameStarted = false;
 }
 
 void APotionPanicPlayerController::ApplyInputModeUI(UUserWidget* FocusWidget)
