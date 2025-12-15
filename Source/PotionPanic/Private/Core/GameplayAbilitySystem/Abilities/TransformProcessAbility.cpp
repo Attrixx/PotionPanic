@@ -1,5 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
+#include "GameFramework/Pawn.h"
 
 #include "Core/GameplayAbilitySystem/Abilities/TransformProcessAbility.h"
 #include "Core/StationActor.h"
@@ -109,6 +110,12 @@ void UTransformProcessAbility::NextQuickTimeEvent(FGameplayEventData Payload)
 {
 	AStationActor* Station = Cast<AStationActor>(CurrentActorInfo->AvatarActor.Get());
 	if (!IsValid(Station)) return;
+
+	if (APawn* QTEInstigator = Cast<APawn>(const_cast<AActor*>(Payload.Instigator.Get())))
+	{
+		Station->SetCurrentProcessInstigator(QTEInstigator);
+	}
+
 	APotionPanicCharacter* Character = Cast<APotionPanicCharacter>(Station->GetCurrentProcessInstigator());
 	if (!IsValid(Character)) return;
 	if (QuickTimeEventTracker.CurrentInputIndex == 0)

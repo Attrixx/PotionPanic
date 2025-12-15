@@ -48,6 +48,7 @@ public:
 	FRecipe* GetCurrentRecipe() const { return CurrentRecipe; }
 	APawn* GetCurrentProcessInstigator() const { return CurrentProcessInstigator; }
 	bool CanAcceptItem(TSubclassOf<AActor> ItemClass) const;
+	void SetCurrentProcessInstigator(APawn* NewInstigator) { CurrentProcessInstigator = NewInstigator; }
 
 	void ShowInteractionUI(bool bShow);
 	void ShowAnimatedProgress(float Duration, bool bAutoHide);
