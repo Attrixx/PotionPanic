@@ -9,46 +9,52 @@
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
 		},
-	{
-		"Name": "CoreGameplay",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "Events",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "GameFlow",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "Interactions",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "Items",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "Recipes",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "Stations",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	},
-	{
-		"Name": "UserInterfaces",
-		"Type": "Runtime",
-		"LoadingPhase": "Default"
-	}
+		{
+			"Name": "CoreGameplay",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		},
+		{
+			"Name": "Events",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "GameFlow",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "Interactions",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "Items",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		},
+		{
+			"Name": "Recipes",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "Stations",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "UserInterfaces",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
 	],
 	"Plugins": [
 		{

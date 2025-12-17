@@ -10,7 +10,9 @@ public class Items : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "Niagara",
+            "CoreGameplay"
         });
     }
 }
