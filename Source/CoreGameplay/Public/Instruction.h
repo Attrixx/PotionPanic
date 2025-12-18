@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Activity.h"
+#include "ActivityAsset.h"
 #include "Instruction.generated.h"
 
 class UItemAsset;
@@ -15,5 +15,5 @@ struct COREGAMEPLAY_API FInstruction
 
 	FPrimaryAssetId InputItem;
 	FPrimaryAssetId OutputItem;
-	EActivity Activity;
+	TObjectPtr<UActivityAsset> Activity;
 };
