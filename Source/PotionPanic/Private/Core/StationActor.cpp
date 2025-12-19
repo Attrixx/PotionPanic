@@ -165,6 +165,11 @@ void AStationActor::OnAbilityEnded(const FAbilityEndedData& AbilityEndedData)
         if (CurrentRecipe == nullptr || CurrentRecipe->Product == nullptr) return;
 		bDestroySpawnedItem = false;
         SpawnedItem = SpawnerComponent->SpawnItem(CurrentProcessInstigator, CurrentRecipe->Product);
+		// Check if station is Spawner, then do not destroy spawned item
+        if (StationTag.MatchesTag(PotionPanicTags::Stations::Spawner))
+        {
+			SpawnedItem = nullptr;
+        }
 		bDestroySpawnedItem = true;
     }
 }

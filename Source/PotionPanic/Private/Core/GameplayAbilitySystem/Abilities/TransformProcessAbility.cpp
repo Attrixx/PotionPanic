@@ -1,7 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "GameFramework/Pawn.h"
-
 #include "Core/GameplayAbilitySystem/Abilities/TransformProcessAbility.h"
 #include "Core/StationActor.h"
 #include "Core/PotionPanicCharacter.h"
@@ -10,6 +8,8 @@
 
 #include "Abilities/Tasks/AbilityTask_WaitDelay.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+
+#include "GameFramework/Pawn.h"
 
 void UTransformProcessAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
