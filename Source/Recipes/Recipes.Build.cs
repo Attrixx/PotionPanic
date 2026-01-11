@@ -10,7 +10,9 @@ public class Recipes : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "CoreGameplay",
+            "Items"
         });
     }
 }
