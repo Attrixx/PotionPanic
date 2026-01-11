@@ -6,7 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "ItemActor.generated.h"
 
-class UItemAsset;
+struct FItemRow;
 class USocketableComponent;
 class UStaticMeshComponent;
 class UNiagaraComponent;
@@ -18,17 +18,15 @@ class ITEMS_API AItemActor : public AActor
 	GENERATED_BODY()
 	
 	AItemActor();
-	void OnConstruction(const FTransform& Transform) override;
 
 public:
 
-	void SetItemAsset(UItemAsset& NewItemAsset);
-	UItemAsset* GetItemAsset() const { return ItemAsset; }
+	void SetItem(const FItemRow& NewItem);
+	const FItemRow* GetItem() const { return Item; }
 
 private:
 
-	UPROPERTY(EditInstanceOnly)
-	TObjectPtr<UItemAsset> ItemAsset;
+	const FItemRow* Item;
 
 protected:
 

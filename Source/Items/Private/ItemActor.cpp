@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ItemActor.h"
-#include "ItemAsset.h"
+#include "ItemRow.h"
 #include "SocketableComponent.h"
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
@@ -28,23 +28,15 @@ AItemActor::AItemActor()
 	Audio->bAutoActivate = false;
 }
 
-void AItemActor::OnConstruction(const FTransform& Transform)
+void AItemActor::SetItem(const FItemRow& NewItem)
 {
-	if (ItemAsset)
-	{
-		SetItemAsset(*ItemAsset);
-	}
-}
+	Item = &NewItem;
 
-void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
-{
-	ItemAsset = &NewItemAsset;
-
-	StaticMesh->SetStaticMesh(NewItemAsset.StaticMesh);
+	StaticMesh->SetStaticMesh(NewItem.StaticMesh);
 	
-	Niagara->SetAsset(NewItemAsset.NiagaraSystem);
+	Niagara->SetAsset(NewItem.NiagaraSystem);
 	Niagara->Activate(true);
 
-	Audio->SetSound(NewItemAsset.Sound);
+	Audio->SetSound(NewItem.Sound);
 	Audio->Activate(true);
 }
