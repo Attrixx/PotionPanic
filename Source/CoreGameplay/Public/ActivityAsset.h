@@ -3,16 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataTable.h"
-#include "ActivityRow.generated.h"
+#include "Engine/DataAsset.h"
+#include "ActivityAsset.generated.h"
 
 /**
- *
+ * 
  */
-USTRUCT()
-struct COREGAMEPLAY_API FActivityRow : public FTableRowBase
+UCLASS()
+class COREGAMEPLAY_API UActivityAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
+	
+public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText ActivityName;

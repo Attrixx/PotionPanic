@@ -3,14 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ActivityAsset.h"
 #include "Instruction.generated.h"
+
+class UItemAsset;
 
 USTRUCT(BlueprintType)
 struct COREGAMEPLAY_API FInstruction
 {
 	GENERATED_BODY()
 
-	FName InputItem;
-	FName OutputItem;
-	FName Activity;
+	FPrimaryAssetId InputItem;
+	FPrimaryAssetId OutputItem;
+	TObjectPtr<UActivityAsset> Activity;
 };

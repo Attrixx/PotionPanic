@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataTable.h"
-#include "ItemRow.generated.h"
+#include "Engine/DataAsset.h"
+#include "ItemAsset.generated.h"
 
 class UStaticMesh;
 class UNiagaraSystem;
@@ -13,23 +13,22 @@ class USoundBase;
 /**
  * 
  */
-USTRUCT()
-struct ITEMS_API FItemRow : public FTableRowBase
+UCLASS()
+class ITEMS_API UItemAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
+
+public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText ItemName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool bIsBreakable = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<UNiagaraSystem> NiagaraSystem = nullptr;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<USoundBase> Sound = nullptr;
 };
