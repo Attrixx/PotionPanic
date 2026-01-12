@@ -16,6 +16,7 @@ void AAlchemistBase::Server_SendIntent_Implementation(EIntentType Intent)
 	case EIntentType::PickUpOrDrop: PickupOrDrop(); break;
 	case EIntentType::Throw: Throw(); break;
 	case EIntentType::Interact: Interact(); break;
+	case EIntentType::Dash: Dash(); break;
 	default:
 	{
 		UE_LOGFMT(PP_AlchemistBase, Warning, "Server received not implemented intent ({0}).", std::size_t(Intent));
@@ -37,4 +38,9 @@ void AAlchemistBase::Throw()
 void AAlchemistBase::Interact()
 {
 	UE_LOGFMT(PP_AlchemistBase, Log, "Interact");
+}
+
+void AAlchemistBase::Dash()
+{
+	UE_LOGFMT(PP_AlchemistBase, Log, "Dash");
 }

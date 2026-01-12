@@ -11,7 +11,8 @@ enum class EIntentType : uint8
 {
 	PickUpOrDrop,
 	Throw,
-	Interact
+	Interact,
+	Dash
 };
 
 UCLASS()
@@ -31,4 +32,5 @@ private:
 	void PickupOrDrop();
 	void Throw();
 	void Interact();
+	void Dash();
 };
