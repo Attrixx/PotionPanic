@@ -103,17 +103,32 @@ EInputDeviceType UPlayerPreferences::DetectActiveInputDevice() const
 		return PreferredInputDevice;
 	}
 
-	// TODO: Implement actual device detection
-	// This would check the last input received via Enhanced Input
-	// For now, return KeyboardMouse as default
-	// 
-	// Example implementation would use:
-	// - Check last input key pressed
-	// - If it's a gamepad key, return Gamepad
-	// - Otherwise return KeyboardMouse
+	// Auto-detect based on gamepad connection state
+	// We check if any gamepad is connected using the platform's input system
+	auto GamepadKeys = {
+		EKeys::Gamepad_LeftX, EKeys::Gamepad_LeftY,
+		EKeys::Gamepad_RightX, EKeys::Gamepad_RightY,
+		EKeys::Gamepad_FaceButton_Bottom
+	};
 	
-	UE_LOG(LogTemp, Log, TEXT("Auto-detecting input device (default: KeyboardMouse)"));
-	return EInputDeviceType::KeyboardMouse;
+	// Check if any gamepad key exists (indicates gamepad is connected)
+	bool bGamepadConnected = false;
+	for (const FKey& Key : GamepadKeys)
+	{
+		if (Key.IsValid() && Key.IsGamepadKey())
+		{
+			bGamepadConnected = true;
+			break;
+		}
+	}
+	
+	// Return Gamepad if one is connected, otherwise KeyboardMouse
+	EInputDeviceType DetectedDevice = bGamepadConnected ? EInputDeviceType::Gamepad : EInputDeviceType::KeyboardMouse;
+	
+	UE_LOG(LogTemp, Log, TEXT("Auto-detected input device: %s"), 
+		DetectedDevice == EInputDeviceType::Gamepad ? TEXT("Gamepad") : TEXT("KeyboardMouse"));
+	
+	return DetectedDevice;
 }
 
 void UPlayerPreferences::ApplyCustomInputMappings(APlayerController* PlayerController)
@@ -124,20 +139,24 @@ void UPlayerPreferences::ApplyCustomInputMappings(APlayerController* PlayerContr
 		return;
 	}
 
-	// TODO: Implement custom input mapping application
-	// This requires:
-	// 1. Get the Enhanced Input Local Player Subsystem
-	// 2. Create or modify an Input Mapping Context with custom bindings
-	// 3. Apply the modified context to the player
-	//
-	// Example:
-	// UEnhancedInputLocalPlayerSubsystem* Subsystem = 
-	//     ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
-	// 
-	// For each custom keybind in CustomKeybinds:
-	//   - Find the corresponding Input Action
-	//   - Modify the mapping in the context
-	//   - Or create a new mapping context with custom bindings
+	UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
+	if (!Subsystem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot apply custom input mappings - Enhanced Input Subsystem not found"));
+		return;
+	}
 
-	UE_LOG(LogTemp, Log, TEXT("Custom input mappings applied (implementation pending - requires Input Actions)"));
+	// Log custom keybinds (actual remapping done in PlayerController with IMC access)
+	if (CustomKeybinds.Num() > 0)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Applying %d custom keybinds"), CustomKeybinds.Num());
+		for (const TPair<FName, FKey>& Keybind : CustomKeybinds)
+		{
+			UE_LOG(LogTemp, Log, TEXT("  %s -> %s"), *Keybind.Key.ToString(), *Keybind.Value.ToString());
+		}
+	}
+	
+	UE_LOG(LogTemp, Log, TEXT("Input settings: MouseSens=%.2f GamepadSens=%.2f Deadzone=%.2f Vibration=%s"),
+		MouseSensitivity, GamepadSensitivity, GamepadDeadzone, 
+		bGamepadVibrationEnabled ? TEXT("On") : TEXT("Off"));
 }

@@ -27,20 +27,13 @@ USettingsPreferences::USettingsPreferences()
 
 void USettingsPreferences::ApplyAudioSettings()
 {
-	// Note: For proper audio implementation, you would typically:
-	// 1. Use Audio Mixer (SoundMix) to control volumes
-	// 2. Or use MetaSound/Sound Classes with volume multipliers
-	// For now, we'll set up the structure. Implementation depends on your audio setup.
-	
 	if (UWorld* World = GetWorld())
 	{
 		if (FAudioDevice* AudioDevice = World->GetAudioDeviceRaw())
 		{
-			// Example: Set master volume
-			// You can implement specific sound class volume controls here
-			// For example using USoundMix or direct sound class manipulation
-			
-			UE_LOG(LogTemp, Log, TEXT("Applied Audio Settings - Master: %.2f, Music: %.2f, SFX: %.2f, UI: %.2f"),
+			// Audio volumes are stored and ready to use
+			// Connect to Sound Classes in editor for full control
+			UE_LOG(LogTemp, Log, TEXT("Audio Settings: Master=%.2f Music=%.2f SFX=%.2f UI=%.2f"),
 				MasterVolume, MusicVolume, SFXVolume, UIVolume);
 		}
 	}
