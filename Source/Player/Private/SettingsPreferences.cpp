@@ -6,6 +6,10 @@
 #include "AudioDevice.h"
 #include "Kismet/GameplayStatics.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogSettingsPreferences, Log, All);
+
+const FString USettingsPreferences::SaveSlotName = TEXT("GameSettings");
+
 USettingsPreferences::USettingsPreferences()
 {
 	// Audio defaults (0.0 to 1.0)
@@ -144,4 +148,58 @@ void USettingsPreferences::ApplyAllSettings()
 {
 	ApplyAudioSettings();
 	ApplyVideoSettings();
+}
+
+void USettingsPreferences::SaveSettings(const USettingsPreferences* Settings)
+{
+	if (!Settings)
+	{
+		UE_LOG(LogSettingsPreferences, Error, TEXT("Cannot save settings - Settings is null"));
+		return;
+	}
+
+	// Create a copy for saving
+	USettingsPreferences* SaveInstance = DuplicateObject(Settings, GetTransientPackage());
+	
+	if (UGameplayStatics::SaveGameToSlot(SaveInstance, SaveSlotName, 0))
+	{
+		UE_LOG(LogSettingsPreferences, Log, TEXT("Saved Settings successfully"));
+	}
+	else
+	{
+		UE_LOG(LogSettingsPreferences, Error, TEXT("Could not save Settings to disk"));
+	}
+}
+
+USettingsPreferences* USettingsPreferences::LoadSettings()
+{
+	USettingsPreferences* LoadedSettings = Cast<USettingsPreferences>(
+		UGameplayStatics::LoadGameFromSlot(SaveSlotName, 0));
+	
+	if (LoadedSettings)
+	{
+		UE_LOG(LogSettingsPreferences, Log, TEXT("Loaded Settings successfully"));
+	}
+	else
+	{
+		UE_LOG(LogSettingsPreferences, Warning, TEXT("Could not find Settings on disk"));
+	}
+	
+	return LoadedSettings;
+}
+
+USettingsPreferences* USettingsPreferences::GetOrCreateSettings()
+{
+	// Try to load existing settings
+	USettingsPreferences* Settings = LoadSettings();
+	
+	if (!Settings)
+	{
+		// Create new settings with defaults
+		Settings = NewObject<USettingsPreferences>();
+		Settings->LoadFromGameUserSettings();
+		UE_LOG(LogSettingsPreferences, Log, TEXT("Created new Settings with defaults"));
+	}
+	
+	return Settings;
 }

@@ -99,4 +99,19 @@ public:
 	/** Apply all settings */
 	UFUNCTION(BlueprintCallable, Category = "Settings")
 	void ApplyAllSettings();
+
+	// ==================== Static Methods ====================
+
+	/** Save settings to disk */
+	static void SaveSettings(const USettingsPreferences* Settings);
+
+	/** Load settings from disk, returns nullptr if not found */
+	static USettingsPreferences* LoadSettings();
+
+	/** Get settings from disk or create new with defaults */
+	UFUNCTION(BlueprintCallable, Category = "Settings")
+	static USettingsPreferences* GetOrCreateSettings();
+
+private:
+	static const FString SaveSlotName;
 };

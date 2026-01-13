@@ -98,4 +98,44 @@ public:
 	/** Apply custom input mappings to a player controller */
 	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
 	void ApplyCustomInputMappings(APlayerController* PlayerController);
+
+	// ==================== Static Methods ====================
+
+	/** Save preferences to disk (uses profile ID 0) */
+	static void SavePreferences(const UPlayerPreferences* Preferences);
+
+	/** Load preferences from disk (uses profile ID 0), returns nullptr if not found */
+	static UPlayerPreferences* LoadPreferences();
+
+	/** Get preferences from disk or create new with defaults (uses profile ID 0) */
+	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
+	static UPlayerPreferences* GetOrCreatePreferences();
+
+	// ==================== Multi-Profile Methods ====================
+
+	/** Save preferences to disk with specific profile ID (0, 1, 2, 3...) */
+	static void SavePreferences(const UPlayerPreferences* Preferences, int32 ProfileId);
+
+	/** Load preferences from disk for specific profile ID, returns nullptr if not found */
+	static UPlayerPreferences* LoadPreferences(int32 ProfileId);
+
+	/** Get preferences from disk or create new with defaults for specific profile ID */
+	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
+	static UPlayerPreferences* GetOrCreatePreferences(int32 ProfileId);
+
+	/** Get list of available player profile IDs */
+	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
+	static TArray<int32> GetAvailableProfiles();
+
+	/** Delete a specific preferences profile by ID */
+	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
+	static bool DeleteProfile(int32 ProfileId);
+
+	/** Check if a specific profile exists by ID */
+	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
+	static bool ProfileExists(int32 ProfileId);
+
+private:
+	static const FString SaveSlotName;
+	static const int32 DefaultProfileId;
 };

@@ -6,6 +6,11 @@
 #include "EnhancedInputComponent.h"
 #include "Kismet/GameplayStatics.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogPlayerPreferences, Log, All);
+
+const FString UPlayerPreferences::SaveSlotName = TEXT("PlayerPreferences");
+const int32 UPlayerPreferences::DefaultProfileId = 0;
+
 UPlayerPreferences::UPlayerPreferences()
 {
 	// Default player info
@@ -159,4 +164,136 @@ void UPlayerPreferences::ApplyCustomInputMappings(APlayerController* PlayerContr
 	UE_LOG(LogTemp, Log, TEXT("Input settings: MouseSens=%.2f GamepadSens=%.2f Deadzone=%.2f Vibration=%s"),
 		MouseSensitivity, GamepadSensitivity, GamepadDeadzone, 
 		bGamepadVibrationEnabled ? TEXT("On") : TEXT("Off"));
+}
+
+// ==================== Single Profile Methods (Backward Compatibility) ====================
+
+void UPlayerPreferences::SavePreferences(const UPlayerPreferences* Preferences)
+{
+	SavePreferences(Preferences, DefaultProfileId);
+}
+
+UPlayerPreferences* UPlayerPreferences::LoadPreferences()
+{
+	return LoadPreferences(DefaultProfileId);
+}
+
+UPlayerPreferences* UPlayerPreferences::GetOrCreatePreferences()
+{
+	return GetOrCreatePreferences(DefaultProfileId);
+}
+
+// ==================== Multi-Profile Methods ====================
+
+void UPlayerPreferences::SavePreferences(const UPlayerPreferences* Preferences, int32 ProfileId)
+{
+	if (!Preferences)
+	{
+		UE_LOG(LogPlayerPreferences, Error, TEXT("Cannot save preferences - Preferences is null"));
+		return;
+	}
+
+	// Create slot name with profile ID
+	FString SlotName = FString::Printf(TEXT("%s_%d"), *SaveSlotName, ProfileId);
+	
+	// Create a copy for saving
+	UPlayerPreferences* SaveInstance = DuplicateObject(Preferences, GetTransientPackage());
+	
+	if (UGameplayStatics::SaveGameToSlot(SaveInstance, SlotName, 0))
+	{
+		UE_LOG(LogPlayerPreferences, Log, TEXT("Saved Player Preferences successfully to profile %d"), ProfileId);
+	}
+	else
+	{
+		UE_LOG(LogPlayerPreferences, Error, TEXT("Could not save Player Preferences to disk for profile %d"), ProfileId);
+	}
+}
+
+UPlayerPreferences* UPlayerPreferences::LoadPreferences(int32 ProfileId)
+{
+	// Create slot name with profile ID
+	FString SlotName = FString::Printf(TEXT("%s_%d"), *SaveSlotName, ProfileId);
+	
+	UPlayerPreferences* LoadedPreferences = Cast<UPlayerPreferences>(
+		UGameplayStatics::LoadGameFromSlot(SlotName, 0));
+	
+	if (LoadedPreferences)
+	{
+		UE_LOG(LogPlayerPreferences, Log, TEXT("Loaded Player Preferences successfully from profile %d"), ProfileId);
+	}
+	else
+	{
+		UE_LOG(LogPlayerPreferences, Warning, TEXT("Could not find Player Preferences on disk for profile %d"), ProfileId);
+	}
+	
+	return LoadedPreferences;
+}
+
+UPlayerPreferences* UPlayerPreferences::GetOrCreatePreferences(int32 ProfileId)
+{
+	// Try to load existing preferences
+	UPlayerPreferences* Preferences = LoadPreferences(ProfileId);
+	
+	if (!Preferences)
+	{
+		// Create new preferences with defaults
+		Preferences = NewObject<UPlayerPreferences>();
+		UE_LOG(LogPlayerPreferences, Log, TEXT("Created new Player Preferences with defaults for profile %d"), ProfileId);
+	}
+	
+	return Preferences;
+}
+
+TArray<int32> UPlayerPreferences::GetAvailableProfiles()
+{
+	TArray<int32> Profiles;
+	
+	// Check for common profile IDs (0-7 for up to 8 players)
+	for (int32 i = 0; i < 8; i++)
+	{
+		if (ProfileExists(i))
+		{
+			Profiles.Add(i);
+		}
+	}
+	
+	UE_LOG(LogPlayerPreferences, Log, TEXT("Found %d available player preferences profiles"), Profiles.Num());
+	
+	return Profiles;
+}
+
+bool UPlayerPreferences::DeleteProfile(int32 ProfileId)
+{
+	if (ProfileId == DefaultProfileId)
+	{
+		UE_LOG(LogPlayerPreferences, Warning, TEXT("Cannot delete the default profile (ID 0)"));
+		return false;
+	}
+	
+	FString SlotName = FString::Printf(TEXT("%s_%d"), *SaveSlotName, ProfileId);
+	
+	if (UGameplayStatics::DoesSaveGameExist(SlotName, 0))
+	{
+		bool bSuccess = UGameplayStatics::DeleteGameInSlot(SlotName, 0);
+		
+		if (bSuccess)
+		{
+			UE_LOG(LogPlayerPreferences, Log, TEXT("Deleted player preferences profile %d"), ProfileId);
+		}
+		else
+		{
+			UE_LOG(LogPlayerPreferences, Error, TEXT("Failed to delete player preferences profile %d"), ProfileId);
+		}
+		
+		return bSuccess;
+	}
+	
+	UE_LOG(LogPlayerPreferences, Warning, TEXT("Profile %d does not exist"), ProfileId);
+	return false;
+}
+
+bool UPlayerPreferences::ProfileExists(int32 ProfileId)
+{
+	FString SlotName = FString::Printf(TEXT("%s_%d"), *SaveSlotName, ProfileId);
+	return UGameplayStatics::DoesSaveGameExist(SlotName, 0);
 }
