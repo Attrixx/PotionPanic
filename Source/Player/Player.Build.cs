@@ -10,7 +10,11 @@ public class Player : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "EnhancedInput",
+            "InputCore",
+            "AudioMixer",
+            "UMG"
         });
     }
 }
