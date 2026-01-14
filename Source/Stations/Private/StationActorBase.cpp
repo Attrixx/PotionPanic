@@ -1,15 +1,37 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "StationActorBase.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
 
 AStationActorBase::AStationActorBase()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 void AStationActorBase::Interact(APlayerController& InInstigator)
 {
-	// TODO
+	CurrentPlayer = &InInstigator;
+}
+
+void AStationActorBase::Execute(const FInstruction& Instruction)
+{
+	if (!CanExecuteActivity(Instruction.Activity))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Station cannot execute this activity"));
+		return;
+	}
+
+	CurrentInstruction = Instruction;
+	OnTransformationStarted();
+}
+
+bool AStationActorBase::CanExecuteActivity(UActivityAsset* Activity) const
+{
+	if (!Activity)
+	{
+		return false;
+	}
+
+	return Activities.Contains(Activity);
 }
 
 void AStationActorBase::BeginPlay()
@@ -17,3 +39,72 @@ void AStationActorBase::BeginPlay()
 	Super::BeginPlay();
 }
 
+void AStationActorBase::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (bIsTransforming)
+	{
+		TransformationProgress += DeltaTime;
+		OnTransformationTick(DeltaTime);
+
+		if (TransformationProgress >= TransformationDuration)
+		{
+			bIsTransforming = false;
+			TransformationProgress = TransformationDuration;
+			OnTransformationCompleted();
+		}
+	}
+}
+
+bool AStationActorBase::IsPlayerInProximity(APlayerController* Player) const
+{
+	if (!Player || !Player->GetPawn())
+	{
+		return false;
+	}
+
+	float Distance = FVector::Dist(GetActorLocation(), Player->GetPawn()->GetActorLocation());
+	return Distance <= InteractionRadius;
+}
+
+void AStationActorBase::StartTransformation(float Duration)
+{
+	if (bIsTransforming)
+	{
+		return;
+	}
+
+	bIsTransforming = true;
+	TransformationProgress = 0.0f;
+	TransformationDuration = Duration;
+	OnTransformationStarted();
+}
+
+void AStationActorBase::CancelTransformation()
+{
+	if (!bIsTransforming)
+	{
+		return;
+	}
+
+	bIsTransforming = false;
+	TransformationProgress = 0.0f;
+	OnTransformationCancelled();
+}
+
+void AStationActorBase::OnTransformationStarted()
+{
+}
+
+void AStationActorBase::OnTransformationTick(float DeltaTime)
+{
+}
+
+void AStationActorBase::OnTransformationCompleted()
+{
+}
+
+void AStationActorBase::OnTransformationCancelled()
+{
+}
