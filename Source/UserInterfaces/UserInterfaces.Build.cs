@@ -10,11 +10,12 @@ public class UserInterfaces : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"CoreGameplay",
 		});
 	}
 }

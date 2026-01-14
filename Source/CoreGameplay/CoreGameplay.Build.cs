@@ -6,15 +6,17 @@ public class CoreGameplay : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PublicDependencyModuleNames.AddRange(new string[]
-		{
-			"Core",
-			"CoreUObject",
-			"Engine"
-		});
+        PublicDependencyModuleNames.AddRange(new string[]
+        {
+            "Core",
+            "CoreUObject",
+            "Engine",
+            "OnlineSubsystem"
+        });
 
-		PrivateDependencyModuleNames.AddRange(new string[]
-		{
-		});
-	}
+        PrivateDependencyModuleNames.AddRange(new string[]
+        {
+            "OnlineSubsystemSteam"
+        });
+    }
 }

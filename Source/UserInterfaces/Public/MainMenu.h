@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "MainMenu.generated.h"
 
 /**
@@ -13,5 +14,36 @@ UCLASS()
 class USERINTERFACES_API UMainMenu : public UUserWidget
 {
 	GENERATED_BODY()
+
+protected:
+
+	void NativeConstruct() override;
+
+protected:
+
+	UPROPERTY(meta = (BindWidget))
+	class UButton* BT_Host;
+
+	UPROPERTY(meta = (BindWidget))
+	class UButton* BT_Join;
+
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FString LobbyMapURL;
+
+private:
+
+	TObjectPtr<class UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem;
+
+protected:
+
+	UFUNCTION()
+	void OnHostClicked();
+	UFUNCTION()
+	void OnJoinClicked();
+
+	UFUNCTION()
+	void OnCreateSession(bool bWasSuccessful);
+	void OnJoinSessions(EOnJoinSessionCompleteResult::Type Result);
 	
 };
