@@ -107,10 +107,6 @@ public:
 	/** Load preferences from disk (uses profile ID 0), returns nullptr if not found */
 	static UPlayerPreferences* LoadPreferences();
 
-	/** Get preferences from disk or create new with defaults (uses profile ID 0) */
-	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
-	static UPlayerPreferences* GetOrCreatePreferences();
-
 	// ==================== Multi-Profile Methods ====================
 
 	/** Save preferences to disk with specific profile ID (0, 1, 2, 3...) */
@@ -121,7 +117,7 @@ public:
 
 	/** Get preferences from disk or create new with defaults for specific profile ID */
 	UFUNCTION(BlueprintCallable, Category = "Player Preferences")
-	static UPlayerPreferences* GetOrCreatePreferences(int32 ProfileId);
+	static UPlayerPreferences* GetOrCreatePreferences(int32 ProfileId = -1);
 
 	/** Get list of available player profile IDs */
 	UFUNCTION(BlueprintCallable, Category = "Player Preferences")

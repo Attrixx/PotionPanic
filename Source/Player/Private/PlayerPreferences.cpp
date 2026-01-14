@@ -178,11 +178,6 @@ UPlayerPreferences* UPlayerPreferences::LoadPreferences()
 	return LoadPreferences(DefaultProfileId);
 }
 
-UPlayerPreferences* UPlayerPreferences::GetOrCreatePreferences()
-{
-	return GetOrCreatePreferences(DefaultProfileId);
-}
-
 // ==================== Multi-Profile Methods ====================
 
 void UPlayerPreferences::SavePreferences(const UPlayerPreferences* Preferences, int32 ProfileId)
@@ -231,6 +226,11 @@ UPlayerPreferences* UPlayerPreferences::LoadPreferences(int32 ProfileId)
 
 UPlayerPreferences* UPlayerPreferences::GetOrCreatePreferences(int32 ProfileId)
 {
+	if (ProfileId == -1)
+	{
+		ProfileId = DefaultProfileId;
+	}
+	
 	// Try to load existing preferences
 	UPlayerPreferences* Preferences = LoadPreferences(ProfileId);
 	
