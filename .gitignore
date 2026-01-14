@@ -73,3 +73,9 @@ Plugins/**/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# Visual studio debugger temporary folder
+enc_temp_folder/*
+
+# Rider temp files
+.idea/
