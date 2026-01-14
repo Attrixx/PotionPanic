@@ -45,5 +45,6 @@ protected:
 	UFUNCTION()
 	void OnCreateSession(bool bWasSuccessful);
 	void OnJoinSessions(EOnJoinSessionCompleteResult::Type Result);
+	void OnAcceptInvite(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
 	
 };

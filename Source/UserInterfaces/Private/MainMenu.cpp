@@ -24,6 +24,7 @@ void UMainMenu::NativeConstruct()
 	{
 		MultiplayerSessionsSubsystem->MultiplayerOnCreateSessionComplete.AddDynamic(this, &UMainMenu::OnCreateSession);
 		MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &UMainMenu::OnJoinSessions);
+		MultiplayerSessionsSubsystem->MultiplayerOnSessionUserInviteAccepted.AddUObject(this, &ThisClass::OnAcceptInvite);
 	}
 }
 
@@ -83,4 +84,11 @@ void UMainMenu::OnJoinSessions(EOnJoinSessionCompleteResult::Type Result)
 			}
 		}
 	}
+}
+
+void UMainMenu::OnAcceptInvite(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
+{
+	if (!MultiplayerSessionsSubsystem) return;
+
+	MultiplayerSessionsSubsystem->JoinSession(InviteResult);
 }
