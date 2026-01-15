@@ -16,7 +16,9 @@ public class CoreGameplay : ModuleRules
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
-            "OnlineSubsystemSteam"
+            "OnlineSubsystemSteam",
+            "SteamSockets",
+            "InputCore"
         });
     }
 }
