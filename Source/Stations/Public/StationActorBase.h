@@ -9,19 +9,13 @@
 
 class AItemActor;
 class APlayerController;
+class USocketComponent;
 
 /**
- * Base class for all station actors using the Command Pattern.
+ * Base class for all station actors.
  * 
- * Stations execute FInstructions which contain:
- *   - InputItem: What goes in (FPrimaryAssetId)
- *   - OutputItem: What comes out (FPrimaryAssetId)
- *   - Activity: What action to perform (UActivityAsset)
- * 
- * Each station declares which Activities it supports via the Activities array.
- * Execution is validated automatically via CanExecuteActivity().
- * 
- * Supports timed transformations with proximity checking and lifecycle callbacks.
+ * Stations are interactable actors that support specific activities.
+ * All station logic is handled through the Interact() method and an external manager.
  */
 UCLASS()
 class STATIONS_API AStationActorBase : public AActor, public IInteractable
@@ -34,41 +28,22 @@ public:
 	void Interact(APlayerController& InInstigator) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Station")
-	virtual void Execute(const FInstruction& Instruction);
+	void SetInstruction(const FInstruction& InInstruction) { CurrentInstruction = InInstruction; }
 
 	UFUNCTION(BlueprintPure, Category = "Station")
-	bool CanExecuteActivity(UActivityAsset* Activity) const;
+	const TArray<TObjectPtr<UActivityAsset>>& GetActivities() const { return Activities; }
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaTime) override;
-
-	// Transformation lifecycle - override in derived classes as needed
-	virtual void OnTransformationStarted();
-	virtual void OnTransformationTick(float DeltaTime);
-	virtual void OnTransformationCompleted();
-	virtual void OnTransformationCancelled();
-
-	void StartTransformation(float Duration);
-	void CancelTransformation();
 
 protected:
+	// TODO(Nath): Configure socket for item placement
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<USocketComponent> ItemSocket;
+
 	// Configure in Blueprint: which activities this station can perform
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
 	TArray<TObjectPtr<UActivityAsset>> Activities;
-
-	// Runtime state
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	bool bIsTransforming = false;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	float TransformationProgress = 0.0f;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	float TransformationDuration = 0.0f;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	TObjectPtr<APlayerController> CurrentPlayer;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
 	FInstruction CurrentInstruction;
