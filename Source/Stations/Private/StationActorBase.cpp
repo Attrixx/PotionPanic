@@ -57,17 +57,6 @@ void AStationActorBase::Tick(float DeltaTime)
 	}
 }
 
-bool AStationActorBase::IsPlayerInProximity(APlayerController* Player) const
-{
-	if (!Player || !Player->GetPawn())
-	{
-		return false;
-	}
-
-	float Distance = FVector::Dist(GetActorLocation(), Player->GetPawn()->GetActorLocation());
-	return Distance <= InteractionRadius;
-}
-
 void AStationActorBase::StartTransformation(float Duration)
 {
 	if (bIsTransforming)
