@@ -37,10 +37,13 @@ struct INTERACTIONS_API FInteractionContext
 	FInteractionOutputDelegate OnInteractionFinished;
 };
 
-UCLASS()
-class INTERACTIONS_API UInteractionBase : public UClass
+UCLASS(Abstract, BlueprintType)
+class INTERACTIONS_API UInteractionBase : public UObject
 {
 	GENERATED_BODY()
 	
+public:
+	
+	UFUNCTION(BlueprintCallable)
 	virtual void StartInteraction(const FInteractionContext& Context) PURE_VIRTUAL(UInteractionBase::StartInteraction, );
 };
