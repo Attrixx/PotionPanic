@@ -30,8 +30,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Station")
 	void SetInstruction(const FInstruction& InInstruction) { CurrentInstruction = InInstruction; }
 
-	UFUNCTION(BlueprintPure, Category = "Station")
-	const TArray<TObjectPtr<UActivityAsset>>& GetActivities() const { return Activities; }
+	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -43,7 +42,7 @@ protected:
 
 	// Configure in Blueprint: which activities this station can perform
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
-	TArray<TObjectPtr<UActivityAsset>> Activities;
+	TArray<UActivityAsset*> Activities;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
 	FInstruction CurrentInstruction;
