@@ -2,29 +2,31 @@
 
 #include "CoreMinimal.h"
 #include "StationActorBase.h"
-#include "CauldronStation.generated.h"
+#include "FirecampStation.generated.h"
 
 class USocketComponent;
 class AItemActor;
 
 /**
- * Cauldron Station - Combines multiple ingredients through cooking.
+ * Firecamp Station - Exclusive cooking station for cauldron-items.
  * 
- * Supports multi-ingredient recipes: Execute() can be called multiple times
- * to add ingredients before cooking starts. Once max ingredients or trigger
- * condition is met, begins timed cooking transformation.
+ * The firecamp accepts a cauldron-item on its socket and processes
+ * the ingredients contained within the cauldron.
  */
 UCLASS()
-class STATIONS_API ACauldronStation : public AStationActorBase
+class STATIONS_API AFirecampStation : public AStationActorBase
 {
 	GENERATED_BODY()
 
 public:
-	ACauldronStation();
+	AFirecampStation();
 	virtual void Execute(const FInstruction& Instruction) override;
 
 protected:
 	virtual void OnTransformationCompleted() override;
+
+	// Helper to check if cauldron has ingredients
+	bool CauldronHasIngredients() const;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
@@ -33,9 +35,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cooking")
 	float CookingDuration = 5.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cauldron")
-	int32 MaxIngredients = 5;
-
+	// Runtime state
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	TArray<TObjectPtr<AItemActor>> Ingredients;
+	TObjectPtr<AItemActor> CurrentCauldron;
 };
