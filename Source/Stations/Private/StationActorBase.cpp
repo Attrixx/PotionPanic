@@ -1,15 +1,13 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "StationActorBase.h"
+#include "SocketComponent.h"
 
 AStationActorBase::AStationActorBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
-}
 
-void AStationActorBase::Interact(APlayerController& InInstigator)
-{
-	// TODO
+	// TODO(Nath): Setup socket component attachment
+	ItemSocket = CreateDefaultSubobject<USocketComponent>(TEXT("ItemSocket"));
+	ItemSocket->SetupAttachment(RootComponent);
 }
 
 void AStationActorBase::BeginPlay()
@@ -17,3 +15,9 @@ void AStationActorBase::BeginPlay()
 	Super::BeginPlay();
 }
 
+void AStationActorBase::Interact(APlayerController& InInstigator)
+{
+	// Station interaction is handled by external manager
+	// This method satisfies the IInteractable interface
+	UE_LOG(LogTemp, Log, TEXT("Station '%s' interacted by player"), *GetName());
+}
