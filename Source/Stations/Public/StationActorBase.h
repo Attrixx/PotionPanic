@@ -36,9 +36,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Station")
 	virtual void Execute(const FInstruction& Instruction);
 
-	UFUNCTION(BlueprintCallable, Category = "Station")
-	bool IsPlayerInProximity(APlayerController* Player) const;
-
 	UFUNCTION(BlueprintPure, Category = "Station")
 	bool CanExecuteActivity(UActivityAsset* Activity) const;
 
@@ -59,9 +56,6 @@ protected:
 	// Configure in Blueprint: which activities this station can perform
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
 	TArray<TObjectPtr<UActivityAsset>> Activities;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
-	float InteractionRadius = 300.0f;
 
 	// Runtime state
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")

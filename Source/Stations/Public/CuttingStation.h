@@ -9,10 +9,6 @@ class AItemActor;
 
 /**
  * Cutting Station - Transforms items via timed cutting process.
- * 
- * Special behavior: Requires player to stay within proximity during cutting.
- * If player moves away, the cutting process is cancelled automatically.
- * This simulates needing to actively operate the guillotine.
  */
 UCLASS()
 class STATIONS_API ACuttingStation : public AStationActorBase
@@ -34,9 +30,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cutting")
 	float CuttingDuration = 3.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cutting")
-	bool bRequiresProximityDuringCutting = true;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
 	TObjectPtr<AItemActor> CurrentItem;

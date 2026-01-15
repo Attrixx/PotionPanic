@@ -14,15 +14,6 @@ ACuttingStation::ACuttingStation()
 void ACuttingStation::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if (bIsTransforming && bRequiresProximityDuringCutting)
-	{
-		if (!CurrentPlayer || !IsPlayerInProximity(CurrentPlayer))
-		{
-			CancelTransformation();
-			UE_LOG(LogTemp, Warning, TEXT("CuttingStation: Player left proximity, cutting cancelled"));
-		}
-	}
 }
 
 void ACuttingStation::Execute(const FInstruction& Instruction)
