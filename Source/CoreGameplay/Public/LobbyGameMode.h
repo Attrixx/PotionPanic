@@ -16,20 +16,30 @@ class COREGAMEPLAY_API ALobbyGameMode : public AGameModeBase
 public:
 
 	ALobbyGameMode();
+	void PostLogin(APlayerController* NewPlayer) override;
+	void Logout(AController* Exiting) override;
+	void PreLogin(const FString& Options, const FString& Adress, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 
 protected:
 
 	void BeginPlay() override;
 
+	void OnNewPlayerLogin(int32 PlayerId, const FString& PlayerName, bool bIsHost);
+
 public:
-	virtual void PostLogin(APlayerController* NewPlayer) override; 
-	virtual void Logout(AController* Exiting) override; 
-	virtual void PreLogin(const FString& Options, const FString& Adress, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+
 	bool CanHandleNewPlayer();
 
 private:
 
 	int32 MaxPlayer = 4; 
 	int32 PlayerCount = 0;
+
+	bool bHostPlayerIdInitialized = false;
+	int32 HostPlayerId;
+
+public:
+	void CheckGameStart();
+	void StartGame();
 	
 };

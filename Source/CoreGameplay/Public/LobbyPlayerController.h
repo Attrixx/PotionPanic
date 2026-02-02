@@ -4,7 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "LobbyPlayerState.h"
 #include "LobbyPlayerController.generated.h"
+
+class ULobby;
+class UInputMappingContext;
+class UInputAction;
+struct FInputActionValue;
 
 /**
  * 
@@ -26,6 +32,7 @@ protected:
 
 	void BeginPlay() override;
 	void SetupInputComponent() override;
+	void ReceivedPlayer() override;
 
 private:
 
@@ -37,8 +44,34 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientAuthorizeNewLocalPlayer();
 
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
+	void SetLobbyPlayerColor(FColor NewColor);
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
+	void SetLobbyReady(bool bIsReady);
+
 private:
 
 	int32 PendingControllerId;
+
+protected:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<class UInputMappingContext> InputMappingContext;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<class UInputAction> JoinAction;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<class UInputAction> LeaveAction;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<class UInputAction> InviteAction;
+
+protected:
+
+	void Join(const FInputActionValue& Value);
+	void Leave(const FInputActionValue& Value);
+	void Invite(const FInputActionValue& Value);
 	
 };

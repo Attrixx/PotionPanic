@@ -11,7 +11,8 @@ public class CoreGameplay : ModuleRules
             "Core",
             "CoreUObject",
             "Engine",
-            "OnlineSubsystem"
+            "OnlineSubsystem",
+            "EnhancedInput"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
