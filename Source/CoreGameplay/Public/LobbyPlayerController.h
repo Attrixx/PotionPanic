@@ -9,6 +9,7 @@
 /**
  * 
  */
+class ALobbyPlayerPreview;
 UCLASS()
 class COREGAMEPLAY_API ALobbyPlayerController : public APlayerController
 {
@@ -17,7 +18,10 @@ class COREGAMEPLAY_API ALobbyPlayerController : public APlayerController
 public:
 
 	ALobbyPlayerController();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	ALobbyPlayerPreview* MyPreviewActor;
 protected:
 
 	void BeginPlay() override;

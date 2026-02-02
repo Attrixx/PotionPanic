@@ -7,10 +7,17 @@
 
 #include "Kismet/GameplayStatics.h"
 
+#include "Net/UnrealNetwork.h"   
+#include "LobbyPlayerPreview.h"
 ALobbyPlayerController::ALobbyPlayerController()
 {
 }
 
+void ALobbyPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ALobbyPlayerController, MyPreviewActor);
+}
 void ALobbyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

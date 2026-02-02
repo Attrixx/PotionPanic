@@ -4,11 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
+#include "GameFrameWork/OnlineReplStructs.h"
 #include "LobbyGameMode.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class COREGAMEPLAY_API ALobbyGameMode : public AGameModeBase
 {
@@ -23,11 +22,14 @@ protected:
 	void BeginPlay() override;
 
 public:
-
+	virtual void PostLogin(APlayerController* NewPlayer) override; 
+	virtual void Logout(AController* Exiting) override; 
+	virtual void PreLogin(const FString& Options, const FString& Adress, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	bool CanHandleNewPlayer();
 
 private:
 
+	int32 MaxPlayer = 4; 
 	int32 PlayerCount = 0;
 	
 };
