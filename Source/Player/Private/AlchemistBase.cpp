@@ -1,46 +1,84 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AlchemistBase.h"
+#include "AlchemistMovementComponent.h"
+#include <EnhancedInputComponent.h>
+#include <EnhancedInputSubsystems.h>
 
 DEFINE_LOG_CATEGORY_STATIC(PP_AlchemistBase, Log, All);
 
-AAlchemistBase::AAlchemistBase()
+AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer.SetDefaultSubobjectClass<UAlchemistMovementComponent>(CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = false;
+	
+	bUseControllerRotationPitch = false;
+	bUseControllerRotationYaw = false;
+	bUseControllerRotationRoll = false;
+
+	GetCharacterMovement()->bOrientRotationToMovement = true; 
+	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
 }
 
-void AAlchemistBase::Server_SendIntent_Implementation(EIntentType Intent)
+void AAlchemistBase::BeginPlay()
 {
-	switch (Intent)
+	Super::BeginPlay();
+	
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
-	case EIntentType::PickUpOrDrop: PickupOrDrop(); break;
-	case EIntentType::Throw: Throw(); break;
-	case EIntentType::Interact: Interact(); break;
-	case EIntentType::Dash: Dash(); break;
-	default:
+		auto* LocalPlayer = PlayerController->GetLocalPlayer();
+		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+		{
+			if (MappingContext)
+			{
+				Subsystem->AddMappingContext(MappingContext, 0);
+			}
+		}
+	}
+}
+
+void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	auto* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
+	if (!EIC)
 	{
-		UE_LOGFMT(PP_AlchemistBase, Warning, "Server received not implemented intent ({0}).", std::size_t(Intent));
+		UE_LOGFMT(PP_AlchemistBase, Error, "Cannot bind input on null Enhanced Input Component");
+		return;
 	}
-	break;
+
+	EIC->BindAction(MoveAction, ETriggerEvent::Triggered, this, &AAlchemistBase::Input_Move);
+	EIC->BindAction(DashAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Dash);
+	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
+	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
+	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
+}
+
+void AAlchemistBase::Input_Move(const FInputActionValue& Value)
+{
+	auto Axis2D = Value.Get<FInputActionValue::Axis2D>();
+	FVector MovementInput = GetControlRotation().RotateVector({Axis2D.Y, Axis2D.X, 0});
+	AddMovementInput(MovementInput);
+}
+
+void AAlchemistBase::Input_Dash()
+{
+	if (auto* AMC = Cast<UAlchemistMovementComponent>(GetCharacterMovement()))
+	{
+		AMC->Dash();
 	}
 }
 
-void AAlchemistBase::PickupOrDrop()
-{
-	UE_LOGFMT(PP_AlchemistBase, Log, "PickupOrDrop");
-}
-
-void AAlchemistBase::Throw()
-{
-	UE_LOGFMT(PP_AlchemistBase, Log, "Throw");
-}
-
-void AAlchemistBase::Interact()
+void AAlchemistBase::Input_Interact()
 {
 	UE_LOGFMT(PP_AlchemistBase, Log, "Interact");
 }
 
-void AAlchemistBase::Dash()
+void AAlchemistBase::Input_PickupOrDrop()
 {
-	UE_LOGFMT(PP_AlchemistBase, Log, "Dash");
+	UE_LOGFMT(PP_AlchemistBase, Log, "PickupOrDrop");
+}
+
+void AAlchemistBase::Input_Throw()
+{
+	UE_LOGFMT(PP_AlchemistBase, Log, "Throw");
 }
