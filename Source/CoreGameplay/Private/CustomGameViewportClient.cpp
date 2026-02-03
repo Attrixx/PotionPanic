@@ -59,10 +59,6 @@ bool UCustomGameViewportClient::InputKey(const FInputKeyEventArgs& EventArgs)
 
 		if (!bIsAssigned && bIsJoinKey)
 		{
-			if (GEngine)
-			{
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("InputKey received: ControllerId=%d, Key=%s"), EventArgs.ControllerId, *EventArgs.Key.ToString()));
-			}
 			OnLocalPlayerJoinRequest.Broadcast(EventArgs.ControllerId);
 
 			// Consume input to avoid doing other things

@@ -49,9 +49,6 @@ void ULobby::UpdatePlayerWidgets()
 		{
 			if (ALobbyPlayerState* State = Cast<ALobbyPlayerState>(GameState->PlayerArray[i]))
 			{
-
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Updating Player Widget for PlayerId: %d, PlayerName: %s"), State->GetPlayerId(), *State->GetPlayerName()));
-
 				if (ULobbyPlayer* PlayerWidget = Cast<ULobbyPlayer>(HBox_Players->GetChildAt(i)))
 				{
 					PlayerWidget->UpdatePlayerInfo(

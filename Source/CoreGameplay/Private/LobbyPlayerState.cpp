@@ -27,8 +27,6 @@ void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 void ALobbyPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
-
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("||||| New Player: %s"), *GetPlayerName()));
 	OnPlayerInfoChanged.Broadcast();
 }
 

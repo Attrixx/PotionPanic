@@ -44,28 +44,7 @@ void ALobbyPlayerController::ReceivedPlayer()
 	{
 		// Add the mapping context so we get controls
 		Subsystem->AddMappingContext(InputMappingContext, 0);
-		if (GEngine)
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("InputMappingContext added for ControllerId: %d"), GetLocalPlayer()->GetControllerId()));
-		}
 	}
-}
-
-void ALobbyPlayerController::OnNetCleanup(UNetConnection *Connection)
-{
-	if (GetLocalPlayer() && GetWorld())
-	{
-		UGameInstance *GI = GetWorld()->GetGameInstance();
-		if (GI)
-		{
-			if (GetLocalPlayer()->GetControllerId() > 0)
-			{
-				GI->RemoveLocalPlayer(GetLocalPlayer());
-			}
-		}
-	}
-
-	Super::OnNetCleanup(Connection);
 }
 
 void ALobbyPlayerController::SetupInputComponent()
@@ -82,12 +61,6 @@ void ALobbyPlayerController::SetupInputComponent()
 
 void ALobbyPlayerController::HandleJoinRequest(int32 ControllerId)
 {
-	UE_LOG(LogTemp, Log, TEXT("Join request received for ControllerId: %d"), ControllerId);
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Join request received for ControllerId: %d"), ControllerId));
-	}
-
 	// TODO: Handle two request at the same time
 	PendingControllerId = ControllerId;
 
@@ -110,7 +83,7 @@ void ALobbyPlayerController::ClientAuthorizeNewLocalPlayer_Implementation()
 
 void ALobbyPlayerController::ServerLocalPlayerLeave_Implementation()
 {
-	this->Destroy();
+	Destroy();
 }
 
 void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
@@ -139,7 +112,7 @@ void ALobbyPlayerController::SetLobbyReady(bool bIsReady)
 
 void ALobbyPlayerController::Join(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("Join action triggered."));
+	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("Join action triggered."));
 }
 
 void ALobbyPlayerController::Leave(const FInputActionValue& Value)
@@ -153,8 +126,9 @@ void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 		}
 		else
 		{
-			// Secondary player leaves: Destroy controller from server then remove from local players from OnNetCleanup
+			// Secondary player leaves
 			ServerLocalPlayerLeave();
+			UGameplayStatics::RemovePlayer(this, true);
 		}
 	}
 }

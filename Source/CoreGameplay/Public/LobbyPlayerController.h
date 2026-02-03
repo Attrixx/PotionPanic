@@ -36,7 +36,6 @@ protected:
 	void BeginPlay() override;
 	void SetupInputComponent() override;
 	void ReceivedPlayer() override;
-	void OnNetCleanup(UNetConnection *Connection) override;
 
 private:
 
