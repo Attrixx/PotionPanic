@@ -51,6 +51,23 @@ void ALobbyPlayerController::ReceivedPlayer()
 	}
 }
 
+void ALobbyPlayerController::OnNetCleanup(UNetConnection *Connection)
+{
+	if (GetLocalPlayer() && GetWorld())
+	{
+		UGameInstance *GI = GetWorld()->GetGameInstance();
+		if (GI)
+		{
+			if (GetLocalPlayer()->GetControllerId() > 0)
+			{
+				GI->RemoveLocalPlayer(GetLocalPlayer());
+			}
+		}
+	}
+
+	Super::OnNetCleanup(Connection);
+}
+
 void ALobbyPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
@@ -91,6 +108,11 @@ void ALobbyPlayerController::ClientAuthorizeNewLocalPlayer_Implementation()
 	APlayerController* NewPC = UGameplayStatics::CreatePlayer(this->GetWorld(), PendingControllerId, true);
 }
 
+void ALobbyPlayerController::ServerLocalPlayerLeave_Implementation()
+{
+	this->Destroy();
+}
+
 void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
 {
 	if (ALobbyPlayerState* LobbyPS = GetPlayerState<ALobbyPlayerState>())
@@ -127,19 +149,12 @@ void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 		if (LocalPlayer->GetControllerId() == 0)
 		{
 			// Primary player leaves: Disconnect and return to main menu
-			// TODO: Verify the name of the main menu map
-			UGameplayStatics::OpenLevel(this, FName("TitleScreen"));
+			UGameplayStatics::OpenLevel(this, FName("TestMap"));
 		}
 		else
 		{
-			// Secondary player leaves: Remove from local players
-			if (UWorld* World = GetWorld())
-			{
-				if (UGameInstance* GameInstance = World->GetGameInstance())
-				{
-					GameInstance->RemoveLocalPlayer(LocalPlayer);
-				}
-			}
+			// Secondary player leaves: Destroy controller from server then remove from local players from OnNetCleanup
+			ServerLocalPlayerLeave();
 		}
 	}
 }

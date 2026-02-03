@@ -36,6 +36,7 @@ protected:
 	void BeginPlay() override;
 	void SetupInputComponent() override;
 	void ReceivedPlayer() override;
+	void OnNetCleanup(UNetConnection *Connection) override;
 
 private:
 
@@ -46,6 +47,9 @@ private:
 	void ServerRequestNewLocalPlayer();
 	UFUNCTION(Client, Reliable)
 	void ClientAuthorizeNewLocalPlayer();
+
+	UFUNCTION(Server, Reliable)
+	void ServerLocalPlayerLeave();
 
 public:
 
