@@ -10,6 +10,7 @@
 class ULobby;
 class UInputMappingContext;
 class UInputAction;
+class ALobbySpawnPoint;
 struct FInputActionValue;
 
 /**
@@ -28,6 +29,8 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadOnly)
 	ALobbyPlayerPreview* MyPreviewActor;
+	ALobbySpawnPoint* SpawnPoint; 
+
 protected:
 
 	void BeginPlay() override;

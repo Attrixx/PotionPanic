@@ -16,7 +16,7 @@ ALobbyPlayerPreview::ALobbyPlayerPreview()
 void ALobbyPlayerPreview::BeginPlay()
 {
 	Super::BeginPlay();
-	SetPlayerColor(FColor::White);
+	//SetPlayerColor(FColor::White);
 }
 
 // Called every frame
