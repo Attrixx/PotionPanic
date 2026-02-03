@@ -9,7 +9,7 @@
 
 class AItemActor;
 class APlayerController;
-class USocketComponent;
+class UHolderComponent;
 
 /**
  * Base class for all station actors.
@@ -38,7 +38,7 @@ protected:
 protected:
 	// TODO(Nath): Configure socket for item placement
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<USocketComponent> ItemSocket;
+	TObjectPtr<UHolderComponent> ItemHolder;
 
 	// Configure in Blueprint: which activities this station can perform
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")

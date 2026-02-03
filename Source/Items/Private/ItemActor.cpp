@@ -2,7 +2,7 @@
 
 #include "ItemActor.h"
 #include "ItemAsset.h"
-#include "SocketableComponent.h"
+#include "CarriableComponent.h"
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
 #include <NiagaraComponent.h>
@@ -13,11 +13,10 @@ AItemActor::AItemActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	SocketableRoot = CreateDefaultSubobject<USocketableComponent>(TEXT("Root"));
-	SetRootComponent(SocketableRoot.Get());
+	Carriable = CreateDefaultSubobject<UCarriableComponent>(TEXT("Carriable"));
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
-	StaticMesh->SetupAttachment(RootComponent);
+	SetRootComponent(StaticMesh);
 
 	Niagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara"));
 	Niagara->SetupAttachment(StaticMesh);

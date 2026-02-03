@@ -1,13 +1,13 @@
 #include "StationActorBase.h"
-#include "SocketComponent.h"
+#include "HolderComponent.h"
 
 AStationActorBase::AStationActorBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
 	// TODO(Nath): Setup socket component attachment
-	ItemSocket = CreateDefaultSubobject<USocketComponent>(TEXT("ItemSocket"));
-	ItemSocket->SetupAttachment(RootComponent);
+	ItemHolder = CreateDefaultSubobject<UHolderComponent>(TEXT("Item Holder"));
+	ItemHolder->SetupAttachment(RootComponent);
 }
 
 void AStationActorBase::BeginPlay()
