@@ -13,4 +13,9 @@ UCLASS()
 class RECIPES_API URecipeSystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Recipes|Shuffling")
+	TArray<URecipeAsset*> GetShuffledRecipes(const TArray<URecipeAsset*>& InRecipes);
 };
