@@ -7,7 +7,7 @@
 #include "ItemActor.generated.h"
 
 class UItemAsset;
-class USocketableComponent;
+class UCarriableComponent;
 class UStaticMeshComponent;
 class UNiagaraComponent;
 class UAudioComponent;
@@ -33,7 +33,7 @@ private:
 protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<USocketableComponent> SocketableRoot;
+	TObjectPtr<UCarriableComponent> Carriable;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
