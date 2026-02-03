@@ -23,7 +23,6 @@ void ALobbyGameMode::BeginPlay()
 {
 	Super::BeginPlay();
 
-	
 	TArray<AActor*> FoundActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ALobbySpawnPoint::StaticClass(), FoundActors);
 
@@ -35,7 +34,6 @@ void ALobbyGameMode::BeginPlay()
 		}
 	}
 
-	
 	CachedSpawnPoints.Sort([](const ALobbySpawnPoint& A, const ALobbySpawnPoint& B) {
 		return A.GetActorLocation().Y < B.GetActorLocation().Y;
 		});
@@ -46,7 +44,8 @@ void ALobbyGameMode::PreLogin(const FString& Options, const FString& Address, co
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 	if (!CanHandleNewPlayer())
 	{
-		ErrorMessage = TEXT("Le lobby est plein");
+		// Translated: "Le lobby est plein" -> "The lobby is full"
+		ErrorMessage = TEXT("The lobby is full");
 	}
 }
 
@@ -55,25 +54,23 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	PlayerCount++;
-	UE_LOG(LogTemp, Log, TEXT("PostLogin: Nouveau joueur connecte. Total: %d"), PlayerCount);
+	// Translated: "PostLogin: Nouveau joueur connecte. Total: %d"
+	UE_LOG(LogTemp, Log, TEXT("PostLogin: New player connected. Total: %d"), PlayerCount);
 
-	
 	if (ALobbySpawnPoint* ChosenPoint = FindFreeSpawnPoint())
 	{
 		SpawnLobbyCharacter(NewPlayer, ChosenPoint);
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("LobbyGameMode: Aucun SpawnPoint libre trouvé !"));
+		// Translated: "LobbyGameMode: Aucun SpawnPoint libre trouvé !"
+		UE_LOG(LogTemp, Error, TEXT("LobbyGameMode: No free SpawnPoint found!"));
 	}
 
-	
 	if (ALobbyPlayerState* PlayerState = NewPlayer->GetPlayerState<ALobbyPlayerState>())
 	{
-		
 		bool bIsSibling = HandlePlayerNaming(NewPlayer, PlayerState);
 
-		
 		bool bIsHost = NewPlayer->HasAuthority() && NewPlayer->IsLocalController() && !bIsSibling;
 
 		if (bIsHost)
@@ -83,7 +80,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 			PlayerState->Server_SetIsHost(true);
 		}
 
-		
 		const FUniqueNetIdRepl& UniqueId = PlayerState->GetUniqueId();
 		if (UniqueId.IsValid())
 		{
@@ -101,7 +97,6 @@ void ALobbyGameMode::Logout(AController* Exiting)
 {
 	if (ALobbyPlayerController* LeavingPC = Cast<ALobbyPlayerController>(Exiting))
 	{
-		
 		if (LeavingPC->SpawnPoint)
 		{
 			LeavingPC->SpawnPoint->bIsOccupied = false;
@@ -115,18 +110,15 @@ void ALobbyGameMode::Logout(AController* Exiting)
 		}
 	}
 
-	
 	PlayerCount = FMath::Max(0, PlayerCount - 1);
-	UE_LOG(LogTemp, Log, TEXT("Joueur parti. Joueurs restants : %d"), PlayerCount);
+	// Translated: "Joueur parti. Joueurs restants : %d"
+	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
 
 	Super::Logout(Exiting);
 }
 
-
-
 ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
 {
-	
 	for (ALobbySpawnPoint* Point : CachedSpawnPoints)
 	{
 		if (Point && !Point->bIsOccupied)
@@ -164,7 +156,8 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpa
 	}
 	else
 	{
-		UE_LOG(LogTemp, Error, TEXT("LobbyPlayerPreviewClass n'est pas assigné dans le GameMode !"));
+		// Translated: "LobbyPlayerPreviewClass n'est pas assigné dans le GameMode !"
+		UE_LOG(LogTemp, Error, TEXT("LobbyPlayerPreviewClass is not assigned in the GameMode!"));
 	}
 }
 
@@ -172,12 +165,10 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 {
 	if (A->GetNetConnection() != nullptr)
 	{
-		
 		return A->GetNetConnection() == B->GetNetConnection();
 	}
 	else
 	{
-		
 		return A->IsLocalController() && B->IsLocalController();
 	}
 }
@@ -189,7 +180,6 @@ bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlay
 	TArray<int32> UsedIndices;
 	bool bFoundSiblings = false;
 
-	
 	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
 		APlayerController* OtherPC = It->Get();
@@ -204,20 +194,17 @@ bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlay
 				int32 OtherIndex = 0;
 				int32 OpenParenIdx;
 
-				
 				if (OtherName.FindLastChar('(', OpenParenIdx) && OtherName.EndsWith(TEXT(")")))
 				{
 					FString IndexStr = OtherName.Mid(OpenParenIdx + 1, OtherName.Len() - OpenParenIdx - 2);
 					if (IndexStr.IsNumeric())
 					{
 						OtherIndex = FCString::Atoi(*IndexStr);
-						
 						BaseName = OtherName.Left(OpenParenIdx);
 					}
 				}
 				else
 				{
-					
 					BaseName = OtherName;
 				}
 
@@ -234,20 +221,18 @@ bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlay
 			NewIndex++;
 		}
 
-
 		PlayerState->SetPlayerName(FString::Printf(TEXT("%s(%d)"), *BaseName, NewIndex));
 	}
 
 	return bFoundSiblings;
 }
 
-
-
 bool ALobbyGameMode::CanHandleNewPlayer()
 {
 	if (PlayerCount >= MaxPlayer)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Refus de connexion : lobby plein"));
+		// Translated: "Refus de connexion : lobby plein"
+		UE_LOG(LogTemp, Warning, TEXT("Connection refused: lobby full"));
 		return false;
 	}
 	return true;
@@ -255,7 +240,6 @@ bool ALobbyGameMode::CanHandleNewPlayer()
 
 void ALobbyGameMode::OnNewPlayerLogin(int32 PlayerId, const FString& PlayerName, bool bIsHost)
 {
-
 }
 
 void ALobbyGameMode::CheckGameStart()
