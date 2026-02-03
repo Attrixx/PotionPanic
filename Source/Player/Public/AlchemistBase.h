@@ -6,31 +6,45 @@
 #include "GameFramework/Character.h"
 #include "AlchemistBase.generated.h"
 
-UENUM(BlueprintType)
-enum class EIntentType : uint8
-{
-	PickUpOrDrop,
-	Throw,
-	Interact,
-	Dash
-};
+class UInputMappingContext;
+class UInputAction;
+struct FInputActionValue;
 
-UCLASS()
+UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
 {
 	GENERATED_BODY()
 
-	AAlchemistBase();
+	AAlchemistBase(const FObjectInitializer& ObjectInitializer);
 
-public:
+protected:
 
-	UFUNCTION(BlueprintCallable, Server, Reliable)
-	void Server_SendIntent(EIntentType Intent);
+	void BeginPlay() override;
+	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputMappingContext> MappingContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> MoveAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> DashAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> InteractAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> PickupOrDropAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> ThrowAction;
+	
 private:
 
-	void PickupOrDrop();
-	void Throw();
-	void Interact();
-	void Dash();
+	void Input_Move(const FInputActionValue& Value);
+	void Input_Dash();
+	void Input_Interact();
+	void Input_PickupOrDrop();
+	void Input_Throw();
 };
