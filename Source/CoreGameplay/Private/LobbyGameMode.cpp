@@ -173,14 +173,23 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpa
 
 bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerController* B)
 {
-	if (A->GetNetConnection() != nullptr)
+	if (!A || !B)
 	{
-		return A->GetNetConnection()->GetConnectionHandle().GetParentConnectionId() == B->GetNetConnection()->GetConnectionHandle().GetParentConnectionId();
+		return false;
 	}
-	else
+
+	UNetConnection* NetConnA = A->GetNetConnection();
+	UNetConnection* NetConnB = B->GetNetConnection();
+
+	if (NetConnA && NetConnB)
+	{
+		return NetConnA->GetConnectionHandle().GetParentConnectionId() == NetConnB->GetConnectionHandle().GetParentConnectionId();
+	}
+	else if (!NetConnA && !NetConnB)
 	{
 		return A->IsLocalController() && B->IsLocalController();
 	}
+	return false;
 }
 
 bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlayerState* PlayerState)

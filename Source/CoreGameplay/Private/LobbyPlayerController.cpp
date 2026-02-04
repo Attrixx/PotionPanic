@@ -14,6 +14,7 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
 #include "Net/UnrealNetwork.h"
+#include "Interfaces/OnlineSessionInterface.h"
 
 ALobbyPlayerController::ALobbyPlayerController()
 {
@@ -84,25 +85,13 @@ void ALobbyPlayerController::ClientAuthorizeNewLocalPlayer_Implementation()
 void ALobbyPlayerController::ServerLocalPlayerLeave_Implementation()
 {
 	// If this PC shares a connection with other PCs, we should not destroy the connection
-	if (NetConnection)
+	UChildConnection* C = Cast<UChildConnection>(Player);
+	if (C)
 	{
-		bool bIsShared = false;
-		for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
-		{
-			if (It->Get() != this && It->Get()->GetNetConnection() == NetConnection)
-			{
-				bIsShared = true;
-				break;
-			}
-		}
-
-		if (bIsShared)
-		{
-			NetConnection = nullptr;
-		}
+		UNetConnection* parent = C->Parent;
+		C->CleanUp();
+		parent->Children.Remove(C);
 	}
-
-	Destroy();
 }
 
 void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
@@ -146,8 +135,21 @@ void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 		else
 		{
 			// Secondary player leaves
-			ServerLocalPlayerLeave();
 			UGameplayStatics::RemovePlayer(this, true);
+			IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+			if (Subsystem)
+			{
+				IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
+				if (SessionInterface.IsValid())
+				{
+					FUniqueNetIdRepl PlayerId = GetLocalPlayer()->GetPreferredUniqueNetId();
+					if (PlayerId.IsValid())
+					{
+						SessionInterface->UnregisterLocalPlayer(*PlayerId.GetV1().Get(), NAME_GameSession, FOnUnregisterLocalPlayerCompleteDelegate());
+					}
+				}
+			}
+			ServerLocalPlayerLeave();
 		}
 	}
 }
