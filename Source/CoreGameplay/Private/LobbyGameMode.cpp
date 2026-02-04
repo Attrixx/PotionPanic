@@ -109,9 +109,9 @@ void ALobbyGameMode::Logout(AController* Exiting)
 
 	PlayerCount = FMath::Max(0, PlayerCount - 1);
 	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
-
-	Super::Logout(Exiting);
 	RearrangePlayers();
+	Super::Logout(Exiting);
+	
 }
 
 ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
@@ -195,25 +195,37 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 
 void ALobbyGameMode::RearrangePlayers()
 {
-	for (ALobbySpawnPoint* Point : CachedSpawnPoints) {
+	TArray<ALobbyPlayerController*> ValidPlayers;
+	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+	{
+		ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get());
+		if (PC && PC->MyPreviewActor && PC->SpawnPoint)
+		{
+			ValidPlayers.Add(PC);
+		}
+	}
+	ValidPlayers.Sort([this](const ALobbyPlayerController& A, const ALobbyPlayerController& B) {
+		int32 IndexA = CachedSpawnPoints.IndexOfByKey(A.SpawnPoint);
+		int32 IndexB = CachedSpawnPoints.IndexOfByKey(B.SpawnPoint);
+		return IndexA < IndexB;
+		});
+	for (ALobbySpawnPoint* Point : CachedSpawnPoints)
+	{
 		if (Point) Point->bIsOccupied = false;
 	}
-	
-	int32 CurrentPointIndex = 0;
-	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It) 
+	for (int32 i = 0; i < ValidPlayers.Num(); i++)
 	{
-		
-		ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get());
-		if (PC && PC->MyPreviewActor)
+		if (!CachedSpawnPoints.IsValidIndex(i)) break;
+		ALobbyPlayerController* PC = ValidPlayers[i];
+		ALobbySpawnPoint* TargetPoint = CachedSpawnPoints[i];
+		if (PC->SpawnPoint != TargetPoint)
 		{
-			if (CachedSpawnPoints.IsValidIndex(CurrentPointIndex))
-			{
-				ALobbySpawnPoint* TargetPoint = CachedSpawnPoints[CurrentPointIndex];
-				TargetPoint->bIsOccupied = true;
-				PC->MyPreviewActor->TeleportTo(TargetPoint->GetActorLocation(), TargetPoint->GetActorRotation());
-				CurrentPointIndex++;
-			}
+			PC->SpawnPoint = TargetPoint;
+			PC->MyPreviewActor->TeleportTo(TargetPoint->GetActorLocation(), TargetPoint->GetActorRotation());
+
+			UE_LOG(LogTemp, Log, TEXT("Moving Player %s to Point %d"), *PC->GetName(), i);
 		}
+		TargetPoint->bIsOccupied = true;
 	}
 }
 
