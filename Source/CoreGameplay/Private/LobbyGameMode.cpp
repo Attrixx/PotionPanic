@@ -111,6 +111,7 @@ void ALobbyGameMode::Logout(AController* Exiting)
 	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
 
 	Super::Logout(Exiting);
+	RearrangePlayers();
 }
 
 ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
@@ -190,6 +191,30 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 		return A->IsLocalController() && B->IsLocalController();
 	}
 	return false;
+}
+
+void ALobbyGameMode::RearrangePlayers()
+{
+	for (ALobbySpawnPoint* Point : CachedSpawnPoints) {
+		if (Point) Point->bIsOccupied = false;
+	}
+	
+	int32 CurrentPointIndex = 0;
+	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It) 
+	{
+		
+		ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get());
+		if (PC && PC->MyPreviewActor)
+		{
+			if (CachedSpawnPoints.IsValidIndex(CurrentPointIndex))
+			{
+				ALobbySpawnPoint* TargetPoint = CachedSpawnPoints[CurrentPointIndex];
+				TargetPoint->bIsOccupied = true;
+				PC->MyPreviewActor->TeleportTo(TargetPoint->GetActorLocation(), TargetPoint->GetActorRotation());
+				CurrentPointIndex++;
+			}
+		}
+	}
 }
 
 bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlayerState* PlayerState)

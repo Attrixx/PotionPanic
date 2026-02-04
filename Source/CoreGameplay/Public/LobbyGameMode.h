@@ -46,7 +46,7 @@ private:
 	void SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpawnPoint* ChosenPoint);
 	bool HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlayerState* PlayerState);
 	bool ArePlayersOnSameConnection(APlayerController* A, APlayerController* B);
-
+	void RearrangePlayers();
 private:
 	int32 MaxPlayer = 4;
 	int32 PlayerCount = 0;
