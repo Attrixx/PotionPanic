@@ -44,7 +44,6 @@ void ALobbyGameMode::PreLogin(const FString& Options, const FString& Address, co
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 	if (!CanHandleNewPlayer())
 	{
-		// Translated: "Le lobby est plein" -> "The lobby is full"
 		ErrorMessage = TEXT("The lobby is full");
 	}
 }
@@ -54,7 +53,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	PlayerCount++;
-	// Translated: "PostLogin: Nouveau joueur connecte. Total: %d"
 	UE_LOG(LogTemp, Log, TEXT("PostLogin: New player connected. Total: %d"), PlayerCount);
 
 	if (ALobbySpawnPoint* ChosenPoint = FindFreeSpawnPoint())
@@ -63,7 +61,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	}
 	else
 	{
-		// Translated: "LobbyGameMode: Aucun SpawnPoint libre trouvé !"
 		UE_LOG(LogTemp, Error, TEXT("LobbyGameMode: No free SpawnPoint found!"));
 	}
 
@@ -111,7 +108,6 @@ void ALobbyGameMode::Logout(AController* Exiting)
 	}
 
 	PlayerCount = FMath::Max(0, PlayerCount - 1);
-	// Translated: "Joueur parti. Joueurs restants : %d"
 	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
 
 	Super::Logout(Exiting);
@@ -156,7 +152,6 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpa
 	}
 	else
 	{
-		// Translated: "LobbyPlayerPreviewClass n'est pas assigné dans le GameMode !"
 		UE_LOG(LogTemp, Error, TEXT("LobbyPlayerPreviewClass is not assigned in the GameMode!"));
 	}
 }
@@ -165,7 +160,7 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 {
 	if (A->GetNetConnection() != nullptr)
 	{
-		return A->GetNetConnection() == B->GetNetConnection();
+		return A->GetNetConnection()->GetConnectionHandle().GetParentConnectionId() == B->GetNetConnection()->GetConnectionHandle().GetParentConnectionId();
 	}
 	else
 	{
@@ -179,6 +174,12 @@ bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlay
 	FString BaseName = PlayerName;
 	TArray<int32> UsedIndices;
 	bool bFoundSiblings = false;
+
+	bool bIsChildConnection = NewPlayer->GetNetConnection() == nullptr || NewPlayer->GetNetConnection()->GetConnectionHandle().IsChildConnection();
+	if (!bIsChildConnection)
+	{
+		return false;
+	}
 
 	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{

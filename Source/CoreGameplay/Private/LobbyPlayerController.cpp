@@ -4,6 +4,7 @@
 #include "LobbyPlayerController.h"
 #include "LobbyGameMode.h"
 #include "LobbyPlayerState.h"
+#include "LobbyPlayerPreview.h"
 #include "CustomGameViewportClient.h"
 
 #include "Kismet/GameplayStatics.h"
@@ -12,9 +13,8 @@
 #include "EnhancedInputComponent.h"
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
+#include "Net/UnrealNetwork.h"
 
-#include "Net/UnrealNetwork.h"   
-#include "LobbyPlayerPreview.h"
 ALobbyPlayerController::ALobbyPlayerController()
 {
 }
@@ -83,6 +83,25 @@ void ALobbyPlayerController::ClientAuthorizeNewLocalPlayer_Implementation()
 
 void ALobbyPlayerController::ServerLocalPlayerLeave_Implementation()
 {
+	// If this PC shares a connection with other PCs, we should not destroy the connection
+	if (NetConnection)
+	{
+		bool bIsShared = false;
+		for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+		{
+			if (It->Get() != this && It->Get()->GetNetConnection() == NetConnection)
+			{
+				bIsShared = true;
+				break;
+			}
+		}
+
+		if (bIsShared)
+		{
+			NetConnection = nullptr;
+		}
+	}
+
 	Destroy();
 }
 
