@@ -14,7 +14,6 @@
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
 #include "Net/UnrealNetwork.h"
-#include "Interfaces/OnlineSessionInterface.h"
 
 ALobbyPlayerController::ALobbyPlayerController()
 {
@@ -136,19 +135,6 @@ void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 		{
 			// Secondary player leaves
 			UGameplayStatics::RemovePlayer(this, true);
-			IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
-			if (Subsystem)
-			{
-				IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
-				if (SessionInterface.IsValid())
-				{
-					FUniqueNetIdRepl PlayerId = GetLocalPlayer()->GetPreferredUniqueNetId();
-					if (PlayerId.IsValid())
-					{
-						SessionInterface->UnregisterLocalPlayer(*PlayerId.GetV1().Get(), NAME_GameSession, FOnUnregisterLocalPlayerCompleteDelegate());
-					}
-				}
-			}
 			ServerLocalPlayerLeave();
 		}
 	}
