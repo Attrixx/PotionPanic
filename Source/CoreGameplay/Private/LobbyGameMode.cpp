@@ -115,6 +115,21 @@ void ALobbyGameMode::Logout(AController* Exiting)
 
 ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
 {
+	if (CachedSpawnPoints.Num() == 0)
+	{
+		TArray<AActor*> FoundActors;
+		UGameplayStatics::GetAllActorsOfClass(GetWorld(), ALobbySpawnPoint::StaticClass(), FoundActors);
+		for (AActor* Actor : FoundActors)
+		{
+			if (ALobbySpawnPoint* Point = Cast<ALobbySpawnPoint>(Actor))
+			{
+				CachedSpawnPoints.Add(Point);
+			}
+		}
+		CachedSpawnPoints.Sort([](const ALobbySpawnPoint& A, const ALobbySpawnPoint& B) {
+			return A.GetActorLocation().Y < B.GetActorLocation().Y;
+			});
+	}
 	for (ALobbySpawnPoint* Point : CachedSpawnPoints)
 	{
 		if (Point && !Point->bIsOccupied)
