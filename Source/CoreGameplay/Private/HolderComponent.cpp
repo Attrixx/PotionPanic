@@ -4,7 +4,7 @@
 #include "CarriableComponent.h"
 #include "Net/UnrealNetwork.h"
 
-DEFINE_LOG_CATEGORY_STATIC(PP_HolderComponent, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_HolderComponent, Log, All);
 
 UHolderComponent::UHolderComponent()
 {
@@ -22,7 +22,7 @@ UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
-		UE_LOGFMT(PP_HolderComponent, Warning, "Replace must execute on authority. Call ignored.");
+		UE_LOGFMT(MS_HolderComponent, Warning, "Replace must execute on authority. Call ignored.");
 		return Carriable;
 	}
 
@@ -56,7 +56,7 @@ void UHolderComponent::OnCarriableChanged_Implementation(UCarriableComponent* Ol
 		}
 		else
 		{
-			UE_LOGFMT(PP_HolderComponent, Warning, "Could not detach Old Carriable from null owner.");
+			UE_LOGFMT(MS_HolderComponent, Warning, "Could not detach Old Carriable from null owner.");
 		}
 	}
 
@@ -68,7 +68,7 @@ void UHolderComponent::OnCarriableChanged_Implementation(UCarriableComponent* Ol
 		}
 		else
 		{
-			UE_LOGFMT(PP_HolderComponent, Warning, "Could not attach New Carriable to null owner.");
+			UE_LOGFMT(MS_HolderComponent, Warning, "Could not attach New Carriable to null owner.");
 		}
 	}
 }

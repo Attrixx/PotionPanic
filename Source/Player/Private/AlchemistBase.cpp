@@ -5,7 +5,7 @@
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 
-DEFINE_LOG_CATEGORY_STATIC(PP_AlchemistBase, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistBase, Log, All);
 
 AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UAlchemistMovementComponent>(CharacterMovementComponentName))
@@ -42,7 +42,7 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	auto* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EIC)
 	{
-		UE_LOGFMT(PP_AlchemistBase, Error, "Cannot bind input on null Enhanced Input Component");
+		UE_LOGFMT(MS_AlchemistBase, Error, "Cannot bind input on null Enhanced Input Component");
 		return;
 	}
 
@@ -70,15 +70,15 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	UE_LOGFMT(PP_AlchemistBase, Log, "Interact");
+	UE_LOGFMT(MS_AlchemistBase, Log, "Interact");
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
 {
-	UE_LOGFMT(PP_AlchemistBase, Log, "PickupOrDrop");
+	UE_LOGFMT(MS_AlchemistBase, Log, "PickupOrDrop");
 }
 
 void AAlchemistBase::Input_Throw()
 {
-	UE_LOGFMT(PP_AlchemistBase, Log, "Throw");
+	UE_LOGFMT(MS_AlchemistBase, Log, "Throw");
 }

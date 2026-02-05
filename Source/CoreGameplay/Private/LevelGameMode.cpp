@@ -3,7 +3,7 @@
 #include "LevelGameMode.h"
 #include <EngineUtils.h>
 
-DEFINE_LOG_CATEGORY_STATIC(PP_LevelGameMode, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_LevelGameMode, Log, All);
 
 void ALevelGameMode::OnPostLogin(AController* NewPlayer)
 {
@@ -32,6 +32,6 @@ AActor* ALevelGameMode::GetViewTarget()
 		}
 	}
 	
-	UE_LOGFMT(PP_LevelGameMode, Error, "Could not find Actor with tag '{0}'", ViewTargetTag);
+	UE_LOGFMT(MS_LevelGameMode, Error, "Could not find Actor with tag '{0}'", ViewTargetTag);
 	return nullptr;
 }
