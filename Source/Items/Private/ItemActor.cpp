@@ -7,7 +7,7 @@
 #include <Components/AudioComponent.h>
 #include <NiagaraComponent.h>
 
-DEFINE_LOG_CATEGORY_STATIC(PP_ItemActor, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_ItemActor, Log, All);
 
 AItemActor::AItemActor()
 {
