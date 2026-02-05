@@ -19,7 +19,6 @@ protected:
 	// QTE Logic
 	// TODO (Nath) : Implement QTE system properly
 
-	virtual void Tick(float DeltaTime) override;
 	virtual void FinishProcessing() override;
 
 
