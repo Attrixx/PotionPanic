@@ -3,7 +3,7 @@
 #include "CarriableComponent.h"
 #include "Net/UnrealNetwork.h"
 
-DEFINE_LOG_CATEGORY_STATIC(PP_CarriableComponent, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_CarriableComponent, Log, All);
 
 UCarriableComponent::UCarriableComponent()
 {
@@ -21,7 +21,7 @@ void UCarriableComponent::SetHolder(UHolderComponent* NewHolder)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
-		UE_LOGFMT(PP_CarriableComponent, Warning, "SetHolder must execute on authority. Call ignored.");
+		UE_LOGFMT(MS_CarriableComponent, Warning, "SetHolder must execute on authority. Call ignored.");
 		return;
 	}
 	
