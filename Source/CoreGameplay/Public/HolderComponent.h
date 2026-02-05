@@ -13,10 +13,12 @@ class COREGAMEPLAY_API UHolderComponent : public USceneComponent
 {
 	GENERATED_BODY()
 
-	UHolderComponent();
-	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
 public:
+	UHolderComponent();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UFUNCTION(BlueprintCallable, Category = "Holder")
+	UCarriableComponent* GetCarriable() const { return Carriable; }
 
 	/**
 	 * Replace the CarriableComponent currently held by this component.
@@ -39,6 +41,6 @@ protected:
 	
 private:
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
 	TObjectPtr<UCarriableComponent> Carriable;
 };

@@ -31,19 +31,33 @@ void AItemActor::OnConstruction(const FTransform& Transform)
 {
 	if (ItemAsset)
 	{
-		SetItemAsset(*ItemAsset);
+		SetItemAsset(ItemAsset);
 	}
 }
 
-void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
+void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 {
-	ItemAsset = &NewItemAsset;
+	if (!NewItemAsset)
+	{
+		return;
+	}
 
-	StaticMesh->SetStaticMesh(NewItemAsset.StaticMesh);
+	ItemAsset = NewItemAsset;
+
+	if (StaticMesh)
+	{
+		StaticMesh->SetStaticMesh(NewItemAsset->StaticMesh);
+	}
 	
-	Niagara->SetAsset(NewItemAsset.NiagaraSystem);
-	Niagara->Activate(true);
+	if (Niagara)
+	{
+		Niagara->SetAsset(NewItemAsset->NiagaraSystem);
+		Niagara->Activate(true);
+	}
 
-	Audio->SetSound(NewItemAsset.Sound);
-	Audio->Activate(true);
+	if (Audio)
+	{
+		Audio->SetSound(NewItemAsset->Sound);
+		Audio->Activate(true);
+	}
 }

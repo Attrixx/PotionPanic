@@ -17,12 +17,13 @@ class ITEMS_API AItemActor : public AActor
 {
 	GENERATED_BODY()
 	
+public:
 	AItemActor();
 	void OnConstruction(const FTransform& Transform) override;
 
 public:
 
-	void SetItemAsset(UItemAsset& NewItemAsset);
+	void SetItemAsset(UItemAsset* NewItemAsset);
 	UItemAsset* GetItemAsset() const { return ItemAsset; }
 
 private:

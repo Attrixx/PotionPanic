@@ -31,4 +31,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<USoundBase> Sound = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Properties")
+	bool bIsIndestructible = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item Properties")
+	bool bIsContainer = false;
 };

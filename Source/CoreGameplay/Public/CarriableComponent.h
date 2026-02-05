@@ -13,10 +13,9 @@ class COREGAMEPLAY_API UCarriableComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-	UCarriableComponent();
-	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-
 public:
+	UCarriableComponent();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintPure)
 	UHolderComponent* GetHolder() const { return Holder; }
