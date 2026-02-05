@@ -15,10 +15,7 @@ struct COREGAMEPLAY_API FInstruction
 
 	FPrimaryAssetId InputItem;
 	FPrimaryAssetId OutputItem;
-	TObjectPtr<UActivityAsset> Activity;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSoftObjectPtr<UActivityAsset> Activity;
 	float ProcessingDuration = 0.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bRequiresProximity = true;
 };

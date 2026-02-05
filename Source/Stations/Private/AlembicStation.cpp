@@ -17,10 +17,7 @@ void AAlembicStation::StartProcessing(const FInstruction& Instruction)
 
 
 
-void AAlembicStation::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-}
+
 
 void AAlembicStation::FinishProcessing()
 {

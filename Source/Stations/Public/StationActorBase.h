@@ -95,8 +95,6 @@ public:
 	 */
 	virtual bool CanExecuteInstruction(const FInstruction& Instruction) const;
 
-	virtual void Tick(float DeltaTime) override;
-
 protected:
 	/**
 	 * Starts processing the current instruction.
@@ -114,6 +112,8 @@ protected:
 	 * Cancels the current processing logic (e.g. if player moves away).
 	 */
 	virtual void CancelProcessing();
+
+	void CheckProximity();
 	
 	// Visual Hooks
 	
@@ -139,4 +139,6 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Station")
 	float InteractionDistance = 200.0f;
+
+	FTimerHandle ProximityTimerHandle;
 };

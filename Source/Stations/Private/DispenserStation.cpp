@@ -10,7 +10,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogDispenserStation, Log, All);
 
 ADispenserStation::ADispenserStation()
 {
-	PrimaryActorTick.bCanEverTick = false;
 }
 
 void ADispenserStation::Interact(APlayerController& InInstigator)

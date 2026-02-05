@@ -4,16 +4,19 @@
 #include "Engine/World.h"
 #include "TimerManager.h"
 #include "Components/StaticMeshComponent.h"
-#include "ItemActor.h"
 #include "ItemAsset.h"
 #include "CarriableComponent.h"
+#include "ItemProvider.h" // Interface
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/AssetManager.h"
+#include "Logging/StructuredLog.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogStations, Log, All);
 
 AStationActorBase::AStationActorBase()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 	bReplicates = true;
 
@@ -52,7 +55,7 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 
 	if (!PlayerHolder)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Station interaction failed: Player has no HolderComponent"));
+		UE_LOGFMT(LogStations, Warning, "Station interaction failed: Player has no HolderComponent");
 		return;
 	}
 
@@ -63,33 +66,38 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 
 	if (PlayerItem && !StationItem)
 	{
-		AItemActor* ItemActor = Cast<AItemActor>(PlayerItem->GetOwner());
-		if (ItemActor && CanPlaceItem(ItemActor->GetItemAsset()))
+		AActor* ItemActor = PlayerItem->GetOwner();
+		// Interface check using IItemProvider
+		if (ItemActor && ItemActor->Implements<UItemProvider>())
 		{
-			bool bFoundInstruction = false;
-			FInstruction FoundInstruction;
-
-			for (const FInstruction& Instr : PossibleInstructions)
+			UItemAsset* ItemAsset = IItemProvider::Execute_GetItemAsset(ItemActor);
+			if (CanPlaceItem(ItemAsset))
 			{
-				if (Instr.InputItem == ItemActor->GetItemAsset()->GetPrimaryAssetId() && CanExecuteInstruction(Instr))
+				bool bFoundInstruction = false;
+				FInstruction FoundInstruction;
+
+				for (const FInstruction& Instr : PossibleInstructions)
 				{
-					FoundInstruction = Instr;
-					bFoundInstruction = true;
-					break;
+					if (Instr.InputItem == ItemAsset->GetPrimaryAssetId() && CanExecuteInstruction(Instr))
+					{
+						FoundInstruction = Instr;
+						bFoundInstruction = true;
+						break;
+					}
 				}
-			}
 
-			if (bFoundInstruction)
-			{
-				// Move item to station
-				UCarriableComponent* Old = PlayerHolder->Replace(nullptr);
-				ItemHolder->Replace(Old);
-				
-				StartProcessing(FoundInstruction);
-			}
-			else
-			{
-				UE_LOG(LogTemp, Log, TEXT("No instruction found for item %s on this station"), *ItemActor->GetName());
+				if (bFoundInstruction)
+				{
+					// Move item to station
+					UCarriableComponent* Old = PlayerHolder->Replace(nullptr);
+					ItemHolder->Replace(Old);
+					
+					StartProcessing(FoundInstruction);
+				}
+				else
+				{
+					UE_LOGFMT(LogStations, Log, "No instruction found for item {0} on this station", ItemActor->GetName());
+				}
 			}
 		}
 	}
@@ -115,9 +123,24 @@ bool AStationActorBase::CanPlaceItem(const UItemAsset* Item) const
 bool AStationActorBase::CanExecuteInstruction(const FInstruction& Instruction) const
 {
 	// 1. Check if Activity is supported by this station
-	if (Instruction.Activity && !Activities.Contains(Instruction.Activity))
+	// 1. Check if Activity is supported by this station
+	// Soft Reference Check: Compare Paths
+	if (!Instruction.Activity.IsNull())
 	{
-		return false;
+		bool bIsSupported = false;
+		for (UActivityAsset* SupportedActivity : Activities)
+		{
+			if (SupportedActivity && Instruction.Activity.ToSoftObjectPath() == FSoftObjectPath(SupportedActivity))
+			{
+				bIsSupported = true;
+				break;
+			}
+		}
+
+		if (!bIsSupported)
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -139,7 +162,7 @@ void AStationActorBase::StartProcessing(const FInstruction& Instruction)
 		
 		if (CurrentInstruction.bRequiresProximity)
 		{
-			SetActorTickEnabled(true);
+		GetWorld()->GetTimerManager().SetTimer(ProximityTimerHandle, this, &AStationActorBase::CheckProximity, 0.1f, true);
 		}
 	}
 	else
@@ -160,18 +183,18 @@ void AStationActorBase::CancelProcessing()
 	OnStationStateChangedBP(StationState); // Update Server Visuals
 
 	GetWorld()->GetTimerManager().ClearTimer(ProcessingTimer);
-	SetActorTickEnabled(false);
+	GetWorld()->GetTimerManager().ClearTimer(ProximityTimerHandle);
 	CurrentInstigator.Reset(); // Or keep it?
 	
 	OnCancelProcessingBP();
 	
-	UE_LOG(LogTemp, Log, TEXT("Processing cancelled - Player moved too far."));
+	OnCancelProcessingBP();
+	
+	UE_LOGFMT(LogStations, Log, "Processing cancelled - Player moved too far.");
 }
 
-void AStationActorBase::Tick(float DeltaTime)
+void AStationActorBase::CheckProximity()
 {
-	Super::Tick(DeltaTime);
-
 	if (StationState == EStationState::Processing && CurrentInstruction.bRequiresProximity)
 	{
 		if (CurrentInstigator.IsValid())
@@ -199,17 +222,16 @@ void AStationActorBase::FinishProcessing()
 {
 	StationState = EStationState::Completed;
 	OnStationStateChangedBP(StationState); // Update Server Visuals
-	SetActorTickEnabled(false);
+	GetWorld()->GetTimerManager().ClearTimer(ProximityTimerHandle);
 	
 	OnFinishProcessingBP(CurrentInstruction);
 
 	// Execute Output
 	// 1. Destroy Input
-	UCarriableComponent* InputCarriable = ItemHolder->GetCarriable();
+	UCarriableComponent* InputCarriable = ItemHolder->Replace(nullptr); // Clear ref first
 	if (InputCarriable)
 	{
 		InputCarriable->GetOwner()->Destroy();
-		ItemHolder->Replace(nullptr); // Clear ref
 	}
 
 	// 2. Spawn Output
