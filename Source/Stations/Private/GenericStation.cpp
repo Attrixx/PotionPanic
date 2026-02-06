@@ -3,7 +3,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Logging/StructuredLog.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogGenericStation, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_GenericStation, Log, All);
 
 AGenericStation::AGenericStation()
 {

@@ -22,7 +22,7 @@ void UCarriableComponent::SetItemId(FPrimaryAssetId NewItemId)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
-		UE_LOGFMT(PP_CarriableComponent, Warning, "SetItemId must execute on authority. Call ignored.");
+		UE_LOGFMT(MS_CarriableComponent, Warning, "SetItemId must execute on authority. Call ignored.");
 		return;
 	}
 

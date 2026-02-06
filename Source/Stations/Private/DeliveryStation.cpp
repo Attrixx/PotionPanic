@@ -5,6 +5,9 @@
 #include "CarriableComponent.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Logging/StructuredLog.h"
+
+DEFINE_LOG_CATEGORY_STATIC(MS_DeliveryStation, Log, All);
 
 ADeliveryStation::ADeliveryStation()
 {
@@ -60,7 +63,7 @@ void ADeliveryStation::FinishProcessing()
 		if (ItemActor && ItemActor->GetItemAsset())
 		{
 			// TODO (Nath): Verify if this Item matches the current Order/Objective
-			UE_LOG(LogTemp, Log, TEXT("Delivered Item: %s"), *ItemActor->GetItemAsset()->GetName());
+			UE_LOGFMT(MS_DeliveryStation, Log, "Delivered Item: {0}", ItemActor->GetItemAsset()->GetName());
 			
 			// Score Logic here (ScoreSubsystem->AddScore(...))
 		}
