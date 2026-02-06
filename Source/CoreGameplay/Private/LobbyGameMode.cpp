@@ -11,6 +11,7 @@
 #include "LobbySpawnPoint.h"
 #include "LobbyPlayerPreview.h"
 #include "LobbyPlayerController.h"
+#include "LobbyPlayerState.h"
 #include "Kismet/GameplayStatics.h"
 
 ALobbyGameMode::ALobbyGameMode()
@@ -22,21 +23,6 @@ ALobbyGameMode::ALobbyGameMode()
 void ALobbyGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-
-	TArray<AActor*> FoundActors;
-	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ALobbySpawnPoint::StaticClass(), FoundActors);
-
-	for (AActor* Actor : FoundActors)
-	{
-		if (ALobbySpawnPoint* Point = Cast<ALobbySpawnPoint>(Actor))
-		{
-			CachedSpawnPoints.Add(Point);
-		}
-	}
-
-	CachedSpawnPoints.Sort([](const ALobbySpawnPoint& A, const ALobbySpawnPoint& B) {
-		return A.GetActorLocation().Y < B.GetActorLocation().Y;
-		});
 }
 
 void ALobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
@@ -55,14 +41,8 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	PlayerCount++;
 	UE_LOG(LogTemp, Log, TEXT("PostLogin: New player connected. Total: %d"), PlayerCount);
 
-	if (ALobbySpawnPoint* ChosenPoint = FindFreeSpawnPoint())
-	{
-		SpawnLobbyCharacter(NewPlayer, ChosenPoint);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("LobbyGameMode: No free SpawnPoint found!"));
-	}
+	CacheSpawnPoints();
+	SpawnLobbyCharacter(NewPlayer);
 
 	if (ALobbyPlayerState* PlayerState = NewPlayer->GetPlayerState<ALobbyPlayerState>())
 	{
@@ -94,12 +74,6 @@ void ALobbyGameMode::Logout(AController* Exiting)
 {
 	if (ALobbyPlayerController* LeavingPC = Cast<ALobbyPlayerController>(Exiting))
 	{
-		if (LeavingPC->SpawnPoint)
-		{
-			LeavingPC->SpawnPoint->bIsOccupied = false;
-			LeavingPC->SpawnPoint = nullptr;
-		}
-
 		if (LeavingPC->MyPreviewActor)
 		{
 			LeavingPC->MyPreviewActor->Destroy();
@@ -109,12 +83,15 @@ void ALobbyGameMode::Logout(AController* Exiting)
 
 	PlayerCount = FMath::Max(0, PlayerCount - 1);
 	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
-	RearrangePlayers();
+
 	Super::Logout(Exiting);
-	
+
+	// Add a delay before rearranging players to ensure the leaving player's preview is fully removed from the world
+	FTimerHandle TimerHandle;
+	GetWorldTimerManager().SetTimer(TimerHandle, this, &ALobbyGameMode::RearrangePlayers, 0.1f, false);
 }
 
-ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
+void ALobbyGameMode::CacheSpawnPoints()
 {
 	if (CachedSpawnPoints.Num() == 0)
 	{
@@ -129,30 +106,23 @@ ALobbySpawnPoint* ALobbyGameMode::FindFreeSpawnPoint()
 		}
 		CachedSpawnPoints.Sort([](const ALobbySpawnPoint& A, const ALobbySpawnPoint& B) {
 			return A.GetActorLocation().Y < B.GetActorLocation().Y;
-			});
+		});
 	}
-	for (ALobbySpawnPoint* Point : CachedSpawnPoints)
-	{
-		if (Point && !Point->bIsOccupied)
-		{
-			return Point;
-		}
-	}
-	return nullptr;
 }
 
-void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpawnPoint* ChosenPoint)
+void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer)
 {
-	if (!ChosenPoint || !NewPlayer) return;
-
-	ChosenPoint->bIsOccupied = true;
+	if (!NewPlayer || CachedSpawnPoints.Num() < 1) return;
 
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = NewPlayer;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	if (LobbyPlayerPreviewClass)
+	int32 NumberOfPlayers = GetNumPlayers();
+	if (LobbyPlayerPreviewClass && CachedSpawnPoints.Num() >= NumberOfPlayers)
 	{
+		ALobbySpawnPoint* ChosenPoint = CachedSpawnPoints[NumberOfPlayers - 1];
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, FString::Printf(TEXT("Spawning player at point %d: %s"), NumberOfPlayers - 1, *ChosenPoint->GetName()));
 		ALobbyPlayerPreview* NewPreview = GetWorld()->SpawnActor<ALobbyPlayerPreview>(
 			LobbyPlayerPreviewClass,
 			ChosenPoint->GetActorLocation(),
@@ -163,7 +133,11 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpa
 		if (ALobbyPlayerController* MyPc = Cast<ALobbyPlayerController>(NewPlayer))
 		{
 			MyPc->MyPreviewActor = NewPreview;
-			MyPc->SpawnPoint = ChosenPoint;
+			if (ALobbyPlayerState* PS = MyPc->GetPlayerState<ALobbyPlayerState>())
+			{
+				PS->OnPlayerColorChanged.AddDynamic(NewPreview, &ALobbyPlayerPreview::SetPlayerColor);
+				NewPreview->SetPlayerColor(PS->GetPlayerColor());
+			} 
 		}
 	}
 	else
@@ -195,37 +169,21 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 
 void ALobbyGameMode::RearrangePlayers()
 {
-	TArray<ALobbyPlayerController*> ValidPlayers;
+	int32 PlayerIndex = 0;
 	for (auto It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 	{
-		ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get());
-		if (PC && PC->MyPreviewActor && PC->SpawnPoint)
+		if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get()))
 		{
-			ValidPlayers.Add(PC);
+			if (CachedSpawnPoints.IsValidIndex(PlayerIndex))
+			{
+				ALobbySpawnPoint* NewPoint = CachedSpawnPoints[PlayerIndex];
+				if (PC->MyPreviewActor)
+				{
+					PC->MyPreviewActor->SetActorLocation(NewPoint->GetActorLocation());
+				}
+			}
 		}
-	}
-	ValidPlayers.Sort([this](const ALobbyPlayerController& A, const ALobbyPlayerController& B) {
-		int32 IndexA = CachedSpawnPoints.IndexOfByKey(A.SpawnPoint);
-		int32 IndexB = CachedSpawnPoints.IndexOfByKey(B.SpawnPoint);
-		return IndexA < IndexB;
-		});
-	for (ALobbySpawnPoint* Point : CachedSpawnPoints)
-	{
-		if (Point) Point->bIsOccupied = false;
-	}
-	for (int32 i = 0; i < ValidPlayers.Num(); i++)
-	{
-		if (!CachedSpawnPoints.IsValidIndex(i)) break;
-		ALobbyPlayerController* PC = ValidPlayers[i];
-		ALobbySpawnPoint* TargetPoint = CachedSpawnPoints[i];
-		if (PC->SpawnPoint != TargetPoint)
-		{
-			PC->SpawnPoint = TargetPoint;
-			PC->MyPreviewActor->TeleportTo(TargetPoint->GetActorLocation(), TargetPoint->GetActorRotation());
-
-			UE_LOG(LogTemp, Log, TEXT("Moving Player %s to Point %d"), *PC->GetName(), i);
-		}
-		TargetPoint->bIsOccupied = true;
+		PlayerIndex++;
 	}
 }
 

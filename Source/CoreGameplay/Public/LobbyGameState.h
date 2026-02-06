@@ -20,7 +20,6 @@ class COREGAMEPLAY_API ALobbyGameState : public AGameStateBase
 public:
 	UFUNCTION(BlueprintPure, Category = "Lobby")
 	bool AreAllPlayersReady() const;
-	void NotifyPlayerStateChange();
 
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnLobbyPlayerAdded OnPlayerAdded;
@@ -31,5 +30,14 @@ public:
 protected:
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
+
+private:
+
+	TArray<FColor> AvailableDefaultColors = {
+		FColor::Red,
+		FColor::Green,
+		FColor::Blue,
+		FColor::Yellow
+	};
 
 };

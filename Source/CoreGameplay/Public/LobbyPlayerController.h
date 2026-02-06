@@ -29,7 +29,7 @@ public:
 
 	UPROPERTY(Replicated, BlueprintReadOnly)
 	ALobbyPlayerPreview* MyPreviewActor;
-	ALobbySpawnPoint* SpawnPoint; 
+	ALobbySpawnPoint* SpawnPoint;
 
 protected:
 

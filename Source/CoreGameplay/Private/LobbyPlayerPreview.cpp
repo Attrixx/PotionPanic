@@ -3,31 +3,40 @@
 
 #include "LobbyPlayerPreview.h"
 
-// Sets default values
+#include "Kismet/KismetMathLibrary.h"
+
 ALobbyPlayerPreview::ALobbyPlayerPreview()
 {
-	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
+	SetReplicateMovement(true);
+
 	PlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Player Mesh"));
 	RootComponent = PlayerMesh;
-	
 }
 
-// Called when the game starts or when spawned
+void ALobbyPlayerPreview::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+}
+
 void ALobbyPlayerPreview::BeginPlay()
 {
 	Super::BeginPlay();
-	//SetPlayerColor(FColor::White);
+	/*FColor TargetColor(UKismetMathLibrary::RandomIntegerInRange(0, 255), UKismetMathLibrary::RandomIntegerInRange(0, 255), UKismetMathLibrary::RandomIntegerInRange(0, 255));
+	SetPlayerColor(TargetColor);*/
 }
 
-// Called every frame
-void ALobbyPlayerPreview::Tick(float DeltaTime)
+void ALobbyPlayerPreview::OnRep_PreviewColor()
 {
-	Super::Tick(DeltaTime);
-
+	PlayerMesh->CreateDynamicMaterialInstance(0)->SetVectorParameterValue(FName("Color"), PreviewColor);
 }
 
-void ALobbyPlayerPreview::SetPlayerColor(FColor Color)
+void ALobbyPlayerPreview::SetPlayerColor_Implementation(FColor Color)
 {
-	PlayerMesh->CreateDynamicMaterialInstance(0)->SetVectorParameterValue(FName("Color"), Color);
+	PreviewColor = Color;
+	if (HasAuthority())
+	{
+		OnRep_PreviewColor();
+	}
 }
 

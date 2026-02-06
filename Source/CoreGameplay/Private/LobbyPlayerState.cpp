@@ -86,6 +86,7 @@ void ALobbyPlayerState::OnRep_IsHost()
 void ALobbyPlayerState::OnRep_PlayerColor()
 {
 	OnPlayerInfoChanged.Broadcast();
+	OnPlayerColorChanged.Broadcast(PlayerColor);
 }
 
 void ALobbyPlayerState::OnRep_IsReady()

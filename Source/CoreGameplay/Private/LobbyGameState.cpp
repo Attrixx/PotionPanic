@@ -20,21 +20,31 @@ bool ALobbyGameState::AreAllPlayersReady() const
 	return true;
 }
 
-void ALobbyGameState::NotifyPlayerStateChange()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("ALobbyGameState::NotifyPlayerStateChange called."));
-}
-
 void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 {
 	Super::AddPlayerState(PlayerState);
-	NotifyPlayerStateChange();
 	OnPlayerAdded.Broadcast(PlayerState);
+	if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
+	{
+		if (AvailableDefaultColors.Num() > 0)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Assigning default color %s to player %s"), *AvailableDefaultColors[0].ToString(), *LobbyPS->GetPlayerName()));
+			LobbyPS->SetPlayerColor(AvailableDefaultColors[0]);
+			AvailableDefaultColors.RemoveAt(0);
+		}
+		else
+		{
+			LobbyPS->SetPlayerColor(FColor::MakeRandomColor());
+		}
+	}
 }
 
 void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 {
 	Super::RemovePlayerState(PlayerState);
-	NotifyPlayerStateChange();
 	OnPlayerRemoved.Broadcast(PlayerState);
+	if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
+	{
+		AvailableDefaultColors.Add(LobbyPS->GetPlayerColor());
+	}
 }

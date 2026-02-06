@@ -18,18 +18,27 @@ class COREGAMEPLAY_API ALobbyPlayerPreview : public AActor
 public:	
 	
 	ALobbyPlayerPreview();
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
 	
 	virtual void BeginPlay() override;
 
-public:	
-	
-	virtual void Tick(float DeltaTime) override;
+public:
+
+	UFUNCTION(Server, Reliable)
 	void SetPlayerColor(FColor color);
 
 public:
-	UPROPERTY(EditDefaultsOnly , BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UStaticMeshComponent* PlayerMesh;
+
+protected:
+
+	UPROPERTY(ReplicatedUsing = OnRep_PreviewColor)
+	FColor PreviewColor;
+
+	UFUNCTION()
+	void OnRep_PreviewColor();
 
 };

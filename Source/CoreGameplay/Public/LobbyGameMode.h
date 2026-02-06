@@ -42,8 +42,8 @@ public:
 
 private:
 
-	ALobbySpawnPoint* FindFreeSpawnPoint();
-	void SpawnLobbyCharacter(APlayerController* NewPlayer, ALobbySpawnPoint* ChosenPoint);
+	void CacheSpawnPoints();
+	void SpawnLobbyCharacter(APlayerController* NewPlayer);
 	bool HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlayerState* PlayerState);
 	bool ArePlayersOnSameConnection(APlayerController* A, APlayerController* B);
 	void RearrangePlayers();

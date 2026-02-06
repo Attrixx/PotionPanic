@@ -7,6 +7,7 @@
 #include "LobbyPlayerState.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLobbyPlayerStateUpdated);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerColorChanged, FColor, NewColor);
 
 /**
  * 
@@ -80,4 +81,5 @@ protected:
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnLobbyPlayerStateUpdated OnPlayerInfoChanged;
+	FOnLobbyPlayerColorChanged OnPlayerColorChanged;
 };
