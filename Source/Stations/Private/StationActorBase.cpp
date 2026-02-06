@@ -11,7 +11,7 @@
 #include "Engine/AssetManager.h"
 #include "Logging/StructuredLog.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogStations, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_StationActorBase, Log, All);
 
 AStationActorBase::AStationActorBase()
 {
@@ -54,7 +54,7 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 
 	if (!PlayerHolder)
 	{
-		UE_LOGFMT(LogStations, Warning, "Station interaction failed: Player has no HolderComponent");
+		UE_LOGFMT(MS_StationActorBase, Warning, "Station interaction failed: Player has no HolderComponent");
 		return;
 	}
 
@@ -93,7 +93,7 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 				}
 				else
 				{
-					UE_LOGFMT(LogStations, Log, "No instruction found for item {0} on this station", ItemId.ToString());
+					UE_LOGFMT(MS_StationActorBase, Log, "No instruction found for item {0} on this station", ItemId.ToString());
 				}
 			}
 		}
@@ -118,9 +118,6 @@ bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 
 bool AStationActorBase::CanExecuteInstruction(const FInstruction& Instruction) const
 {
-	// 1. Check if Activity is supported by this station
-	// 1. Check if Activity is supported by this station
-	// Soft Reference Check: Compare Paths
 	if (!Instruction.Activity.IsNull())
 	{
 		bool bIsSupported = false;
@@ -176,17 +173,17 @@ void AStationActorBase::CancelProcessing()
 	}
 
 	StationState = EStationState::Idle;
-	OnStationStateChangedBP(StationState); // Update Server Visuals
+	OnStationStateChangedBP(StationState);
 
 	GetWorld()->GetTimerManager().ClearTimer(ProcessingTimer);
 	GetWorld()->GetTimerManager().ClearTimer(ProximityTimerHandle);
-	CurrentInstigator.Reset(); // Or keep it?
+	CurrentInstigator.Reset();
 	
 	OnCancelProcessingBP();
 	
 	OnCancelProcessingBP();
 	
-	UE_LOGFMT(LogStations, Log, "Processing cancelled - Player moved too far.");
+	UE_LOGFMT(MS_StationActorBase, Log, "Processing cancelled - Player moved too far.");
 }
 
 void AStationActorBase::CheckProximity()
@@ -217,20 +214,17 @@ void AStationActorBase::OnProcessingTimerFinished()
 void AStationActorBase::FinishProcessing()
 {
 	StationState = EStationState::Completed;
-	OnStationStateChangedBP(StationState); // Update Server Visuals
+	OnStationStateChangedBP(StationState);
 	GetWorld()->GetTimerManager().ClearTimer(ProximityTimerHandle);
 	
 	OnFinishProcessingBP(CurrentInstruction);
 
-	// Execute Output
-	// 1. Destroy Input
-	UCarriableComponent* InputCarriable = ItemHolder->Replace(nullptr); // Clear ref first
+	UCarriableComponent* InputCarriable = ItemHolder->Replace(nullptr);
 	if (InputCarriable)
 	{
 		InputCarriable->GetOwner()->Destroy();
 	}
 
-	// 2. Spawn Output
 	if (CurrentInstruction.OutputItem.IsValid())
 	{
 		UItemAsset* OutputAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(CurrentInstruction.OutputItem);
@@ -239,13 +233,11 @@ void AStationActorBase::FinishProcessing()
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		
-		// Spawn generic ItemActor and configure it
 		AItemActor* NewItem = GetWorld()->SpawnActor<AItemActor>(AItemActor::StaticClass(), GetActorTransform(), SpawnParams);
 		if (NewItem)
 		{
 			NewItem->SetItemAsset(OutputAsset);
 			
-			// Place in Holder
 			UCarriableComponent* NewCarriable = NewItem->FindComponentByClass<UCarriableComponent>();
 			if (NewCarriable)
 			{
@@ -256,14 +248,11 @@ void AStationActorBase::FinishProcessing()
 	}
 	else
 	{
-		// Output is null (Trash)
-		// Do nothing (Input already destroyed)
-		StationState = EStationState::Idle; // Reset to idle for trash
+		StationState = EStationState::Idle;
 	}
 }
 
 void AStationActorBase::OnRep_StationState()
 {
-	// Called on Client when State updates
 	OnStationStateChangedBP(StationState);
 }
