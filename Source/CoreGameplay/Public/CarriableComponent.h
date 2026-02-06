@@ -13,10 +13,11 @@ class COREGAMEPLAY_API UCarriableComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
-public:
+protected:
 	UCarriableComponent();
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+public:
 	UFUNCTION(BlueprintPure)
 	UHolderComponent* GetHolder() const { return Holder; }
 
@@ -35,9 +36,20 @@ protected:
 	 */
 	UFUNCTION(BlueprintNativeEvent, meta=(ForceAsFunction))
 	void OnHolderChanged(UHolderComponent* OldHolder, UHolderComponent* NewHolder);
+
+	UFUNCTION()
+	void OnRep_ItemId();
+
+public:
+	void SetItemId(FPrimaryAssetId NewItemId);
+	FPrimaryAssetId GetItemId() const { return ItemId; }
 	
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_Holder)
 	TObjectPtr<UHolderComponent> Holder;
+
+	/** The logic item this carriable represents. Used by stations to identify recipes. */
+	UPROPERTY(ReplicatedUsing=OnRep_ItemId)
+	FPrimaryAssetId ItemId;
 };

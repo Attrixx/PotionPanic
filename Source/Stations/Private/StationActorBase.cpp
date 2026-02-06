@@ -6,7 +6,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "ItemAsset.h"
 #include "CarriableComponent.h"
-#include "ItemProvider.h" // Interface
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/AssetManager.h"
@@ -66,19 +65,17 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 
 	if (PlayerItem && !StationItem)
 	{
-		AActor* ItemActor = PlayerItem->GetOwner();
-		// Interface check using IItemProvider
-		if (ItemActor && ItemActor->Implements<UItemProvider>())
+		FPrimaryAssetId ItemId = PlayerItem->GetItemId();
+		if (ItemId.IsValid())
 		{
-			UItemAsset* ItemAsset = IItemProvider::Execute_GetItemAsset(ItemActor);
-			if (CanPlaceItem(ItemAsset))
+			if (CanPlaceItem(ItemId))
 			{
 				bool bFoundInstruction = false;
 				FInstruction FoundInstruction;
 
 				for (const FInstruction& Instr : PossibleInstructions)
 				{
-					if (Instr.InputItem == ItemAsset->GetPrimaryAssetId() && CanExecuteInstruction(Instr))
+					if (Instr.InputItem == ItemId && CanExecuteInstruction(Instr))
 					{
 						FoundInstruction = Instr;
 						bFoundInstruction = true;
@@ -96,7 +93,7 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 				}
 				else
 				{
-					UE_LOGFMT(LogStations, Log, "No instruction found for item {0} on this station", ItemActor->GetName());
+					UE_LOGFMT(LogStations, Log, "No instruction found for item {0} on this station", ItemId.ToString());
 				}
 			}
 		}
@@ -114,10 +111,9 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	}
 }
 
-bool AStationActorBase::CanPlaceItem(const UItemAsset* Item) const
+bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 {
-	if (!Item) return false;
-	return true;
+	return ItemId.IsValid();
 }
 
 bool AStationActorBase::CanExecuteInstruction(const FInstruction& Instruction) const

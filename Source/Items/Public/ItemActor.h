@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ItemActor.generated.h"
-#include "ItemProvider.h"
 
 class UItemAsset;
 class UCarriableComponent;
@@ -14,7 +13,7 @@ class UNiagaraComponent;
 class UAudioComponent;
 
 UCLASS()
-class ITEMS_API AItemActor : public AActor, public IItemProvider
+class ITEMS_API AItemActor : public AActor
 {
 	GENERATED_BODY()
 	
@@ -25,9 +24,6 @@ public:
 public:
 
 	void SetItemAsset(UItemAsset* NewItemAsset);
-	// IItemProvider Interface
-	virtual UItemAsset* GetItemAsset_Implementation() const override { return ItemAsset; }
-	
 	UItemAsset* GetItemAsset() const { return ItemAsset; }
 
 private:

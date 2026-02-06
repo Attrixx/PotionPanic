@@ -6,6 +6,9 @@
 #include "GameFramework/PlayerController.h"
 #include "Logging/StructuredLog.h"
 
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogDispenserStation, Log, All);
 
 ADispenserStation::ADispenserStation()
@@ -16,7 +19,7 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 {
 	Super::Interact(InInstigator);
 
-	if (!IsValid(IngredientToDispense))
+	if (!IngredientToDispense.IsValid())
 	{
 		UE_LOGFMT(LogDispenserStation, Warning, "DispenserStation {0} has no IngredientToDispense set!", GetName());
 		return;
@@ -42,6 +45,14 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 		return;
 	}
 
+	// Load Asset Synchronously for spawning
+	UItemAsset* ItemAsset = Cast<UItemAsset>(UAssetManager::GetStreamableManager().LoadSynchronous(IngredientToDispense));
+	if (!ItemAsset)
+	{
+		UE_LOGFMT(LogDispenserStation, Error, "Failed to load ItemAsset from ID {0}", IngredientToDispense.ToString());
+		return;
+	}
+
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	
@@ -49,13 +60,13 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 	
 	if (IsValid(NewItem))
 	{
-		NewItem->SetItemAsset(IngredientToDispense);
+		NewItem->SetItemAsset(ItemAsset);
 		
 		UCarriableComponent* NewCarriable = NewItem->FindComponentByClass<UCarriableComponent>();
 		if (IsValid(NewCarriable))
 		{
 			Holder->Replace(NewCarriable);
-			UE_LOGFMT(LogDispenserStation, Log, "Dispensed {0} to {1}", IngredientToDispense->GetName(), Pawn->GetName());
+			UE_LOGFMT(LogDispenserStation, Log, "Dispensed {0} to {1}", ItemAsset->GetName(), Pawn->GetName());
 		}
 		else
 		{

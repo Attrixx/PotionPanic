@@ -88,7 +88,7 @@ public:
 	 * Default implementation allows anything if station is empty.
 	 * Override for specific stations (e.g. Cauldron only accepts ingredients).
 	 */
-	virtual bool CanPlaceItem(const UItemAsset* Item) const;
+	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const;
 	
 	/**
 	 * Checks if the instruction is valid for this station (e.g. check Logic/Activity).
