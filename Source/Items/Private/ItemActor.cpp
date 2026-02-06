@@ -60,4 +60,9 @@ void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 		Audio->SetSound(NewItemAsset->Sound);
 		Audio->Activate(true);
 	}
+
+	if (Carriable)
+	{
+		Carriable->SetItemId(NewItemAsset->GetPrimaryAssetId());
+	}
 }

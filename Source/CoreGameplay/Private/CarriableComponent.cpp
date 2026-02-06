@@ -15,6 +15,23 @@ void UCarriableComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCarriableComponent, Holder);
+	DOREPLIFETIME(UCarriableComponent, ItemId);
+}
+
+void UCarriableComponent::SetItemId(FPrimaryAssetId NewItemId)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		UE_LOGFMT(PP_CarriableComponent, Warning, "SetItemId must execute on authority. Call ignored.");
+		return;
+	}
+
+	ItemId = NewItemId;
+}
+
+void UCarriableComponent::OnRep_ItemId()
+{
+	// Optional: Broadcast event if needed
 }
 
 void UCarriableComponent::SetHolder(UHolderComponent* NewHolder)

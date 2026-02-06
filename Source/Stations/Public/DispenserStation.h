@@ -23,5 +23,5 @@ public:
 protected:
 	/** The item to dispense when interacted with. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dispenser")
-	TObjectPtr<UItemAsset> IngredientToDispense;
+	FPrimaryAssetId IngredientToDispense;
 };
