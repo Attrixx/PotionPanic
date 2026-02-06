@@ -16,7 +16,7 @@ class STATIONS_API ADeliveryStation : public AStationActorBase
 public:
 	ADeliveryStation();
 
-	virtual bool CanPlaceItem(const UItemAsset* Item) const override;
+	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
 	virtual void Interact(APlayerController& InInstigator) override;
 
 protected:

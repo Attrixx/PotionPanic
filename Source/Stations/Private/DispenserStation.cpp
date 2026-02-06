@@ -46,7 +46,7 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 	}
 
 	// Load Asset Synchronously for spawning
-	UItemAsset* ItemAsset = Cast<UItemAsset>(UAssetManager::GetStreamableManager().LoadSynchronous(IngredientToDispense));
+	UItemAsset* ItemAsset = Cast<UItemAsset>(UAssetManager::GetStreamableManager().LoadSynchronous(UAssetManager::Get().GetPrimaryAssetPath(IngredientToDispense)));
 	if (!ItemAsset)
 	{
 		UE_LOGFMT(MS_DispenserStation, Error, "Failed to load ItemAsset from ID {0}", IngredientToDispense.ToString());
