@@ -1,4 +1,5 @@
 #include "StationActorBase.h"
+#include "ItemActor.h"
 #include "HolderComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"

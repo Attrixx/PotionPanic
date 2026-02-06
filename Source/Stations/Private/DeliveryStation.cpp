@@ -6,6 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Logging/StructuredLog.h"
+#include "Engine/AssetManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_DeliveryStation, Log, All);
 
@@ -13,9 +14,10 @@ ADeliveryStation::ADeliveryStation()
 {
 }
 
-bool ADeliveryStation::CanPlaceItem(const UItemAsset* Item) const
+bool ADeliveryStation::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 {
-	if (Item && Item->bIsIndestructible)
+	UItemAsset* Item = Cast<UItemAsset>(UAssetManager::Get().GetPrimaryAssetObject(ItemId));
+	if (Item && Item->bIsDestructible)
 	{
 		return false;
 	}
@@ -34,8 +36,8 @@ void ADeliveryStation::Interact(APlayerController& InInstigator)
 
 	if (PlayerItem && !StationItem)
 	{
-        AItemActor* ItemActor = Cast<AItemActor>(PlayerItem->GetOwner());
-		if (ItemActor && !CanPlaceItem(ItemActor->GetItemAsset()))
+		FPrimaryAssetId ItemId = PlayerItem->GetItemId();
+		if (!CanPlaceItem(ItemId))
 		{
 			return;
 		}

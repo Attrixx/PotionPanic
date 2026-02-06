@@ -15,6 +15,6 @@ class STATIONS_API ATrashStation : public AStationActorBase
 	GENERATED_BODY()
 	
 public:
-    virtual bool CanPlaceItem(const UItemAsset* Item) const override;
+    virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
     // TODO (Nath): Add FX/Sound on destroy? override OnProcessingFinished to play sound before destroy.
 };
