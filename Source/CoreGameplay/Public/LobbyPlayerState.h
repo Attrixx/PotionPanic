@@ -4,7 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerState.h"
+#include "LobbyGameState.h"
 #include "LobbyPlayerState.generated.h"
+
+class UUserWidget;
+class ULevelSequencePlayer;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLobbyPlayerStateUpdated);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerColorChanged, FColor, NewColor);
@@ -55,7 +59,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	bool IsCouchCoopPlayer() const { return bIsCouchCoopPlayer; }
 
+	void PlayLevelSequence(ECameraPosition TargetCameraPosition);
+	UFUNCTION(Client, Reliable)
+	void ClientPlayLevelSequence(ECameraPosition TargetCameraPosition);
+	ULevelSequencePlayer* PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward = true);
+
 protected:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Lobby|UI")
+	TSubclassOf<UUserWidget> LobbyInterfaceWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> LobbyInterfaceWidgetInstance;
+
+	UFUNCTION()
+	void OnLobbyInterfaceSequenceFinished();
 
 	UPROPERTY(ReplicatedUsing = OnRep_IsHost, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
 	bool bIsHost;
@@ -78,8 +96,11 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
 	bool bIsCouchCoopPlayer;
 
+	ECameraPosition CurrentCameraPosition = ECameraPosition::Exterior;
+
 public:
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnLobbyPlayerStateUpdated OnPlayerInfoChanged;
+	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnLobbyPlayerColorChanged OnPlayerColorChanged;
 };

@@ -8,6 +8,7 @@
 #include "CustomGameViewportClient.h"
 
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputSubsystems.h"
 #include "EnhancedInputComponent.h"
@@ -39,12 +40,7 @@ void ALobbyPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
 
-	// Get the enhanced input subsystem
-	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
-	{
-		// Add the mapping context so we get controls
-		Subsystem->AddMappingContext(InputMappingContext, 0);
-	}
+	ClientSwitchMappingContext(false);
 }
 
 void ALobbyPlayerController::SetupInputComponent()
@@ -53,17 +49,18 @@ void ALobbyPlayerController::SetupInputComponent()
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = CastChecked<UEnhancedInputComponent>(InputComponent))
 	{
-		EnhancedInputComponent->BindAction(JoinAction, ETriggerEvent::Started, this, &ThisClass::Join);
 		EnhancedInputComponent->BindAction(LeaveAction, ETriggerEvent::Started, this, &ThisClass::Leave);
 		EnhancedInputComponent->BindAction(InviteAction, ETriggerEvent::Started, this, &ThisClass::Invite);
+		EnhancedInputComponent->BindAction(MenuAction, ETriggerEvent::Started, this, &ThisClass::HandleMenuAction);
 	}
 }
 
 void ALobbyPlayerController::HandleJoinRequest(int32 ControllerId)
 {
+	if (!bIsUsingLobbyMappingContext) return;
+
 	// TODO: Handle two request at the same time
 	PendingControllerId = ControllerId;
-
 	ServerRequestNewLocalPlayer();
 }
 
@@ -101,42 +98,61 @@ void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
 	}
 }
 
-void ALobbyPlayerController::SetLobbyReady(bool bIsReady)
+void ALobbyPlayerController::ClientSwitchMappingContext_Implementation(bool bInLobby)
 {
-	if (ALobbyPlayerState* LobbyPS = GetPlayerState<ALobbyPlayerState>())
+	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
-		LobbyPS->SetIsReady(bIsReady);
-	}
-
-	if (HasAuthority())
-	{
-		if (ALobbyGameMode* GM = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
+		if (bInLobby)
 		{
-			GM->CheckGameStart();
+			if (Subsystem->HasMappingContext(BaseInputMappingContext))
+			{
+				Subsystem->RemoveMappingContext(BaseInputMappingContext);
+			}
+			bIsUsingLobbyMappingContext = true;
+			Subsystem->AddMappingContext(LobbyInputMappingContext, 0);
+		}
+		else
+		{
+			if (Subsystem->HasMappingContext(LobbyInputMappingContext))
+			{
+				Subsystem->RemoveMappingContext(LobbyInputMappingContext);
+			}
+			bIsUsingLobbyMappingContext = false;
+			Subsystem->AddMappingContext(BaseInputMappingContext, 0);
 		}
 	}
-}
-
-void ALobbyPlayerController::Join(const FInputActionValue& Value)
-{
-	// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Purple, TEXT("Join action triggered."));
 }
 
 void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 {
-	if (ULocalPlayer* LocalPlayer = GetLocalPlayer())
+	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Leave action triggered"));
+	ULocalPlayer* LocalPlayer = GetLocalPlayer();
+	if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
 	{
-		if (LocalPlayer->GetControllerId() == 0)
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Primary player leaving"));
+		// Primary player leaves: exit invite/customize area if host, or leave lobby if not host
+		ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
+		if (!IsValid(PS)) return;
+
+		if (PS->IsHost())
 		{
-			// Primary player leaves: Disconnect and return to main menu
-			UGameplayStatics::OpenLevel(this, FName("TestMap"));
+			if (ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
+			{
+				LobbyGameMode->RequestLeaveInviteArea(this);
+			}	
 		}
 		else
 		{
-			// Secondary player leaves
-			UGameplayStatics::RemovePlayer(this, true);
-			ServerLocalPlayerLeave();
+			// TODO: Get Level name from somewhere
+			UGameplayStatics::OpenLevel(this, FName("MainMenu"));
 		}
+	}
+	else
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Secondary player leaving"));
+		// Secondary player leaves
+		UGameplayStatics::RemovePlayer(this, true);
+		ServerLocalPlayerLeave();
 	}
 }
 
@@ -146,5 +162,14 @@ void ALobbyPlayerController::Invite(const FInputActionValue& Value)
 	if (IOnlineExternalUIPtr ExternalUI = Subsystem->GetExternalUIInterface())
 	{
 		ExternalUI->ShowFriendsUI(0);
+	}
+}
+
+void ALobbyPlayerController::HandleMenuAction(const FInputActionValue& Value)
+{
+	ULocalPlayer* LocalPlayer = GetLocalPlayer();
+	if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
+	{
+		UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
 	}
 }

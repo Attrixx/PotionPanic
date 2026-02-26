@@ -4,11 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-
-#include "Components/StaticMeshComponent.h"
-#include "Components/WidgetComponent.h"
-
 #include "LobbyPlayerPreview.generated.h"
+
+class UCapsuleComponent;
+class UStaticMeshComponent;
 
 UCLASS()
 class COREGAMEPLAY_API ALobbyPlayerPreview : public AActor
@@ -30,6 +29,10 @@ public:
 	void SetPlayerColor(FColor color);
 
 public:
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TObjectPtr<UCapsuleComponent> CapsuleComponent;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	UStaticMeshComponent* PlayerMesh;
 

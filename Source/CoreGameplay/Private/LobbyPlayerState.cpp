@@ -5,6 +5,9 @@
 #include "LobbyPlayerController.h"
 
 #include "Net/UnrealNetwork.h"
+#include "LevelSequenceActor.h"
+#include "LevelSequencePlayer.h"
+#include "Blueprint/UserWidget.h"
 
 ALobbyPlayerState::ALobbyPlayerState()
 {
@@ -76,6 +79,134 @@ void ALobbyPlayerState::SetIsReady(bool bNewReady)
 void ALobbyPlayerState::Server_SetIsReady_Implementation(bool bNewReady)
 {
 	SetIsReady(bNewReady);
+}
+
+void ALobbyPlayerState::PlayLevelSequence(ECameraPosition TargetCameraPosition)
+{
+	ClientPlayLevelSequence(TargetCameraPosition);
+}
+
+void ALobbyPlayerState::ClientPlayLevelSequence_Implementation(ECameraPosition TargetCameraPosition)
+{
+	if (CurrentCameraPosition == TargetCameraPosition) return;
+
+	if (LobbyInterfaceWidgetInstance)
+	{
+		LobbyInterfaceWidgetInstance->RemoveFromParent();
+		LobbyInterfaceWidgetInstance = nullptr;
+	}
+
+	ALobbyGameState* LobbyGameState = GetWorld()->GetGameState<ALobbyGameState>();
+	if (!LobbyGameState) return;
+
+	ULevelSequencePlayer* PlayedSequence = nullptr;
+
+	switch (CurrentCameraPosition)
+	{
+	case ECameraPosition::Exterior:
+		switch (TargetCameraPosition)
+		{
+		case ECameraPosition::LobbyInterface:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToLobbyInterface);
+			break;
+		case ECameraPosition::Entrance:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToEntrance);
+			break;
+		case ECameraPosition::Interior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToInterior);
+			break;
+		}
+		break;
+	case ECameraPosition::Entrance:
+		switch (TargetCameraPosition)
+		{
+		case ECameraPosition::LobbyInterface:
+			PlayedSequence = PlaySequence(ELevelSequenceType::EntranceToLobbyInterface);
+			break;
+		case ECameraPosition::Interior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::EntranceToInterior);
+			break;
+		case ECameraPosition::Exterior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToEntrance, false);
+			break;
+		}
+		break;
+	case ECameraPosition::LobbyInterface:
+		switch (TargetCameraPosition)
+		{
+		case ECameraPosition::Entrance:
+			PlayedSequence = PlaySequence(ELevelSequenceType::EntranceToLobbyInterface, false);
+			break;
+		case ECameraPosition::Interior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::InteriorToLobbyInterface, false);
+			break;
+		case ECameraPosition::Exterior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToLobbyInterface, false);
+			break;
+		}
+		break;
+	case ECameraPosition::Interior:
+		switch (TargetCameraPosition)
+		{
+		case ECameraPosition::LobbyInterface:
+			PlayedSequence = PlaySequence(ELevelSequenceType::InteriorToLobbyInterface);
+			break;
+		case ECameraPosition::Entrance:
+			PlayedSequence = PlaySequence(ELevelSequenceType::EntranceToInterior, false);
+			break;
+		case ECameraPosition::Exterior:
+			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToInterior, false);
+			break;
+		}
+		break;
+	}
+	
+	CurrentCameraPosition = TargetCameraPosition;
+
+	if (PlayedSequence)
+	{
+		PlayedSequence->OnFinished.RemoveAll(this);
+
+		if (TargetCameraPosition == ECameraPosition::LobbyInterface)
+		{
+			PlayedSequence->OnFinished.AddDynamic(this, &ALobbyPlayerState::OnLobbyInterfaceSequenceFinished);
+		}
+	}
+}
+
+ULevelSequencePlayer* ALobbyPlayerState::PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward)
+{
+	ALobbyGameState* LobbyGameState = GetWorld()->GetGameState<ALobbyGameState>();
+	if (!IsValid(LobbyGameState)) return nullptr;
+	ALevelSequenceActor* SequenceActor = LobbyGameState->GetLevelSequenceActor(SequenceType);
+	if (!IsValid(SequenceActor)) return nullptr;
+	ULevelSequencePlayer* SequencePlayer = SequenceActor->GetSequencePlayer();
+	if (!IsValid(SequencePlayer)) return nullptr;
+	if (bPlayForward)
+	{
+		SequencePlayer->Play();
+	}
+	else
+	{
+		SequencePlayer->PlayReverse();
+	}
+	return SequencePlayer;
+}
+
+void ALobbyPlayerState::OnLobbyInterfaceSequenceFinished()
+{
+	APlayerController* PC = GetPlayerController();
+	if (PC && PC->IsLocalController() && LobbyInterfaceWidgetClass)
+	{
+		if (!LobbyInterfaceWidgetInstance)
+		{
+			LobbyInterfaceWidgetInstance = CreateWidget<UUserWidget>(PC, LobbyInterfaceWidgetClass);
+			if (LobbyInterfaceWidgetInstance)
+			{
+				LobbyInterfaceWidgetInstance->AddToViewport();
+			}
+		}
+	}
 }
 
 void ALobbyPlayerState::OnRep_IsHost()

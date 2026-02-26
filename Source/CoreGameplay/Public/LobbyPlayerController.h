@@ -12,11 +12,11 @@ class UInputMappingContext;
 class UInputAction;
 class ALobbySpawnPoint;
 struct FInputActionValue;
+class ALobbyPlayerPreview;
 
 /**
  * 
  */
-class ALobbyPlayerPreview;
 UCLASS()
 class COREGAMEPLAY_API ALobbyPlayerController : public APlayerController
 {
@@ -55,29 +55,33 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	void SetLobbyPlayerColor(FColor NewColor);
 
-	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	void SetLobbyReady(bool bIsReady);
+	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Lobby")
+	void ClientSwitchMappingContext(bool bInLobby);
 
 private:
 
 	int32 PendingControllerId;
+	bool bIsUsingLobbyMappingContext = false;
 
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<class UInputMappingContext> InputMappingContext;
+	TObjectPtr<UInputMappingContext> BaseInputMappingContext;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<class UInputAction> JoinAction;
+	TObjectPtr<UInputMappingContext> LobbyInputMappingContext;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<class UInputAction> LeaveAction;
+	TObjectPtr<UInputAction> LeaveAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
-	TObjectPtr<class UInputAction> InviteAction;
+	TObjectPtr<UInputAction> InviteAction;
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> MenuAction;
 
 protected:
 
-	void Join(const FInputActionValue& Value);
 	void Leave(const FInputActionValue& Value);
 	void Invite(const FInputActionValue& Value);
+	void HandleMenuAction(const FInputActionValue& Value);
 	
 };

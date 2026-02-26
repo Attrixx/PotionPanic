@@ -37,6 +37,8 @@ void ULobby::NativeConstruct()
 			}
 		}
 	}
+
+	UpdatePlayerWidgets();
 }
 
 void ULobby::UpdatePlayerWidgets()

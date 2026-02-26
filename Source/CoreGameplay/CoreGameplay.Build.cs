@@ -12,14 +12,17 @@ public class CoreGameplay : ModuleRules
             "CoreUObject",
             "Engine",
             "OnlineSubsystem",
-            "EnhancedInput"
+            "EnhancedInput",
+            "UMG"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
             "OnlineSubsystemSteam",
             "SteamSockets",
-            "InputCore"
+            "InputCore",
+            "LevelSequence",
+            "MovieScene"
         });
     }
 }

@@ -11,6 +11,7 @@ public class UserInterfaces : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"UMG",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

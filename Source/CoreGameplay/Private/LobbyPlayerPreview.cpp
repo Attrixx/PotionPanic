@@ -4,6 +4,8 @@
 #include "LobbyPlayerPreview.h"
 
 #include "Kismet/KismetMathLibrary.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 
 ALobbyPlayerPreview::ALobbyPlayerPreview()
 {
@@ -11,8 +13,11 @@ ALobbyPlayerPreview::ALobbyPlayerPreview()
 	bReplicates = true;
 	SetReplicateMovement(true);
 
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("Capsule Component"));
+	RootComponent = CapsuleComponent;
+
 	PlayerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Player Mesh"));
-	RootComponent = PlayerMesh;
+	PlayerMesh->SetupAttachment(RootComponent);
 }
 
 void ALobbyPlayerPreview::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
