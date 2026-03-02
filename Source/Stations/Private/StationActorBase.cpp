@@ -71,6 +71,9 @@ void AStationActorBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(AStationActorBase, CurrentInstruction);
 	DOREPLIFETIME(AStationActorBase, ProcessingStartTime);
 	DOREPLIFETIME(AStationActorBase, ProcessingDuration);
+	DOREPLIFETIME(AStationActorBase, BufferedInputCount);
+	DOREPLIFETIME(AStationActorBase, PendingOutputCount);
+	DOREPLIFETIME(AStationActorBase, PendingOutputItem);
 }
 
 void AStationActorBase::QueueInstruction(const FInstruction& InInstruction)
@@ -81,8 +84,12 @@ void AStationActorBase::QueueInstruction(const FInstruction& InInstruction)
 		return;
 	}
 
-	InstructionQueue.Add(InInstruction);
-	OnInstructionQueuedBP(InInstruction);
+	FInstruction Instruction = InInstruction;
+	Instruction.InputQuantity = FMath::Max(1, Instruction.InputQuantity);
+	Instruction.OutputQuantity = FMath::Max(1, Instruction.OutputQuantity);
+
+	InstructionQueue.Add(Instruction);
+	OnInstructionQueuedBP(Instruction);
 }
 
 void AStationActorBase::SetInstruction(const FInstruction& InInstruction)
@@ -148,8 +155,13 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	UCarriableComponent* PlayerItem = PlayerHolder->GetCarriable();
 	UCarriableComponent* StationItem = ItemHolder->GetCarriable();
 
-	if (PlayerItem && !StationItem)
+	if (PlayerItem)
 	{
+		if (PendingOutputCount > 0 || PendingOutputItem.IsValid())
+		{
+			return;
+		}
+
 		const FPrimaryAssetId ItemId = PlayerItem->GetItemId();
 		if (!CanPlaceItem(ItemId))
 		{
@@ -157,9 +169,52 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 		}
 
 		FInstruction ResolvedInstruction;
-		if (!TryResolveInstructionForItem(ItemId, ResolvedInstruction))
+		const bool bHasBufferedBatch =
+			BufferedInputCount > 0 &&
+			CurrentInstruction.InputItem.IsValid() &&
+			BufferedInputCount < GetRequiredInputCount(CurrentInstruction);
+
+		if (bHasBufferedBatch)
+		{
+			if (CurrentInstruction.InputItem != ItemId || !CanExecuteInstruction(CurrentInstruction))
+			{
+				return;
+			}
+
+			ResolvedInstruction = CurrentInstruction;
+		}
+		else if (!TryResolveInstructionForItem(ItemId, ResolvedInstruction))
 		{
 			UE_LOGFMT(MS_StationActorBase, Log, "No instruction found for item {0} on station {1}", ItemId.ToString(), GetName());
+			return;
+		}
+
+		const int32 RequiredInputCount = GetRequiredInputCount(ResolvedInstruction);
+		if (RequiredInputCount > 1)
+		{
+			// TODO (Nath): Add explicit batch reset/cancel interaction for partially filled instructions.
+			if (StationItem != nullptr)
+			{
+				return;
+			}
+
+			if (!ConsumeCarriable(PlayerItem))
+			{
+				return;
+			}
+
+			CurrentInstruction = ResolvedInstruction;
+			BufferedInputCount = FMath::Min(BufferedInputCount + 1, RequiredInputCount);
+
+			if (BufferedInputCount >= RequiredInputCount)
+			{
+				StartProcessing(CurrentInstruction);
+			}
+			return;
+		}
+
+		if (StationItem != nullptr)
+		{
 			return;
 		}
 
@@ -170,6 +225,8 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 		}
 
 		ItemHolder->Replace(MovedCarriable);
+		CurrentInstruction = ResolvedInstruction;
+		BufferedInputCount = 1;
 		StartProcessing(ResolvedInstruction);
 		return;
 	}
@@ -182,10 +239,23 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 			PlayerHolder->Replace(MovedCarriable);
 		}
 
-		CurrentInstruction = FInstruction{};
-		ProcessingStartTime = 0.0f;
-		ProcessingDuration = 0.0f;
+		if (PendingOutputCount > 0)
+		{
+			TrySpawnPendingOutput();
+			SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
+			return;
+		}
+
+		PendingOutputItem = FPrimaryAssetId();
+		ResetCurrentInstructionState();
 		SetStationState(EStationState::Idle);
+		return;
+	}
+
+	if (!PlayerItem && !StationItem && PendingOutputCount > 0)
+	{
+		TrySpawnPendingOutput();
+		SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
 	}
 }
 
@@ -355,45 +425,19 @@ void AStationActorBase::FinishProcessing()
 		}
 	}
 
-	bool bProducedOutput = false;
-	if (CurrentInstruction.OutputItem.IsValid() && GetWorld() && ItemHolder)
+	PendingOutputCount = 0;
+	PendingOutputItem = FPrimaryAssetId();
+
+	const int32 RequiredOutputCount = GetRequiredOutputCount(CurrentInstruction);
+	if (CurrentInstruction.OutputItem.IsValid() && RequiredOutputCount > 0)
 	{
-		UItemAsset* OutputAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(CurrentInstruction.OutputItem);
-		if (OutputAsset == nullptr)
-		{
-			const FSoftObjectPath OutputPath = UAssetManager::Get().GetPrimaryAssetPath(CurrentInstruction.OutputItem);
-			OutputAsset = Cast<UItemAsset>(OutputPath.TryLoad());
-		}
-
-		if (OutputAsset)
-		{
-			FActorSpawnParameters SpawnParameters;
-			SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-			AItemActor* NewItem = GetWorld()->SpawnActor<AItemActor>(AItemActor::StaticClass(), ItemHolder->GetComponentTransform(), SpawnParameters);
-			if (NewItem)
-			{
-				NewItem->SetItemAsset(OutputAsset);
-				if (UCarriableComponent* NewCarriable = NewItem->FindComponentByClass<UCarriableComponent>())
-				{
-					ItemHolder->Replace(NewCarriable);
-					bProducedOutput = true;
-				}
-			}
-		}
-		else
-		{
-			// TODO (Nath): Route missing output asset to a station error event consumed by game flow/debug tools.
-			UE_LOGFMT(MS_StationActorBase, Warning, "Failed to load output item asset {0}", CurrentInstruction.OutputItem.ToString());
-		}
+		PendingOutputItem = CurrentInstruction.OutputItem;
+		PendingOutputCount = RequiredOutputCount;
+		TrySpawnPendingOutput();
 	}
 
-	CurrentInstruction = FInstruction{};
-	ProcessingStartTime = 0.0f;
-	ProcessingDuration = 0.0f;
-	CurrentInstigator.Reset();
-
-	SetStationState(bProducedOutput ? EStationState::Completed : EStationState::Idle);
+	ResetCurrentInstructionState();
+	SetStationState(PendingOutputCount > 0 || (ItemHolder && ItemHolder->GetCarriable() != nullptr) ? EStationState::Completed : EStationState::Idle);
 }
 
 void AStationActorBase::CancelProcessing()
@@ -411,11 +455,29 @@ void AStationActorBase::CancelProcessing()
 		ActiveInteraction = nullptr;
 	}
 
-	CurrentInstruction = FInstruction{};
-	ProcessingStartTime = 0.0f;
-	ProcessingDuration = 0.0f;
-	CurrentInstigator.Reset();
-	SetStationState(EStationState::Idle);
+	const FInstruction FailedInstruction = CurrentInstruction;
+	const bool bShouldConsumeInputOnFailure = FailedInstruction.bConsumeInputOnFailure;
+	if (bShouldConsumeInputOnFailure && ItemHolder != nullptr)
+	{
+		if (UCarriableComponent* HeldCarriable = ItemHolder->GetCarriable())
+		{
+			ConsumeCarriable(HeldCarriable);
+		}
+	}
+
+	PendingOutputCount = 0;
+	PendingOutputItem = FPrimaryAssetId();
+	bool bHasFailureOutputAvailable = false;
+	if (FailedInstruction.FailureOutputItem.IsValid() && FailedInstruction.FailureOutputQuantity > 0)
+	{
+		PendingOutputItem = FailedInstruction.FailureOutputItem;
+		PendingOutputCount = FMath::Max(1, FailedInstruction.FailureOutputQuantity);
+		TrySpawnPendingOutput();
+		bHasFailureOutputAvailable = PendingOutputCount > 0 || (ItemHolder != nullptr && ItemHolder->GetCarriable() != nullptr);
+	}
+
+	ResetCurrentInstructionState();
+	SetStationState(bHasFailureOutputAvailable ? EStationState::Completed : EStationState::Idle);
 
 	// TODO (Nath): Decide station policy on cancellation (re-queue instruction or keep consumed).
 	OnCancelProcessingBP();
@@ -468,6 +530,124 @@ const UInteractionDefinitionAsset* AStationActorBase::ResolveInteractionDefiniti
 	}
 
 	return nullptr;
+}
+
+bool AStationActorBase::ConsumeCarriable(UCarriableComponent* Carriable) const
+{
+	if (Carriable == nullptr)
+	{
+		return false;
+	}
+
+	UHolderComponent* SourceHolder = Carriable->GetHolder();
+	if (SourceHolder == nullptr)
+	{
+		return false;
+	}
+
+	UCarriableComponent* RemovedCarriable = SourceHolder->Replace(nullptr);
+	if (RemovedCarriable == nullptr)
+	{
+		return false;
+	}
+
+	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
+	{
+		ItemActor->DestroyItem(true);
+		return true;
+	}
+
+	if (AActor* OwnerActor = RemovedCarriable->GetOwner())
+	{
+		OwnerActor->Destroy();
+		return true;
+	}
+
+	return false;
+}
+
+bool AStationActorBase::SpawnInstructionOutput(const FInstruction& Instruction)
+{
+	if (!Instruction.OutputItem.IsValid() || GetWorld() == nullptr || ItemHolder == nullptr || ItemHolder->GetCarriable() != nullptr)
+	{
+		return false;
+	}
+
+	UItemAsset* OutputAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(Instruction.OutputItem);
+	if (OutputAsset == nullptr)
+	{
+		const FSoftObjectPath OutputPath = UAssetManager::Get().GetPrimaryAssetPath(Instruction.OutputItem);
+		OutputAsset = Cast<UItemAsset>(OutputPath.TryLoad());
+	}
+
+	if (OutputAsset == nullptr)
+	{
+		// TODO (Nath): Route missing output asset to a station error event consumed by game flow/debug tools.
+		UE_LOGFMT(MS_StationActorBase, Warning, "Failed to load output item asset {0}", Instruction.OutputItem.ToString());
+		return false;
+	}
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	AItemActor* NewItem = GetWorld()->SpawnActor<AItemActor>(AItemActor::StaticClass(), ItemHolder->GetComponentTransform(), SpawnParameters);
+	if (NewItem == nullptr)
+	{
+		return false;
+	}
+
+	NewItem->SetItemAsset(OutputAsset);
+	if (UCarriableComponent* NewCarriable = NewItem->FindComponentByClass<UCarriableComponent>())
+	{
+		ItemHolder->Replace(NewCarriable);
+		return true;
+	}
+
+	NewItem->DestroyItem(true);
+	return false;
+}
+
+void AStationActorBase::TrySpawnPendingOutput()
+{
+	if (!HasAuthority() || PendingOutputCount <= 0 || !PendingOutputItem.IsValid() || ItemHolder == nullptr || ItemHolder->GetCarriable() != nullptr)
+	{
+		return;
+	}
+
+	FInstruction OutputInstruction;
+	OutputInstruction.OutputItem = PendingOutputItem;
+
+	if (!SpawnInstructionOutput(OutputInstruction))
+	{
+		// TODO (Nath): Add retry/error event hook if pending outputs cannot be spawned.
+		return;
+	}
+
+	--PendingOutputCount;
+	if (PendingOutputCount <= 0)
+	{
+		PendingOutputCount = 0;
+		PendingOutputItem = FPrimaryAssetId();
+	}
+}
+
+void AStationActorBase::ResetCurrentInstructionState()
+{
+	CurrentInstruction = FInstruction{};
+	ProcessingStartTime = 0.0f;
+	ProcessingDuration = 0.0f;
+	BufferedInputCount = 0;
+	CurrentInstigator.Reset();
+}
+
+int32 AStationActorBase::GetRequiredInputCount(const FInstruction& Instruction) const
+{
+	return FMath::Max(1, Instruction.InputQuantity);
+}
+
+int32 AStationActorBase::GetRequiredOutputCount(const FInstruction& Instruction) const
+{
+	return FMath::Max(1, Instruction.OutputQuantity);
 }
 
 void AStationActorBase::StopExecutionTimers()

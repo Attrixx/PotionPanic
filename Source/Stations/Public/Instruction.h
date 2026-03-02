@@ -14,8 +14,14 @@ struct STATIONS_API FInstruction
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction")
 	FPrimaryAssetId InputItem;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction", meta = (ClampMin = "1"))
+	int32 InputQuantity = 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction")
 	FPrimaryAssetId OutputItem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction", meta = (ClampMin = "1"))
+	int32 OutputQuantity = 1;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction")
 	TSoftObjectPtr<UActivityAsset> Activity;
@@ -25,4 +31,16 @@ struct STATIONS_API FInstruction
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction")
 	bool bRequiresProximity = true;
+
+	/** If true, consumed input should be removed when processing fails/cancels. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Failure")
+	bool bConsumeInputOnFailure = false;
+
+	/** Optional item spawned when processing fails/cancels. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Failure")
+	FPrimaryAssetId FailureOutputItem;
+
+	/** Quantity spawned on failure when FailureOutputItem is valid. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Failure", meta = (ClampMin = "1"))
+	int32 FailureOutputQuantity = 1;
 };

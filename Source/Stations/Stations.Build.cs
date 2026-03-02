@@ -12,7 +12,8 @@ public class Stations : ModuleRules
             "CoreUObject",
             "Engine",
             "CoreGameplay",
-            "Interactions"
+            "Interactions",
+            "Recipes"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[] 

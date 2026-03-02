@@ -111,6 +111,12 @@ protected:
 	void SetStationState(EStationState NewState);
 	bool TryResolveInstructionForItem(const FPrimaryAssetId& ItemId, FInstruction& OutInstruction);
 	const UInteractionDefinitionAsset* ResolveInteractionDefinition(const FInstruction& Instruction) const;
+	bool ConsumeCarriable(UCarriableComponent* Carriable) const;
+	bool SpawnInstructionOutput(const FInstruction& Instruction);
+	void TrySpawnPendingOutput();
+	void ResetCurrentInstructionState();
+	int32 GetRequiredInputCount(const FInstruction& Instruction) const;
+	int32 GetRequiredOutputCount(const FInstruction& Instruction) const;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
@@ -148,6 +154,15 @@ protected:
 
 	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Station|State")
 	float ProcessingDuration = 0.0f;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Station|State")
+	int32 BufferedInputCount = 0;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Station|State")
+	int32 PendingOutputCount = 0;
+
+	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Station|State")
+	FPrimaryAssetId PendingOutputItem;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Visuals")
 	void OnInstructionQueuedBP(const FInstruction& Instruction);
