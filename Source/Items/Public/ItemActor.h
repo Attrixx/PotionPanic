@@ -33,6 +33,9 @@ public:
 	UItemAsset* GetItemAsset() const { return ItemAsset; }
 
 	UFUNCTION(BlueprintPure, Category = "Item")
+	FPrimaryAssetId GetItemAssetId() const;
+
+	UFUNCTION(BlueprintPure, Category = "Item")
 	bool IsBreakable() const;
 
 	UFUNCTION(BlueprintPure, Category = "Item")

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SceneComponent.h"
+#include "Components/ActorComponent.h"
 #include "CarriableComponent.generated.h"
 
 class UHolderComponent;
@@ -34,13 +34,6 @@ protected:
 	 */
 	UFUNCTION(BlueprintNativeEvent, meta = (ForceAsFunction))
 	void OnHolderChanged(UHolderComponent *OldHolder, UHolderComponent *NewHolder);
-
-	UFUNCTION()
-	void OnRep_ItemId();
-
-public:
-	void SetItemId(FPrimaryAssetId NewItemId);
-	FPrimaryAssetId GetItemId() const { return ItemId; }
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_Holder)

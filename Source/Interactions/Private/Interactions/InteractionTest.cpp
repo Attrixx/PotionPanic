@@ -3,7 +3,7 @@
 #include "Interactions/InteractionTest.h"
 #include "Logging/StructuredLog.h"
 
-DEFINE_LOG_CATEGORY_STATIC(PP_InteractionTest, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_InteractionTest, Log, All);
 
 bool UInteractionTest::StartTestInteraction(const UInteractionDefinitionAsset *InteractionDefinition)
 {

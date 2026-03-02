@@ -1,7 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "RecipeManagerSubsystem.h"
-#include "CarriableComponent.h"
 #include "Instruction.h"
 #include "Cauldron.h"
 #include "ItemActor.h"
@@ -210,8 +209,7 @@ bool TryRollbackCauldronContents(ACauldron* Cauldron, const TArray<FPrimaryAsset
 
 FPrimaryAssetId ResolveHeldItemId(const AItemActor* HeldItemActor)
 {
-	const UCarriableComponent* HeldCarriable = HeldItemActor ? HeldItemActor->FindComponentByClass<UCarriableComponent>() : nullptr;
-	return HeldCarriable ? HeldCarriable->GetItemId() : FPrimaryAssetId();
+	return HeldItemActor ? HeldItemActor->GetItemAssetId() : FPrimaryAssetId();
 }
 
 void ConfigureFireStationInstructionForCauldron(FInstruction& StationInstruction, const FPrimaryAssetId& HeldCauldronItemId)

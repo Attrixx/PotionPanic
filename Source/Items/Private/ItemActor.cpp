@@ -48,9 +48,9 @@ void AItemActor::NotifyHit(UPrimitiveComponent *MyComp, AActor *Other, UPrimitiv
 	}
 }
 
-void AItemActor::SetItemAsset(UItemAsset &NewItemAsset)
+void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 {
-	if (!NewItemAsset)
+	if (NewItemAsset == nullptr)
 	{
 		return;
 	}
@@ -62,11 +62,11 @@ void AItemActor::SetItemAsset(UItemAsset &NewItemAsset)
 	{
 		PlaySpawnFeedback();
 	}
+}
 
-	if (Carriable)
-	{
-		Carriable->SetItemId(NewItemAsset->GetPrimaryAssetId());
-	}
+FPrimaryAssetId AItemActor::GetItemAssetId() const
+{
+	return ItemAsset ? ItemAsset->GetPrimaryAssetId() : FPrimaryAssetId();
 }
 
 void AItemActor::DestroyItem(bool bPlayFeedback)

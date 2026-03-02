@@ -71,7 +71,7 @@ void ACauldron::Interact(APlayerController& InInstigator)
 			return;
 		}
 
-		const FPrimaryAssetId HeldItemId = PlayerCarriable->GetItemId();
+		const FPrimaryAssetId HeldItemId = HeldItemActor->GetItemAssetId();
 		if (!CanAcceptIngredientAssetId(HeldItemId))
 		{
 			return;

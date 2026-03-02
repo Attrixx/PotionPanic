@@ -45,6 +45,12 @@ UItemAsset* ResolveItemAssetFromId(const FPrimaryAssetId& ItemId)
 	return Cast<UItemAsset>(AssetPath.TryLoad());
 }
 
+FPrimaryAssetId ResolveCarriableItemId(const UCarriableComponent* Carriable)
+{
+	const AItemActor* ItemActor = Carriable ? Cast<AItemActor>(Carriable->GetOwner()) : nullptr;
+	return ItemActor ? ItemActor->GetItemAssetId() : FPrimaryAssetId();
+}
+
 bool AreInstructionsEquivalent(const FInstruction& Left, const FInstruction& Right)
 {
 	if (Left.InputItem != Right.InputItem
@@ -315,7 +321,7 @@ bool AStationActorBase::TryHandleDeliveryInteraction(UHolderComponent* PlayerHol
 		return true;
 	}
 
-	const FPrimaryAssetId HeldItemId = PlayerItem->GetItemId();
+	const FPrimaryAssetId HeldItemId = ResolveCarriableItemId(PlayerItem);
 	if (!CanPlaceItem(HeldItemId))
 	{
 		return true;
@@ -347,7 +353,7 @@ bool AStationActorBase::TryHandleTrashInteraction(APlayerController& InInstigato
 		return true;
 	}
 
-	const FPrimaryAssetId HeldItemId = PlayerItem->GetItemId();
+	const FPrimaryAssetId HeldItemId = ResolveCarriableItemId(PlayerItem);
 	if (!CanPlaceItem(HeldItemId))
 	{
 		return true;
@@ -404,7 +410,8 @@ bool AStationActorBase::TryHandleFireStationInteraction(
 
 	if (bPlayerHasItem)
 	{
-		if (bStationHasItem || !CanPlaceItem(PlayerItem->GetItemId()))
+		const FPrimaryAssetId PlayerItemId = ResolveCarriableItemId(PlayerItem);
+		if (bStationHasItem || !CanPlaceItem(PlayerItemId))
 		{
 			return true;
 		}
@@ -435,7 +442,7 @@ bool AStationActorBase::TryHandlePlayerItemInteraction(UHolderComponent* PlayerH
 		return true;
 	}
 
-	const FPrimaryAssetId ItemId = PlayerItem->GetItemId();
+	const FPrimaryAssetId ItemId = ResolveCarriableItemId(PlayerItem);
 	if (!CanPlaceItem(ItemId))
 	{
 		return true;
@@ -1164,8 +1171,14 @@ bool AStationActorBase::TryStartProcessingHeldItem(APawn* InstigatorPawn)
 		return false;
 	}
 
+	const FPrimaryAssetId HeldItemId = ResolveCarriableItemId(HeldCarriable);
+	if (!HeldItemId.IsValid())
+	{
+		return false;
+	}
+
 	FInstruction ResolvedInstruction;
-	if (!TryResolveInstructionForItem(HeldCarriable->GetItemId(), ResolvedInstruction))
+	if (!TryResolveInstructionForItem(HeldItemId, ResolvedInstruction))
 	{
 		return false;
 	}
