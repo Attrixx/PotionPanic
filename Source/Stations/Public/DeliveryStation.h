@@ -4,7 +4,7 @@
 #include "StationActorBase.h"
 #include "DeliveryStation.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDeliveryStationItemDeliveredDelegate, FPrimaryAssetId, DeliveredItemId);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FDeliveryStationItemDeliveredDelegate, FPrimaryAssetId, DeliveredItemId, AActor*, SourceStation);
 
 /**
  * Delivery station for completed items.
@@ -26,6 +26,4 @@ protected:
 	/** Optional allow-list. If empty, any valid item id is accepted. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Delivery")
 	TArray<FPrimaryAssetId> AcceptedItems;
-
-	// TODO (Nath): Forward delivery result to order/score manager once that system is integrated.
 };

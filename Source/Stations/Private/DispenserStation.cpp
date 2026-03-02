@@ -5,6 +5,7 @@
 #include "ItemActor.h"
 #include "ItemSpawnLibrary.h"
 #include "Logging/StructuredLog.h"
+#include "Engine/World.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_DispenserStation, Log, All);
 
@@ -38,6 +39,18 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 		return;
 	}
 
+	const UWorld* World = GetWorld();
+	if (World == nullptr)
+	{
+		return;
+	}
+
+	const float CurrentServerTime = World->GetTimeSeconds();
+	if (CurrentServerTime < NextAllowedDispenseTimeSeconds)
+	{
+		return;
+	}
+
 	const FTransform SpawnTransform = ItemHolder ? ItemHolder->GetComponentTransform() : GetActorTransform();
 	AItemActor* SpawnedItem = UItemSpawnLibrary::SpawnItemFromPrimaryAssetId(this, ItemToDispense, SpawnTransform, ItemActorClass);
 	if (SpawnedItem == nullptr)
@@ -55,4 +68,5 @@ void ADispenserStation::Interact(APlayerController& InInstigator)
 	}
 
 	PlayerHolder->Replace(SpawnedCarriable);
+	NextAllowedDispenseTimeSeconds = CurrentServerTime + FMath::Max(0.0f, DispenseCooldownSeconds);
 }

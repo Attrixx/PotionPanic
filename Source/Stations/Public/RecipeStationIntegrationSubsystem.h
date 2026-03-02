@@ -21,6 +21,9 @@ enum class ERecipeStationIntegrationError : uint8
 	NoMatchingRecipe UMETA(DisplayName = "NoMatchingRecipe"),
 	InvalidExecutionPlan UMETA(DisplayName = "InvalidExecutionPlan"),
 	InvalidInstruction UMETA(DisplayName = "InvalidInstruction"),
+	NullStepStation UMETA(DisplayName = "NullStepStation"),
+	StepStationNotAuthority UMETA(DisplayName = "StepStationNotAuthority"),
+	StepStationCountMismatch UMETA(DisplayName = "StepStationCountMismatch"),
 	StationCannotExecuteInstruction UMETA(DisplayName = "StationCannotExecuteInstruction")
 };
 
@@ -79,6 +82,31 @@ public:
 	FRecipeStationIntegrationResult QueueExecutionPlan(
 		AStationActorBase* Station,
 		const FRecipeExecutionPlan& ExecutionPlan,
+		bool bClearExistingQueue = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
+	FRecipeStationIntegrationResult BuildPlanAndQueueAcrossStationsFromActiveRoundRecipes(
+		const TArray<AStationActorBase*>& StepStations,
+		const TArray<FPrimaryAssetId>& InputItems,
+		bool bClearExistingQueues = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
+	FRecipeStationIntegrationResult BuildPlanAndQueueAcrossStations(
+		const TArray<AStationActorBase*>& StepStations,
+		const TArray<URecipeDataAsset*>& CandidateRecipes,
+		const TArray<FPrimaryAssetId>& InputItems,
+		bool bClearExistingQueues = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
+	FRecipeStationIntegrationResult QueueExecutionPlanAcrossStations(
+		const TArray<AStationActorBase*>& StepStations,
+		const FRecipeExecutionPlan& ExecutionPlan,
+		bool bClearExistingQueues = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
+	bool MaterializeFailureOutcomeOnStation(
+		AStationActorBase* Station,
+		const FRecipeFailureOutcome& FailureOutcome,
 		bool bClearExistingQueue = true);
 
 private:

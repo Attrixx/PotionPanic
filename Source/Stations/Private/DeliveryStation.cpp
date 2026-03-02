@@ -50,7 +50,7 @@ void ADeliveryStation::Interact(APlayerController& InInstigator)
 		OwnerActor->Destroy();
 	}
 
-	OnItemDelivered.Broadcast(HeldItemId);
+	OnItemDelivered.Broadcast(HeldItemId, this);
 }
 
 bool ADeliveryStation::CanPlaceItem(const FPrimaryAssetId& ItemId) const

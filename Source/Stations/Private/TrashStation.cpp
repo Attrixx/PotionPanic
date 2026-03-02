@@ -43,6 +43,8 @@ void ATrashStation::Interact(APlayerController& InInstigator)
 		return;
 	}
 
+	const FPrimaryAssetId TrashedItemId = RemovedCarriable->GetItemId();
+
 	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
 	{
 		ItemActor->DestroyItem(true);
@@ -51,6 +53,8 @@ void ATrashStation::Interact(APlayerController& InInstigator)
 	{
 		OwnerActor->Destroy();
 	}
+
+	OnTrashSucceededBP(&InInstigator, TrashedItemId);
 }
 
 bool ATrashStation::CanPlaceItem(const FPrimaryAssetId& ItemId) const

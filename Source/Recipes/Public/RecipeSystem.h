@@ -138,6 +138,37 @@ struct RECIPES_API FRecipeExecutionPlan
 };
 
 USTRUCT(BlueprintType)
+struct RECIPES_API FRecipeConcurrentPlanResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	bool bHasAnyPlan = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	int32 PlannedRecipeCount = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	TArray<FRecipeExecutionPlan> Plans;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	TArray<FPrimaryAssetId> ConsumedItems;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	TArray<FPrimaryAssetId> RemainingItems;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Concurrency")
+	FText Message;
+};
+
+UENUM(BlueprintType)
+enum class ERecipeConcurrentSolveMode : uint8
+{
+	Greedy UMETA(DisplayName = "Greedy"),
+	OptimalBranchAndBound UMETA(DisplayName = "OptimalBranchAndBound")
+};
+
+USTRUCT(BlueprintType)
 struct RECIPES_API FRecipeFailureOutcome
 {
 	GENERATED_BODY()
@@ -252,6 +283,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Recipes")
 	bool TryBuildExecutionPlan(const TArray<URecipeDataAsset*>& CandidateRecipes, const TArray<FPrimaryAssetId>& InputItems, FRecipeExecutionPlan& OutPlan) const;
 
+	/** Builds as many recipe plans as possible from the same input pool (Overcooked-style parallel prep). */
+	UFUNCTION(BlueprintCallable, Category = "Recipes|Concurrency")
+	FRecipeConcurrentPlanResult BuildConcurrentExecutionPlans(
+		const TArray<URecipeDataAsset*>& CandidateRecipes,
+		const TArray<FPrimaryAssetId>& AvailableInputItems,
+		int32 MaxConcurrentRecipes = 0,
+		ERecipeConcurrentSolveMode SolveMode = ERecipeConcurrentSolveMode::Greedy) const;
+
+	/** Convenience helper using active round recipes as candidates. */
+	UFUNCTION(BlueprintCallable, Category = "Recipes|Concurrency")
+	FRecipeConcurrentPlanResult BuildConcurrentExecutionPlansFromActiveRoundRecipes(
+		const TArray<FPrimaryAssetId>& AvailableInputItems,
+		int32 MaxConcurrentRecipes = 0,
+		ERecipeConcurrentSolveMode SolveMode = ERecipeConcurrentSolveMode::Greedy) const;
+
+	/** Uses designer-configured defaults for solve mode and max concurrent recipes. */
+	UFUNCTION(BlueprintCallable, Category = "Recipes|Concurrency")
+	FRecipeConcurrentPlanResult BuildConcurrentExecutionPlansWithDefaults(const TArray<FPrimaryAssetId>& AvailableInputItems) const;
+
 	UFUNCTION(BlueprintCallable, Category = "Recipes|Scoring")
 	int32 ComputeFinalScore(const URecipeDataAsset* Recipe, const TArray<FInteractionOutput>& InteractionOutputs, bool bRecipeCompleted) const;
 
@@ -262,6 +312,9 @@ private:
 	void EnsureShuffleGeneratorInitialized() const;
 	bool DoesItemMatchStep(const FPrimaryAssetId& ItemId, const UItemTransformation* Step, FText& OutFailureReason, ERecipeValidationError* OutErrorCode = nullptr) const;
 	int32 ComputeInteractionContribution(const URecipeDataAsset* Recipe, const TArray<FInteractionOutput>& InteractionOutputs) const;
+	bool TryBuildConsumableInputList(const URecipeDataAsset* Recipe, const TMap<FPrimaryAssetId, int32>& AvailablePool, TArray<FPrimaryAssetId>& OutSelectedInputs) const;
+	static void ConsumeInputListFromPool(const TArray<FPrimaryAssetId>& InputList, TMap<FPrimaryAssetId, int32>& InOutPool);
+	static void ExpandPoolToItemArray(const TMap<FPrimaryAssetId, int32>& Pool, TArray<FPrimaryAssetId>& OutItems);
 
 	mutable std::mt19937 ShuffleGenerator;
 	mutable bool bShuffleGeneratorInitialized = false;
@@ -276,4 +329,10 @@ private:
 
 	UPROPERTY(Transient)
 	int32 ActiveRoundSeed = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recipes|Concurrency", meta = (AllowPrivateAccess = "true"))
+	ERecipeConcurrentSolveMode DefaultConcurrentSolveMode = ERecipeConcurrentSolveMode::Greedy;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recipes|Concurrency", meta = (ClampMin = "0", AllowPrivateAccess = "true"))
+	int32 DefaultMaxConcurrentRecipes = 0;
 };

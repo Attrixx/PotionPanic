@@ -4,6 +4,7 @@
 #include "IngredientData.h"
 #include "ItemAsset.h"
 #include "ItemTransformation.h"
+#include "Algo/Sort.h"
 #include <algorithm>
 #include <random>
 
@@ -64,6 +65,35 @@ static void AddToMapCount(TMap<FPrimaryAssetId, int32>& CounterMap, const FPrima
 
 	const int32 CurrentCount = CounterMap.FindRef(ItemId);
 	CounterMap.Add(ItemId, CurrentCount + Quantity);
+}
+
+static void RemoveFromMapCount(TMap<FPrimaryAssetId, int32>& CounterMap, const FPrimaryAssetId& ItemId, int32 Quantity = 1)
+{
+	if (!ItemId.IsValid() || Quantity <= 0)
+	{
+		return;
+	}
+
+	const int32 CurrentCount = CounterMap.FindRef(ItemId);
+	const int32 NewCount = CurrentCount - Quantity;
+	if (NewCount > 0)
+	{
+		CounterMap.Add(ItemId, NewCount);
+	}
+	else
+	{
+		CounterMap.Remove(ItemId);
+	}
+}
+
+static void GetSortedPoolKeys(const TMap<FPrimaryAssetId, int32>& Pool, TArray<FPrimaryAssetId>& OutSortedKeys)
+{
+	OutSortedKeys.Reset();
+	Pool.GetKeys(OutSortedKeys);
+	Algo::Sort(OutSortedKeys, [](const FPrimaryAssetId& Left, const FPrimaryAssetId& Right)
+	{
+		return Left.ToString() < Right.ToString();
+	});
 }
 
 static int32 GetSafeInputQuantity(const UItemTransformation* Step)
@@ -520,8 +550,6 @@ FRecipeFailureOutcome URecipeSystem::ResolveFailureOutcome(const URecipeDataAsse
 	Outcome.MatchedInputCount = FMath::Max(0, Validation.MatchedStepCount);
 	Outcome.bConsumeMatchedInputs = Recipe->bConsumeMatchedInputsOnFailure && Outcome.MatchedInputCount > 0;
 
-	// TODO (Nath): For now ResolveFailureOutcome returns the recipe-level failure output only (global "Amalgame" strategy).
-	// TODO (Nath): Add contextual failure output resolution hook (last station used) at integration/runtime level.
 	if (Recipe->FailureOutputItem != nullptr && Outcome.MatchedInputCount > 0)
 	{
 		Outcome.bProducesFailureOutput = true;
@@ -614,6 +642,271 @@ bool URecipeSystem::TryBuildExecutionPlan(const TArray<URecipeDataAsset*>& Candi
 	OutPlan.ItemFlow = BuildItemFlow(ResolvedRecipe);
 	OutPlan.BaseRecipeScore = ComputeFinalScore(ResolvedRecipe, TArray<FInteractionOutput>{}, true);
 	return true;
+}
+
+FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlans(
+	const TArray<URecipeDataAsset*>& CandidateRecipes,
+	const TArray<FPrimaryAssetId>& AvailableInputItems,
+	int32 MaxConcurrentRecipes,
+	ERecipeConcurrentSolveMode SolveMode) const
+{
+	FRecipeConcurrentPlanResult Result;
+
+	if (CandidateRecipes.Num() == 0)
+	{
+		Result.Message = FText::FromString(TEXT("No candidate recipes provided."));
+		return Result;
+	}
+
+	TMap<FPrimaryAssetId, int32> RemainingPool;
+	for (const FPrimaryAssetId& ItemId : AvailableInputItems)
+	{
+		AddToMapCount(RemainingPool, ItemId);
+	}
+
+	if (RemainingPool.Num() == 0)
+	{
+		Result.Message = FText::FromString(TEXT("No available input items to build concurrent recipe plans."));
+		return Result;
+	}
+
+	TArray<URecipeDataAsset*> ValidCandidates;
+	ValidCandidates.Reserve(CandidateRecipes.Num());
+	for (URecipeDataAsset* CandidateRecipe : CandidateRecipes)
+	{
+		if (CandidateRecipe != nullptr)
+		{
+			ValidCandidates.Add(CandidateRecipe);
+		}
+	}
+
+	const int32 SafeMaxPlans = MaxConcurrentRecipes <= 0 ? TNumericLimits<int32>::Max() : MaxConcurrentRecipes;
+
+	auto IsScoreBetter = [](int32 LeftRecipeCount, int32 LeftStepCount, int32 LeftCompletionBonus, int32 RightRecipeCount, int32 RightStepCount, int32 RightCompletionBonus) -> bool
+	{
+		if (LeftRecipeCount != RightRecipeCount)
+		{
+			return LeftRecipeCount > RightRecipeCount;
+		}
+
+		if (LeftStepCount != RightStepCount)
+		{
+			return LeftStepCount > RightStepCount;
+		}
+
+		return LeftCompletionBonus > RightCompletionBonus;
+	};
+
+	auto BuildGreedySelection = [this, &ValidCandidates, &SafeMaxPlans, &IsScoreBetter](TMap<FPrimaryAssetId, int32>& InOutPool, TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>>& OutSelection)
+	{
+		while (OutSelection.Num() < SafeMaxPlans)
+		{
+			URecipeDataAsset* BestRecipe = nullptr;
+			TArray<FPrimaryAssetId> BestRecipeInputs;
+			int32 BestStepCount = TNumericLimits<int32>::Min();
+			int32 BestInputCount = TNumericLimits<int32>::Min();
+			int32 BestCompletionBonus = TNumericLimits<int32>::Min();
+
+			for (URecipeDataAsset* CandidateRecipe : ValidCandidates)
+			{
+				TArray<FPrimaryAssetId> CandidateInputs;
+				if (!TryBuildConsumableInputList(CandidateRecipe, InOutPool, CandidateInputs) || CandidateInputs.Num() == 0)
+				{
+					continue;
+				}
+
+				const int32 CandidateStepCount = CandidateRecipe->Steps.Num();
+				const int32 CandidateInputCount = CandidateInputs.Num();
+				const int32 CandidateCompletionBonus = CandidateRecipe->CompletionBonusScore;
+				const bool bIsBetter = BestRecipe == nullptr
+					|| IsScoreBetter(CandidateStepCount, CandidateInputCount, CandidateCompletionBonus, BestStepCount, BestInputCount, BestCompletionBonus);
+
+				if (!bIsBetter)
+				{
+					continue;
+				}
+
+				BestRecipe = CandidateRecipe;
+				BestRecipeInputs = MoveTemp(CandidateInputs);
+				BestStepCount = CandidateStepCount;
+				BestInputCount = CandidateInputCount;
+				BestCompletionBonus = CandidateCompletionBonus;
+			}
+
+			if (BestRecipe == nullptr || BestRecipeInputs.Num() == 0)
+			{
+				break;
+			}
+
+			OutSelection.Emplace(BestRecipe, BestRecipeInputs);
+			ConsumeInputListFromPool(BestRecipeInputs, InOutPool);
+		}
+	};
+
+	TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>> SelectedRecipes;
+
+	if (SolveMode == ERecipeConcurrentSolveMode::OptimalBranchAndBound)
+	{
+		TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>> CurrentSelection;
+		TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>> BestSelection;
+		int32 BestRecipeCount = 0;
+		int32 BestStepCount = 0;
+		int32 BestCompletionBonus = TNumericLimits<int32>::Min();
+
+		TFunction<void(const TMap<FPrimaryAssetId, int32>&, int32, int32)> Search;
+		Search = [this, &Search, &ValidCandidates, &SafeMaxPlans, &CurrentSelection, &BestSelection, &BestRecipeCount, &BestStepCount, &BestCompletionBonus, &IsScoreBetter](
+			const TMap<FPrimaryAssetId, int32>& CurrentPool,
+			int32 CurrentStepCount,
+			int32 CurrentCompletionBonus)
+		{
+			const int32 CurrentRecipeCount = CurrentSelection.Num();
+			if (IsScoreBetter(CurrentRecipeCount, CurrentStepCount, CurrentCompletionBonus, BestRecipeCount, BestStepCount, BestCompletionBonus))
+			{
+				BestRecipeCount = CurrentRecipeCount;
+				BestStepCount = CurrentStepCount;
+				BestCompletionBonus = CurrentCompletionBonus;
+				BestSelection = CurrentSelection;
+			}
+
+			if (CurrentRecipeCount >= SafeMaxPlans)
+			{
+				return;
+			}
+
+			int32 RemainingItemCount = 0;
+			for (const TPair<FPrimaryAssetId, int32>& Pair : CurrentPool)
+			{
+				RemainingItemCount += FMath::Max(0, Pair.Value);
+			}
+
+			const int32 MaxAdditionalPlans = FMath::Min(SafeMaxPlans - CurrentRecipeCount, RemainingItemCount);
+			if (CurrentRecipeCount + MaxAdditionalPlans < BestRecipeCount)
+			{
+				return;
+			}
+
+			struct FFeasibleChoice
+			{
+				TObjectPtr<URecipeDataAsset> Recipe = nullptr;
+				TArray<FPrimaryAssetId> Inputs;
+				int32 StepCount = 0;
+				int32 InputCount = 0;
+				int32 CompletionBonus = 0;
+			};
+
+			TArray<FFeasibleChoice> FeasibleChoices;
+			for (URecipeDataAsset* CandidateRecipe : ValidCandidates)
+			{
+				TArray<FPrimaryAssetId> CandidateInputs;
+				if (!TryBuildConsumableInputList(CandidateRecipe, CurrentPool, CandidateInputs) || CandidateInputs.Num() == 0)
+				{
+					continue;
+				}
+
+				FFeasibleChoice& Choice = FeasibleChoices.AddDefaulted_GetRef();
+				Choice.Recipe = CandidateRecipe;
+				Choice.Inputs = MoveTemp(CandidateInputs);
+				Choice.StepCount = CandidateRecipe->Steps.Num();
+				Choice.InputCount = Choice.Inputs.Num();
+				Choice.CompletionBonus = CandidateRecipe->CompletionBonusScore;
+			}
+
+			FeasibleChoices.Sort([](const FFeasibleChoice& Left, const FFeasibleChoice& Right)
+			{
+				if (Left.StepCount != Right.StepCount)
+				{
+					return Left.StepCount > Right.StepCount;
+				}
+
+				if (Left.InputCount != Right.InputCount)
+				{
+					return Left.InputCount > Right.InputCount;
+				}
+
+				if (Left.CompletionBonus != Right.CompletionBonus)
+				{
+					return Left.CompletionBonus > Right.CompletionBonus;
+				}
+
+				const FString LeftName = Left.Recipe ? Left.Recipe->GetName() : FString();
+				const FString RightName = Right.Recipe ? Right.Recipe->GetName() : FString();
+				return LeftName < RightName;
+			});
+
+			for (const FFeasibleChoice& Choice : FeasibleChoices)
+			{
+				TMap<FPrimaryAssetId, int32> NextPool = CurrentPool;
+				ConsumeInputListFromPool(Choice.Inputs, NextPool);
+
+				CurrentSelection.Emplace(Choice.Recipe.Get(), Choice.Inputs);
+				Search(
+					NextPool,
+					CurrentStepCount + Choice.StepCount,
+					CurrentCompletionBonus + Choice.CompletionBonus);
+				CurrentSelection.Pop();
+			}
+		};
+
+		Search(RemainingPool, 0, 0);
+		SelectedRecipes = MoveTemp(BestSelection);
+		RemainingPool.Reset();
+		for (const FPrimaryAssetId& ItemId : AvailableInputItems)
+		{
+			AddToMapCount(RemainingPool, ItemId);
+		}
+	}
+	else
+	{
+		BuildGreedySelection(RemainingPool, SelectedRecipes);
+	}
+
+	for (const TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>& Selected : SelectedRecipes)
+	{
+		if (Selected.Key == nullptr)
+		{
+			continue;
+		}
+
+		FRecipeExecutionPlan Plan;
+		TArray<URecipeDataAsset*> SingleRecipeCandidate;
+		SingleRecipeCandidate.Add(Selected.Key.Get());
+		if (!TryBuildExecutionPlan(SingleRecipeCandidate, Selected.Value, Plan))
+		{
+			continue;
+		}
+
+		Result.Plans.Add(Plan);
+		Result.ConsumedItems.Append(Selected.Value);
+		ConsumeInputListFromPool(Selected.Value, RemainingPool);
+	}
+
+	ExpandPoolToItemArray(RemainingPool, Result.RemainingItems);
+	Result.PlannedRecipeCount = Result.Plans.Num();
+	Result.bHasAnyPlan = Result.PlannedRecipeCount > 0;
+	Result.Message = Result.bHasAnyPlan
+		? FText::Format(
+			FText::FromString(TEXT("Built {0} concurrent recipe plan(s) using {1} mode.")),
+			Result.PlannedRecipeCount,
+			FText::FromString(SolveMode == ERecipeConcurrentSolveMode::OptimalBranchAndBound ? TEXT("OptimalBranchAndBound") : TEXT("Greedy")))
+		: FText::FromString(TEXT("No concurrent recipe plan could be built with current inputs."));
+	return Result;
+}
+
+FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlansFromActiveRoundRecipes(
+	const TArray<FPrimaryAssetId>& AvailableInputItems,
+	int32 MaxConcurrentRecipes,
+	ERecipeConcurrentSolveMode SolveMode) const
+{
+	return BuildConcurrentExecutionPlans(GetActiveRoundRecipes(), AvailableInputItems, MaxConcurrentRecipes, SolveMode);
+}
+
+FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlansWithDefaults(const TArray<FPrimaryAssetId>& AvailableInputItems) const
+{
+	return BuildConcurrentExecutionPlans(
+		GetActiveRoundRecipes(),
+		AvailableInputItems,
+		FMath::Max(0, DefaultMaxConcurrentRecipes),
+		DefaultConcurrentSolveMode);
 }
 
 int32 URecipeSystem::ComputeInteractionContribution(const URecipeDataAsset* Recipe, const TArray<FInteractionOutput>& InteractionOutputs) const
@@ -743,6 +1036,91 @@ int32 URecipeSystem::ComputeFinalScoreWithContext(const URecipeDataAsset* Recipe
 	TotalScore = FMath::RoundToInt(static_cast<float>(TotalScore) * ContextMultiplier);
 
 	return FMath::Max(0, TotalScore);
+}
+
+bool URecipeSystem::TryBuildConsumableInputList(const URecipeDataAsset* Recipe, const TMap<FPrimaryAssetId, int32>& AvailablePool, TArray<FPrimaryAssetId>& OutSelectedInputs) const
+{
+	OutSelectedInputs.Reset();
+
+	if (Recipe == nullptr || AvailablePool.Num() == 0)
+	{
+		return false;
+	}
+
+	FText DefinitionFailureReason;
+	if (!Recipe->IsRecipeDefinitionValid(DefinitionFailureReason))
+	{
+		return false;
+	}
+
+	TMap<FPrimaryAssetId, int32> WorkingPool = AvailablePool;
+
+	for (int32 StepIndex = 0; StepIndex < Recipe->Steps.Num(); ++StepIndex)
+	{
+		const UItemTransformation* Step = Recipe->Steps[StepIndex];
+		if (Step == nullptr)
+		{
+			return false;
+		}
+
+		const int32 RequiredCount = GetSafeInputQuantity(Step);
+		for (int32 MatchIndex = 0; MatchIndex < RequiredCount; ++MatchIndex)
+		{
+			TArray<FPrimaryAssetId> SortedKeys;
+			GetSortedPoolKeys(WorkingPool, SortedKeys);
+
+			FPrimaryAssetId MatchedItem;
+			for (const FPrimaryAssetId& CandidateId : SortedKeys)
+			{
+				if (WorkingPool.FindRef(CandidateId) <= 0)
+				{
+					continue;
+				}
+
+				FText FailureReason;
+				if (DoesItemMatchStep(CandidateId, Step, FailureReason))
+				{
+					MatchedItem = CandidateId;
+					break;
+				}
+			}
+
+			if (!MatchedItem.IsValid())
+			{
+				return false;
+			}
+
+			OutSelectedInputs.Add(MatchedItem);
+			RemoveFromMapCount(WorkingPool, MatchedItem, 1);
+		}
+	}
+
+	const FRecipeValidationResult Validation = ValidateRecipeInputs(Recipe, OutSelectedInputs);
+	return Validation.bIsValid;
+}
+
+void URecipeSystem::ConsumeInputListFromPool(const TArray<FPrimaryAssetId>& InputList, TMap<FPrimaryAssetId, int32>& InOutPool)
+{
+	for (const FPrimaryAssetId& InputItem : InputList)
+	{
+		RemoveFromMapCount(InOutPool, InputItem, 1);
+	}
+}
+
+void URecipeSystem::ExpandPoolToItemArray(const TMap<FPrimaryAssetId, int32>& Pool, TArray<FPrimaryAssetId>& OutItems)
+{
+	OutItems.Reset();
+
+	TArray<FPrimaryAssetId> SortedKeys;
+	GetSortedPoolKeys(Pool, SortedKeys);
+	for (const FPrimaryAssetId& ItemId : SortedKeys)
+	{
+		const int32 Count = FMath::Max(0, Pool.FindRef(ItemId));
+		for (int32 Index = 0; Index < Count; ++Index)
+		{
+			OutItems.Add(ItemId);
+		}
+	}
 }
 
 bool URecipeSystem::DoesItemMatchStep(const FPrimaryAssetId& ItemId, const UItemTransformation* Step, FText& OutFailureReason, ERecipeValidationError* OutErrorCode) const

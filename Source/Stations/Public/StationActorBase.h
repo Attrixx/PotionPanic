@@ -30,6 +30,22 @@ enum class EStationState : uint8
 	Completed UMETA(DisplayName = "Completed")
 };
 
+UENUM(BlueprintType)
+enum class EStationCancelPolicy : uint8
+{
+	KeepConsumed UMETA(DisplayName = "KeepConsumed"),
+	RequeueInstruction UMETA(DisplayName = "RequeueInstruction")
+};
+
+UENUM(BlueprintType)
+enum class EStationRuntimeError : uint8
+{
+	None UMETA(DisplayName = "None"),
+	MissingWorldContext UMETA(DisplayName = "MissingWorldContext"),
+	MissingOutputAsset UMETA(DisplayName = "MissingOutputAsset"),
+	OutputSpawnFailed UMETA(DisplayName = "OutputSpawnFailed")
+};
+
 USTRUCT(BlueprintType)
 struct STATIONS_API FStationActivityInteraction
 {
@@ -68,6 +84,24 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Station|Instructions")
 	int32 GetQueuedInstructionCount() const { return InstructionQueue.Num(); }
 
+	UFUNCTION(BlueprintPure, Category = "Station|Instructions")
+	bool HasBufferedBatch() const { return BufferedInputCount > 0; }
+
+	UFUNCTION(BlueprintCallable, Category = "Station|Instructions")
+	void ResetBufferedBatch();
+
+	UFUNCTION(BlueprintCallable, Category = "Station|Failure")
+	bool ApplyFailureOutcome(const FPrimaryAssetId& FailureOutputItem, int32 FailureOutputQuantity, bool bConsumeHeldItem, bool bClearInstructionQueue = true);
+
+	UFUNCTION(BlueprintPure, Category = "Station|Failure")
+	bool HasFailureOutputOverride() const { return bUseStationFailureOutputOverride && StationFailureOutputItem.IsValid(); }
+
+	UFUNCTION(BlueprintPure, Category = "Station|Failure")
+	FPrimaryAssetId GetFailureOutputOverrideItem() const { return StationFailureOutputItem; }
+
+	UFUNCTION(BlueprintPure, Category = "Station|Failure")
+	int32 GetFailureOutputOverrideQuantity() const { return FMath::Max(1, StationFailureOutputQuantity); }
+
 	/** For QTE/IFT stations: push one interaction attempt result. */
 	UFUNCTION(BlueprintCallable, Category = "Station|Interaction")
 	void SubmitInteractionAttempt(bool bSuccess);
@@ -88,6 +122,9 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+#if WITH_EDITOR
+	virtual void CheckForErrors() override;
+#endif
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/** Starts processing the instruction currently consumed by the station. */
@@ -107,8 +144,12 @@ protected:
 
 	void OnExecutionTick();
 	void OnProcessingTimerFinished();
+	void OnBufferedBatchTimeout();
 	void StopExecutionTimers();
+	void StopBufferedBatchTimer();
+	void StopPendingOutputRetryTimer();
 	void SetStationState(EStationState NewState);
+	void ReportRuntimeError(EStationRuntimeError ErrorCode, const FText& Message);
 	bool TryResolveInstructionForItem(const FPrimaryAssetId& ItemId, FInstruction& OutInstruction);
 	const UInteractionDefinitionAsset* ResolveInteractionDefinition(const FInstruction& Instruction) const;
 	bool ConsumeCarriable(UCarriableComponent* Carriable) const;
@@ -126,17 +167,17 @@ protected:
 	TObjectPtr<UHolderComponent> ItemHolder;
 
 	/** Optional socket used by ItemHolder attachment. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station|Slots")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Slots")
 	FName ItemSocketName = NAME_None;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station")
 	TArray<TObjectPtr<UActivityAsset>> Activities;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station")
 	TArray<FInstruction> PossibleInstructions;
 
 	/** Optional activity -> interaction mapping used by QTE/IFT stations. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station|Interaction")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Interaction")
 	TArray<FStationActivityInteraction> ActivityInteractions;
 
 	/** Runtime queue of external instructions to be consumed by this station. */
@@ -185,18 +226,61 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Visuals")
 	void OnInteractionResolvedBP(FInteractionOutput InteractionOutput);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Visuals")
+	void OnBufferedBatchResetBP(int32 DiscardedInputCount);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Visuals")
+	void OnStationRuntimeErrorBP(EStationRuntimeError ErrorCode, const FText& Message);
+
 protected:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<APawn> CurrentInstigator;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Station|Rules")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules")
 	float InteractionDistance = 200.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Station|Rules", meta = (ClampMin = "0.01"))
+	/** Optional allow-list for accepted input item ids (empty = no id restriction). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Filters")
+	TArray<FPrimaryAssetId> AllowedInputItems;
+
+	/** Optional required item data tags for accepted inputs. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Filters")
+	TArray<FName> RequiredInputDataTags;
+
+	/** Tag-matching mode for RequiredInputDataTags. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Filters")
+	bool bRequireAllInputDataTags = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules", meta = (ClampMin = "0.01"))
 	float ExecutionTickInterval = 0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules", meta = (ClampMin = "0.1"))
+	float BufferedBatchTimeoutSeconds = 12.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules")
+	EStationCancelPolicy CancelPolicy = EStationCancelPolicy::KeepConsumed;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Failure")
+	bool bUseStationFailureOutputOverride = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Failure", meta = (EditCondition = "bUseStationFailureOutputOverride"))
+	FPrimaryAssetId StationFailureOutputItem;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Failure", meta = (ClampMin = "1", EditCondition = "bUseStationFailureOutputOverride"))
+	int32 StationFailureOutputQuantity = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules", meta = (ClampMin = "0.0"))
+	float PendingOutputRetryDelaySeconds = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules", meta = (ClampMin = "0"))
+	int32 MaxPendingOutputSpawnRetries = 3;
 
 	FTimerHandle ProcessingTimer;
 	FTimerHandle ExecutionTickTimer;
+	FTimerHandle BufferedBatchTimer;
+	FTimerHandle PendingOutputRetryTimer;
+
+	int32 PendingOutputRetryCount = 0;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UInteractionBase> ActiveInteraction;

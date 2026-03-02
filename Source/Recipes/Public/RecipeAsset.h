@@ -33,50 +33,39 @@ public:
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recipe")
 	FText RecipeName;
 
 	/** Ordered list of operators/transformations. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Recipe")
 	TArray<TObjectPtr<UItemTransformation>> Steps;
 
 	/** Bonus applied when recipe is fully completed. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoring")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoring")
 	int32 CompletionBonusScore = 250;
 
 	/** Strategy used to aggregate interaction score contributions. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoring")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoring")
 	ERecipeInteractionScoreMode InteractionScoreMode = ERecipeInteractionScoreMode::Additive;
 
 	/** If true, inputs must match each step in exact order/count. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Validation")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Validation")
 	bool bStrictLinearOrder = true;
 
 	/** If true, inputs matched before a failure are considered consumed. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Failure")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Failure")
 	bool bConsumeMatchedInputsOnFailure = true;
 
 	/** Optional output item produced when the recipe fails. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Failure")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Failure")
 	TObjectPtr<UItemAsset> FailureOutputItem = nullptr;
-	// TODO (Nath): Keep this as the recipe-level fallback (e.g. "Amalgame") while station-specific failure outputs are not implemented.
-	// TODO (Nath): Later add station-context overrides in integration/runtime (e.g. cutting board -> "Bouillie", cauldron -> "Soupe insipide").
+	/** Station-level overrides can replace this fallback in RecipeStationIntegrationSubsystem. */
 
 	/** Quantity of failure output generated when a failure output item is configured. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Failure", meta = (ClampMin = "1", EditCondition = "FailureOutputItem != nullptr"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Failure", meta = (ClampMin = "1", EditCondition = "FailureOutputItem != nullptr"))
 	int32 FailureOutputQuantity = 1;
 
 	// TODO (Nath): Extend recipe definition with optional/branching paths.
 	// TODO (Nath): Consider an Unreal Editor tool (Editor Utility Widget/custom details panel)
 	// to author recipe steps faster and validate constraints before save.
-};
-
-/**
- * Legacy alias kept for backward compatibility with existing assets/references.
- * TODO (Nath): Remove URecipeAsset alias once all references are migrated to URecipeDataAsset.
- */
-UCLASS(BlueprintType)
-class RECIPES_API URecipeAsset : public URecipeDataAsset
-{
-	GENERATED_BODY()
 };

@@ -17,5 +17,7 @@ public:
 	virtual void Interact(APlayerController& InInstigator) override;
 	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
 
-	// TODO (Nath): Add dedicated VFX/SFX feedback for successful ingredient disposal.
+protected:
+	UFUNCTION(BlueprintImplementableEvent, Category = "Trash|Feedback")
+	void OnTrashSucceededBP(APlayerController* InstigatorController, const FPrimaryAssetId& TrashedItemId);
 };

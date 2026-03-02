@@ -20,12 +20,16 @@ public:
 
 protected:
 	/** Asset id to spawn when a player with empty hands interacts. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dispenser")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispenser")
 	FPrimaryAssetId ItemToDispense;
 
 	/** Optional actor class override for spawned item. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dispenser")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispenser")
 	TSubclassOf<AItemActor> ItemActorClass = nullptr;
 
-	// TODO (Nath): Add per-dispenser cooldown if needed by level balance.
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dispenser", meta = (ClampMin = "0.0"))
+	float DispenseCooldownSeconds = 0.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Dispenser", meta = (AllowPrivateAccess = "true"))
+	float NextAllowedDispenseTimeSeconds = 0.0f;
 };

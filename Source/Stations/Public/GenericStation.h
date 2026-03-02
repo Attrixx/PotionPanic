@@ -20,11 +20,12 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+#if WITH_EDITOR
+	virtual void CheckForErrors() override;
+#endif
 	void ApplyStationData();
 
 protected:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Config")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Config")
 	TObjectPtr<UStationDataAsset> StationData;
-
-	// TODO (Nath): Add editor validation for missing StationData fields (mesh/instructions/activities).
 };

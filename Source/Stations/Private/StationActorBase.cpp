@@ -49,7 +49,6 @@ void AStationActorBase::BeginPlay()
 
 	if (StationMesh && ItemHolder && ItemSocketName != NAME_None)
 	{
-		// TODO (Nath): Add editor validation tool to detect missing station sockets before runtime.
 		if (!StationMesh->DoesSocketExist(ItemSocketName))
 		{
 			UE_LOGFMT(MS_StationActorBase, Warning, "Item socket '{0}' does not exist on station '{1}'. Falling back to root attachment.", ItemSocketName.ToString(), GetName());
@@ -62,6 +61,28 @@ void AStationActorBase::BeginPlay()
 
 	SetStationState(EStationState::Idle);
 }
+
+#if WITH_EDITOR
+void AStationActorBase::CheckForErrors()
+{
+	Super::CheckForErrors();
+
+	if (StationMesh == nullptr || ItemSocketName == NAME_None)
+	{
+		return;
+	}
+
+	if (!StationMesh->DoesSocketExist(ItemSocketName))
+	{
+		UE_LOGFMT(
+			MS_StationActorBase,
+			Warning,
+			"Map check: station '{0}' references missing ItemSocket '{1}'.",
+			GetName(),
+			ItemSocketName.ToString());
+	}
+}
+#endif
 
 void AStationActorBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -192,7 +213,6 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 		const int32 RequiredInputCount = GetRequiredInputCount(ResolvedInstruction);
 		if (RequiredInputCount > 1)
 		{
-			// TODO (Nath): Add explicit batch reset/cancel interaction for partially filled instructions.
 			if (StationItem != nullptr)
 			{
 				return;
@@ -208,7 +228,17 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 
 			if (BufferedInputCount >= RequiredInputCount)
 			{
+				StopBufferedBatchTimer();
 				StartProcessing(CurrentInstruction);
+			}
+			else if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimer(
+					BufferedBatchTimer,
+					this,
+					&AStationActorBase::OnBufferedBatchTimeout,
+					FMath::Max(0.1f, BufferedBatchTimeoutSeconds),
+					false);
 			}
 			return;
 		}
@@ -256,13 +286,66 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	{
 		TrySpawnPendingOutput();
 		SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
+		return;
+	}
+
+	if (!PlayerItem && !StationItem && BufferedInputCount > 0)
+	{
+		ResetBufferedBatch();
 	}
 }
 
 bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 {
-	// TODO (Nath): Override in derived stations for strict item filters (e.g. only ingredient tags).
-	return ItemId.IsValid();
+	if (!ItemId.IsValid())
+	{
+		return false;
+	}
+
+	if (AllowedInputItems.Num() > 0 && !AllowedInputItems.Contains(ItemId))
+	{
+		return false;
+	}
+
+	if (RequiredInputDataTags.Num() == 0)
+	{
+		return true;
+	}
+
+	UItemAsset* ItemAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(ItemId);
+	if (ItemAsset == nullptr)
+	{
+		const FSoftObjectPath AssetPath = UAssetManager::Get().GetPrimaryAssetPath(ItemId);
+		ItemAsset = Cast<UItemAsset>(AssetPath.TryLoad());
+	}
+
+	if (ItemAsset == nullptr)
+	{
+		return false;
+	}
+
+	int32 MatchedTagCount = 0;
+	int32 RequiredTagCount = 0;
+	for (const FName RequiredTag : RequiredInputDataTags)
+	{
+		if (RequiredTag.IsNone())
+		{
+			continue;
+		}
+
+		++RequiredTagCount;
+		if (ItemAsset->DataTags.Contains(RequiredTag))
+		{
+			++MatchedTagCount;
+		}
+	}
+
+	if (RequiredTagCount <= 0)
+	{
+		return true;
+	}
+
+	return bRequireAllInputDataTags ? (MatchedTagCount >= RequiredTagCount) : (MatchedTagCount > 0);
 }
 
 bool AStationActorBase::CanExecuteInstruction(const FInstruction& Instruction) const
@@ -291,6 +374,7 @@ void AStationActorBase::StartProcessing(const FInstruction& Instruction)
 		return;
 	}
 
+	StopBufferedBatchTimer();
 	CurrentInstruction = Instruction;
 	ProcessingStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	ProcessingDuration = FMath::Max(0.0f, Instruction.ProcessingDuration);
@@ -331,8 +415,12 @@ void AStationActorBase::StartProcessing(const FInstruction& Instruction)
 	}
 	else
 	{
-		// TODO (Nath): Add subsystem-level station recovery when world/timer manager is unavailable.
-		CancelProcessing();
+		ReportRuntimeError(
+			EStationRuntimeError::MissingWorldContext,
+			FText::FromString(TEXT("Cannot start processing because world context is unavailable.")));
+		ResetCurrentInstructionState();
+		SetStationState(EStationState::Idle);
+		OnCancelProcessingBP();
 	}
 }
 
@@ -342,6 +430,16 @@ void AStationActorBase::OnProcessingTimerFinished()
 	{
 		FinishProcessing();
 	}
+}
+
+void AStationActorBase::OnBufferedBatchTimeout()
+{
+	if (!HasAuthority() || StationState == EStationState::Processing)
+	{
+		return;
+	}
+
+	ResetBufferedBatch();
 }
 
 void AStationActorBase::OnExecutionTick()
@@ -479,8 +577,66 @@ void AStationActorBase::CancelProcessing()
 	ResetCurrentInstructionState();
 	SetStationState(bHasFailureOutputAvailable ? EStationState::Completed : EStationState::Idle);
 
-	// TODO (Nath): Decide station policy on cancellation (re-queue instruction or keep consumed).
+	if (CancelPolicy == EStationCancelPolicy::RequeueInstruction && FailedInstruction.InputItem.IsValid())
+	{
+		InstructionQueue.Insert(FailedInstruction, 0);
+		OnInstructionQueuedBP(FailedInstruction);
+	}
+
 	OnCancelProcessingBP();
+}
+
+void AStationActorBase::ResetBufferedBatch()
+{
+	if (!HasAuthority() || StationState == EStationState::Processing || BufferedInputCount <= 0)
+	{
+		return;
+	}
+
+	const int32 DiscardedCount = BufferedInputCount;
+	StopBufferedBatchTimer();
+	ResetCurrentInstructionState();
+	SetStationState(EStationState::Idle);
+	OnBufferedBatchResetBP(DiscardedCount);
+}
+
+bool AStationActorBase::ApplyFailureOutcome(const FPrimaryAssetId& FailureOutputItem, int32 FailureOutputQuantity, bool bConsumeHeldItem, bool bClearInstructionQueue)
+{
+	if (!HasAuthority() || ItemHolder == nullptr)
+	{
+		return false;
+	}
+
+	if (bClearInstructionQueue)
+	{
+		ClearInstructionQueue();
+	}
+
+	if (StationState == EStationState::Processing)
+	{
+		CancelProcessing();
+	}
+
+	if (bConsumeHeldItem)
+	{
+		if (UCarriableComponent* HeldCarriable = ItemHolder->GetCarriable())
+		{
+			ConsumeCarriable(HeldCarriable);
+		}
+	}
+
+	PendingOutputCount = 0;
+	PendingOutputItem = FPrimaryAssetId();
+	if (FailureOutputItem.IsValid() && FailureOutputQuantity > 0)
+	{
+		PendingOutputItem = FailureOutputItem;
+		PendingOutputCount = FMath::Max(1, FailureOutputQuantity);
+		TrySpawnPendingOutput();
+	}
+
+	ResetCurrentInstructionState();
+	SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
+	return true;
 }
 
 bool AStationActorBase::TryResolveInstructionForItem(const FPrimaryAssetId& ItemId, FInstruction& OutInstruction)
@@ -582,8 +738,11 @@ bool AStationActorBase::SpawnInstructionOutput(const FInstruction& Instruction)
 
 	if (OutputAsset == nullptr)
 	{
-		// TODO (Nath): Route missing output asset to a station error event consumed by game flow/debug tools.
+		const FText ErrorMessage = FText::Format(
+			FText::FromString(TEXT("Failed to load output item asset '{0}'.")),
+			FText::FromString(Instruction.OutputItem.ToString()));
 		UE_LOGFMT(MS_StationActorBase, Warning, "Failed to load output item asset {0}", Instruction.OutputItem.ToString());
+		ReportRuntimeError(EStationRuntimeError::MissingOutputAsset, ErrorMessage);
 		return false;
 	}
 
@@ -593,6 +752,9 @@ bool AStationActorBase::SpawnInstructionOutput(const FInstruction& Instruction)
 	AItemActor* NewItem = GetWorld()->SpawnActor<AItemActor>(AItemActor::StaticClass(), ItemHolder->GetComponentTransform(), SpawnParameters);
 	if (NewItem == nullptr)
 	{
+		ReportRuntimeError(
+			EStationRuntimeError::OutputSpawnFailed,
+			FText::FromString(TEXT("Failed to spawn station output actor.")));
 		return false;
 	}
 
@@ -604,6 +766,9 @@ bool AStationActorBase::SpawnInstructionOutput(const FInstruction& Instruction)
 	}
 
 	NewItem->DestroyItem(true);
+	ReportRuntimeError(
+		EStationRuntimeError::OutputSpawnFailed,
+		FText::FromString(TEXT("Spawned output item has no carriable component.")));
 	return false;
 }
 
@@ -619,10 +784,31 @@ void AStationActorBase::TrySpawnPendingOutput()
 
 	if (!SpawnInstructionOutput(OutputInstruction))
 	{
-		// TODO (Nath): Add retry/error event hook if pending outputs cannot be spawned.
+		if (PendingOutputRetryCount < FMath::Max(0, MaxPendingOutputSpawnRetries))
+		{
+			++PendingOutputRetryCount;
+
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimer(
+					PendingOutputRetryTimer,
+					this,
+					&AStationActorBase::TrySpawnPendingOutput,
+					FMath::Max(0.0f, PendingOutputRetryDelaySeconds),
+					false);
+			}
+		}
+		else
+		{
+			ReportRuntimeError(
+				EStationRuntimeError::OutputSpawnFailed,
+				FText::FromString(TEXT("Pending output spawn failed after max retries.")));
+		}
 		return;
 	}
 
+	StopPendingOutputRetryTimer();
+	PendingOutputRetryCount = 0;
 	--PendingOutputCount;
 	if (PendingOutputCount <= 0)
 	{
@@ -633,10 +819,13 @@ void AStationActorBase::TrySpawnPendingOutput()
 
 void AStationActorBase::ResetCurrentInstructionState()
 {
+	StopBufferedBatchTimer();
+	StopPendingOutputRetryTimer();
 	CurrentInstruction = FInstruction{};
 	ProcessingStartTime = 0.0f;
 	ProcessingDuration = 0.0f;
 	BufferedInputCount = 0;
+	PendingOutputRetryCount = 0;
 	CurrentInstigator.Reset();
 }
 
@@ -659,6 +848,22 @@ void AStationActorBase::StopExecutionTimers()
 	}
 }
 
+void AStationActorBase::StopBufferedBatchTimer()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(BufferedBatchTimer);
+	}
+}
+
+void AStationActorBase::StopPendingOutputRetryTimer()
+{
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PendingOutputRetryTimer);
+	}
+}
+
 void AStationActorBase::SetStationState(EStationState NewState)
 {
 	if (StationState == NewState)
@@ -668,6 +873,22 @@ void AStationActorBase::SetStationState(EStationState NewState)
 
 	StationState = NewState;
 	OnStationStateChangedBP(StationState);
+}
+
+void AStationActorBase::ReportRuntimeError(EStationRuntimeError ErrorCode, const FText& Message)
+{
+	if (ErrorCode == EStationRuntimeError::None)
+	{
+		return;
+	}
+
+	UE_LOGFMT(
+		MS_StationActorBase,
+		Warning,
+		"Station runtime error on '{0}': {1}",
+		GetName(),
+		Message.ToString());
+	OnStationRuntimeErrorBP(ErrorCode, Message);
 }
 
 void AStationActorBase::OnRep_StationState()
