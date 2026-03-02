@@ -5,16 +5,17 @@
 #include "TrashStation.generated.h"
 
 /**
- * Station that destroys any item placed on it.
- * Duration should be 0 (Instant).
- * Output should be null.
+ * Disposal station.
+ * Only ingredient items can be trashed.
  */
 UCLASS()
 class STATIONS_API ATrashStation : public AStationActorBase
 {
 	GENERATED_BODY()
-	
+
 public:
-    virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
-    // TODO (Nath): Add FX/Sound on destroy? override OnProcessingFinished to play sound before destroy.
+	virtual void Interact(APlayerController& InInstigator) override;
+	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
+
+	// TODO (Nath): Add dedicated VFX/SFX feedback for successful ingredient disposal.
 };

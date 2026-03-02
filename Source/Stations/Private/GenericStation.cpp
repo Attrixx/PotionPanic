@@ -1,9 +1,6 @@
 #include "GenericStation.h"
-#include "StationDataAsset.h"
 #include "Components/StaticMeshComponent.h"
-#include "Logging/StructuredLog.h"
-
-DEFINE_LOG_CATEGORY_STATIC(MS_GenericStation, Log, All);
+#include "StationDataAsset.h"
 
 AGenericStation::AGenericStation()
 {
@@ -18,34 +15,26 @@ void AGenericStation::OnConstruction(const FTransform& Transform)
 void AGenericStation::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// Ensure data is applied at runtime too
 	ApplyStationData();
 }
 
 void AGenericStation::ApplyStationData()
 {
-	if (!StationData)
+	if (StationData == nullptr)
 	{
 		return;
 	}
 
-	// Apply Mesh
-	if (!StationData->StationMesh.IsNull())
+	if (!StationData->StationMesh.IsNull() && StationMesh)
 	{
 		UStaticMesh* Mesh = StationData->StationMesh.LoadSynchronous();
-		if (Mesh && StationMesh)
+		if (Mesh)
 		{
 			StationMesh->SetStaticMesh(Mesh);
 		}
 	}
 
-	// Apply Config
 	InteractionDistance = StationData->InteractionDistance;
-
-	// Copy Arrays
-	// Note: We are copying data from Asset to Instance.
-	// This allows instance-specific overrides if needed later, but primarily drives logic from Data.
 	Activities = StationData->SupportedActivities;
-	PossibleInstructions = StationData->Recipes;
+	PossibleInstructions = StationData->Instructions;
 }

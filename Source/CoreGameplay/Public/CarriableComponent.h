@@ -49,7 +49,7 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_Holder)
 	TObjectPtr<UHolderComponent> Holder;
 
-	/** The logic item this carriable represents. Used by stations to identify recipes. */
+	/** The logic item this carriable represents. Used by stations to identify instructions. */
 	UPROPERTY(ReplicatedUsing=OnRep_ItemId)
 	FPrimaryAssetId ItemId;
 };

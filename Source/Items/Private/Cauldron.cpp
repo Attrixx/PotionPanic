@@ -1,91 +1,148 @@
 #include "Cauldron.h"
-#include "ItemAsset.h"
-#include "Net/UnrealNetwork.h"
-#include "GameFramework/PlayerController.h"
 #include "CarriableComponent.h"
+#include "IngredientActor.h"
+#include "ItemActor.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
 #include "HolderComponent.h"
+#include "Logging/StructuredLog.h"
+#include "Net/UnrealNetwork.h"
+
+DEFINE_LOG_CATEGORY_STATIC(MS_Cauldron, Log, All);
 
 ACauldron::ACauldron()
 {
 	bReplicates = true;
 }
 
+void ACauldron::Interact(APlayerController& InInstigator)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	APawn* InstigatorPawn = InInstigator.GetPawn();
+	if (InstigatorPawn == nullptr)
+	{
+		return;
+	}
+
+	UHolderComponent* PlayerHolder = InstigatorPawn->FindComponentByClass<UHolderComponent>();
+	if (PlayerHolder == nullptr || Carriable == nullptr)
+	{
+		return;
+	}
+
+	UCarriableComponent* PlayerCarriable = PlayerHolder->GetCarriable();
+	if (PlayerCarriable && PlayerCarriable != Carriable)
+	{
+		AItemActor* HeldItemActor = Cast<AItemActor>(PlayerCarriable->GetOwner());
+		if (!HeldItemActor || !HeldItemActor->IsA<AIngredientActor>())
+		{
+			return;
+		}
+
+		if (AddIngredientAssetId(PlayerCarriable->GetItemId()))
+		{
+			PlayerHolder->Replace(nullptr);
+			HeldItemActor->DestroyItem(true);
+		}
+		return;
+	}
+
+	if (PlayerCarriable == Carriable)
+	{
+		// Drop cauldron from player's hands.
+		PlayerHolder->Replace(nullptr);
+		return;
+	}
+
+	if (UHolderComponent* CurrentHolder = Carriable->GetHolder())
+	{
+		CurrentHolder->Replace(nullptr);
+	}
+
+	PlayerHolder->Replace(Carriable);
+}
+
 void ACauldron::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ACauldron, CurrentIngredients);
+	DOREPLIFETIME(ACauldron, IngredientContents);
+	DOREPLIFETIME(ACauldron, FillRatio);
+	DOREPLIFETIME(ACauldron, LiquidTint);
+	DOREPLIFETIME(ACauldron, VisualFlags);
 }
 
-void ACauldron::Interact(APlayerController& InInstigator)
+bool ACauldron::AddIngredientAssetId(FPrimaryAssetId IngredientAssetId)
 {
-	if (!InInstigator.GetPawn()) return;
-
-	UHolderComponent* PlayerHolder = InInstigator.GetPawn()->FindComponentByClass<UHolderComponent>();
-	if (PlayerHolder)
+	if (!HasAuthority() || !IngredientAssetId.IsValid())
 	{
-		UCarriableComponent* HeldItem = PlayerHolder->GetCarriable();
-		if (HeldItem)
-		{
-			AActor* OwnerActor = HeldItem->GetOwner();
-			AItemActor* HeldItemActor = Cast<AItemActor>(OwnerActor);
-			
-			if (HeldItemActor && !HeldItemActor->IsA<AUtensilActor>())
-			{
-				if (HeldItemActor->GetItemAsset())
-				{
-					AddIngredient(HeldItemActor->GetItemAsset());
-					OwnerActor->Destroy();
-					PlayerHolder->Replace(nullptr);
-					return;
-				}
-			}
-			
-			if (HeldItemActor && HeldItemActor->IsA<AItemActor>())
-			{
-				const UItemAsset* HeldAsset = HeldItemActor->GetItemAsset();
-				if (HeldAsset && HeldAsset->bIsContainer)
-				{
-					if (CurrentIngredients.Num() > 0)
-					{
-						UItemAsset* Potion = CurrentIngredients[0];
-						
-						OwnerActor->Destroy();
-						PlayerHolder->Replace(nullptr);
-						
-						FActorSpawnParameters SpawnParams;
-						SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-						AItemActor* NewPotion = GetWorld()->SpawnActor<AItemActor>(AItemActor::StaticClass(), GetActorTransform(), SpawnParams);
-						if (NewPotion)
-						{
-							NewPotion->SetItemAsset(Potion);
-							UCarriableComponent* NewCarriable = NewPotion->FindComponentByClass<UCarriableComponent>();
-							if (NewCarriable)
-							{
-								PlayerHolder->Replace(NewCarriable);
-							}
-						}
-						
-						EmptyCauldron();
-						return;
-					}
-				}
-			}
-		}
+		return false;
 	}
+
+	IngredientContents.Add(IngredientAssetId);
+	FillRatio = FMath::Clamp(static_cast<float>(IngredientContents.Num()) / FMath::Max(1, MaxIngredientVisualCount), 0.0f, 1.0f);
+
+	OnContentsChangedBP();
+	OnVisualStateChangedBP();
+	return true;
 }
 
-void ACauldron::AddIngredient(UItemAsset* Ingredient)
+void ACauldron::ClearIngredients()
 {
-	if (Ingredient)
+	if (!HasAuthority())
 	{
-		CurrentIngredients.Add(Ingredient);
-		// TODO (Nath): Update Visuals
+		return;
 	}
+
+	IngredientContents.Reset();
+	FillRatio = 0.0f;
+	OnContentsChangedBP();
+	OnVisualStateChangedBP();
 }
 
-void ACauldron::EmptyCauldron()
+void ACauldron::SetFillRatio(float NewFillRatio)
 {
-	CurrentIngredients.Empty();
-	// TODO (Nath): Update Visuals
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	FillRatio = FMath::Clamp(NewFillRatio, 0.0f, 1.0f);
+	OnVisualStateChangedBP();
+}
+
+void ACauldron::SetLiquidTint(FLinearColor NewTint)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	LiquidTint = NewTint;
+	OnVisualStateChangedBP();
+}
+
+void ACauldron::SetVisualFlags(const TArray<FName>& NewFlags)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	VisualFlags = NewFlags;
+	OnVisualStateChangedBP();
+}
+
+void ACauldron::OnRep_IngredientContents()
+{
+	OnContentsChangedBP();
+}
+
+void ACauldron::OnRep_VisualState()
+{
+	OnVisualStateChangedBP();
 }

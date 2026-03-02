@@ -1,80 +1,69 @@
 #include "DeliveryStation.h"
-#include "ItemAsset.h"
-#include "ItemActor.h"
-#include "HolderComponent.h"
 #include "CarriableComponent.h"
 #include "GameFramework/Pawn.h"
-#include "GameFramework/PlayerController.h"
-#include "Logging/StructuredLog.h"
-#include "Engine/AssetManager.h"
+#include "HolderComponent.h"
+#include "ItemActor.h"
 
-DEFINE_LOG_CATEGORY_STATIC(MS_DeliveryStation, Log, All);
-
-ADeliveryStation::ADeliveryStation()
+void ADeliveryStation::Interact(APlayerController& InInstigator)
 {
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	APawn* Pawn = InInstigator.GetPawn();
+	if (Pawn == nullptr)
+	{
+		return;
+	}
+
+	UHolderComponent* PlayerHolder = Pawn->FindComponentByClass<UHolderComponent>();
+	if (PlayerHolder == nullptr)
+	{
+		return;
+	}
+
+	UCarriableComponent* HeldCarriable = PlayerHolder->GetCarriable();
+	if (HeldCarriable == nullptr)
+	{
+		return;
+	}
+
+	const FPrimaryAssetId HeldItemId = HeldCarriable->GetItemId();
+	if (!CanPlaceItem(HeldItemId))
+	{
+		return;
+	}
+
+	UCarriableComponent* RemovedCarriable = PlayerHolder->Replace(nullptr);
+	if (RemovedCarriable == nullptr)
+	{
+		return;
+	}
+
+	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
+	{
+		ItemActor->DestroyItem(true);
+	}
+	else if (AActor* OwnerActor = RemovedCarriable->GetOwner())
+	{
+		OwnerActor->Destroy();
+	}
+
+	OnItemDelivered.Broadcast(HeldItemId);
 }
 
 bool ADeliveryStation::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 {
-	UItemAsset* Item = Cast<UItemAsset>(UAssetManager::Get().GetPrimaryAssetObject(ItemId));
-	if (Item && Item->bIsDestructible)
+	if (!ItemId.IsValid())
 	{
 		return false;
 	}
-	return true; 
-}
 
-void ADeliveryStation::Interact(APlayerController& InInstigator)
-{
-	if (!InInstigator.GetPawn()) return;
-	
-	UHolderComponent* PlayerHolder = InInstigator.GetPawn()->FindComponentByClass<UHolderComponent>();
-	if (!PlayerHolder) return;
-
-	UCarriableComponent* PlayerItem = PlayerHolder->GetCarriable();
-	UCarriableComponent* StationItem = ItemHolder->GetCarriable();
-
-	if (PlayerItem && !StationItem)
+	if (AcceptedItems.Num() == 0)
 	{
-		FPrimaryAssetId ItemId = PlayerItem->GetItemId();
-		if (!CanPlaceItem(ItemId))
-		{
-			return;
-		}
-
-		UCarriableComponent* Old = PlayerHolder->Replace(nullptr);
-		ItemHolder->Replace(Old);
-		
-		FInstruction DummyInstr;
-		DummyInstr.ProcessingDuration = 0.5f; 
-		StartProcessing(DummyInstr);
+		return true;
 	}
-}
 
-void ADeliveryStation::StartProcessing(const FInstruction& Instruction)
-{	
-	Super::StartProcessing(Instruction);
-}
-
-void ADeliveryStation::FinishProcessing()
-{
-	UCarriableComponent* StationItem = ItemHolder->GetCarriable();
-	if (StationItem)
-	{
-		AItemActor* ItemActor = Cast<AItemActor>(StationItem->GetOwner());
-		if (ItemActor && ItemActor->GetItemAsset())
-		{
-			// TODO (Nath): Verify if this Item matches the current Order/Objective
-			UE_LOGFMT(MS_DeliveryStation, Log, "Delivered Item: {0}", ItemActor->GetItemAsset()->GetName());
-			
-			// Score Logic here (ScoreSubsystem->AddScore(...))
-		}
-		
-		ItemActor->Destroy();
-		ItemHolder->Replace(nullptr);
-	}
-	
-	StationState = EStationState::Completed;
-	OnStationStateChangedBP(StationState);
-	SetActorTickEnabled(false);
+	return AcceptedItems.Contains(ItemId);
 }

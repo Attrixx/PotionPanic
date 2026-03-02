@@ -1,3 +1,11 @@
 #include "StationDataAsset.h"
 
-// Empty for now, generic data asset.
+void UStationDataAsset::PostLoad()
+{
+	Super::PostLoad();
+
+	if (Instructions.Num() == 0 && Recipes_DEPRECATED.Num() > 0)
+	{
+		Instructions = Recipes_DEPRECATED;
+	}
+}
