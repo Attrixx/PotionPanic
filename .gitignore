@@ -58,6 +58,10 @@ Build/*
 Build/*/**
 !Build/*/PakBlacklist*.txt
 
+!Packages/*/
+Packages/*/**
+!Packages/*/PakBlacklist*.txt
+
 # Don't ignore icon files in Build
 !Build/**/*.ico
 
