@@ -7,7 +7,6 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "RecipeManagerSubsystem.generated.h"
 
-class AFireStation;
 class AStationActorBase;
 class ACauldron;
 class APlayerController;
@@ -123,29 +122,29 @@ private:
 	struct FFireStationExecutionContext;
 
 	UFUNCTION()
-	void HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation);
+	void HandleFireStationProcessRequested(APlayerController* InstigatorController, AStationActorBase* FireStation);
 	UFUNCTION()
 	void HandleFireStationDestroyed(AActor* DestroyedActor);
 	void HandleFireStationInstructionProcessed(AStationActorBase* Station, const FInstruction& Instruction, bool bSuccess);
-	void StartFireStationProcessing(AFireStation* FireStation, APlayerController* InstigatorController) const;
+	void StartFireStationProcessing(AStationActorBase* FireStation, APlayerController* InstigatorController) const;
 	bool TryResumeExistingFireStationExecution(
-		AFireStation* FireStation,
+		AStationActorBase* FireStation,
 		ACauldron* HeldCauldron,
 		APlayerController* InstigatorController);
 	bool TryBuildFireStationExecutionPlan(ACauldron* HeldCauldron, FRecipeExecutionPlan& OutExecutionPlan);
 	bool TryStartNewFireStationExecution(
-		AFireStation* FireStation,
+		AStationActorBase* FireStation,
 		ACauldron* HeldCauldron,
 		const FPrimaryAssetId& HeldCauldronItemId,
 		const FRecipeExecutionPlan& ExecutionPlan);
-	bool ConsumeProcessedFireStationStep(AFireStation* FireStation, FFireStationExecutionContext& Context);
-	void HandleFailedFireStationExecution(AFireStation* FireStation, const FFireStationExecutionContext& FailedContext);
-	void HandleCompletedFireStationExecution(AFireStation* FireStation, const FFireStationExecutionContext& CompletedContext);
+	bool ConsumeProcessedFireStationStep(AStationActorBase* FireStation, FFireStationExecutionContext& Context);
+	void HandleFailedFireStationExecution(AStationActorBase* FireStation, const FFireStationExecutionContext& FailedContext);
+	void HandleCompletedFireStationExecution(AStationActorBase* FireStation, const FFireStationExecutionContext& CompletedContext);
 
 	void RefreshFireStations();
 	void HandleActorSpawned(AActor* SpawnedActor);
-	void RegisterFireStation(AFireStation* FireStation);
-	void UnregisterFireStation(AFireStation* FireStation);
+	void RegisterFireStation(AStationActorBase* FireStation);
+	void UnregisterFireStation(AStationActorBase* FireStation);
 	bool ApplyRecipeFailureToCauldron(URecipeSystem* RecipeSystem, const FRecipeExecutionPlan& FailedPlan, ACauldron* Cauldron);
 	bool TryApplyExecutionPlanToCauldron(const FRecipeExecutionPlan& ExecutionPlan, ACauldron* Cauldron);
 	URecipeSystem* GetRecipeSystem() const;
@@ -166,8 +165,8 @@ private:
 		int32 RemainingSteps = 0;
 	};
 
-	TSet<TWeakObjectPtr<AFireStation>> BoundFireStations;
-	TMap<TWeakObjectPtr<AFireStation>, FFireStationExecutionContext> ActiveFireStationExecutions;
+	TSet<TWeakObjectPtr<AStationActorBase>> BoundFireStations;
+	TMap<TWeakObjectPtr<AStationActorBase>, FFireStationExecutionContext> ActiveFireStationExecutions;
 	FDelegateHandle ActorSpawnedHandle;
 };
 

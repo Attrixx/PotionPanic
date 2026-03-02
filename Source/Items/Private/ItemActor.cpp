@@ -30,7 +30,7 @@ AItemActor::AItemActor()
 	Audio->bAutoActivate = false;
 }
 
-void AItemActor::OnConstruction(const FTransform& Transform)
+void AItemActor::OnConstruction(const FTransform &Transform)
 {
 	if (ItemAsset)
 	{
@@ -38,7 +38,7 @@ void AItemActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
-void AItemActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
+void AItemActor::NotifyHit(UPrimitiveComponent *MyComp, AActor *Other, UPrimitiveComponent *OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult &Hit)
 {
 	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
 
@@ -48,7 +48,7 @@ void AItemActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiv
 	}
 }
 
-void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
+void AItemActor::SetItemAsset(UItemAsset &NewItemAsset)
 {
 	if (!NewItemAsset)
 	{
@@ -58,7 +58,7 @@ void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 	ItemAsset = NewItemAsset;
 	ApplyVisualsFromAsset(NewItemAsset);
 
-	if (UWorld* World = GetWorld(); World && World->IsGameWorld())
+	if (UWorld *World = GetWorld(); World && World->IsGameWorld())
 	{
 		PlaySpawnFeedback();
 	}
@@ -94,7 +94,7 @@ TArray<FName> AItemActor::GetTransformationFlags() const
 	return ItemAsset ? ItemAsset->TransformationFlags : TArray<FName>{};
 }
 
-void AItemActor::ApplyVisualsFromAsset(UItemAsset* NewItemAsset)
+void AItemActor::ApplyVisualsFromAsset(UItemAsset *NewItemAsset)
 {
 	if (StaticMesh)
 	{

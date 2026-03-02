@@ -49,45 +49,24 @@ struct INTERACTIONS_API FInteractionScoringRule
 };
 
 USTRUCT(BlueprintType)
-struct INTERACTIONS_API FQTEInteractionDefinition
+struct INTERACTIONS_API FInteractionRules
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE", meta = (ClampMin = "1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rules", meta = (ClampMin = "1"))
 	int32 RequiredSuccessCount = 3;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE", meta = (ClampMin = "0"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rules", meta = (ClampMin = "0"))
 	int32 AllowedFailureCount = 1;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE", meta = (ClampMin = "0.1"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rules", meta = (ClampMin = "0.1"))
 	float MaxDurationSeconds = 5.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rules")
 	int32 PointsPerSuccess = 40;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Rules")
 	int32 PointsPerFailure = 25;
-};
-
-USTRUCT(BlueprintType)
-struct INTERACTIONS_API FIFTInteractionDefinition
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IFT", meta = (ClampMin = "1"))
-	int32 RequiredSuccessCount = 4;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IFT", meta = (ClampMin = "0"))
-	int32 AllowedFailureCount = 2;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IFT", meta = (ClampMin = "0.1"))
-	float MaxDurationSeconds = 8.0f;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IFT")
-	int32 PointsPerSuccess = 25;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "IFT")
-	int32 PointsPerFailure = 20;
 };
 
 UCLASS(BlueprintType)
@@ -103,10 +82,7 @@ public:
 	FInteractionScoringRule Scoring;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Definition")
-	FQTEInteractionDefinition QTE;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Definition")
-	FIFTInteractionDefinition IFT;
+	FInteractionRules Rules;
 };
 
 USTRUCT(BlueprintType)

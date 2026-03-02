@@ -1,7 +1,7 @@
 #include "OrderDeliveryBridgeSubsystem.h"
-#include "DeliveryStation.h"
 #include "Engine/World.h"
 #include "OrderSystem.h"
+#include "StationActorBase.h"
 #include "EngineUtils.h"
 
 void UOrderDeliveryBridgeSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -26,9 +26,9 @@ void UOrderDeliveryBridgeSubsystem::Deinitialize()
 		ActorSpawnedHandle.Reset();
 	}
 
-	for (const TWeakObjectPtr<ADeliveryStation>& WeakStation : BoundStations)
+	for (const TWeakObjectPtr<AStationActorBase>& WeakStation : BoundStations)
 	{
-		if (ADeliveryStation* Station = WeakStation.Get())
+		if (AStationActorBase* Station = WeakStation.Get())
 		{
 			Station->OnItemDelivered.RemoveDynamic(this, &UOrderDeliveryBridgeSubsystem::HandleDeliveryItem);
 		}
@@ -59,21 +59,23 @@ void UOrderDeliveryBridgeSubsystem::RefreshDeliveryStations()
 
 	for (auto It = BoundStations.CreateIterator(); It; ++It)
 	{
-		if (!It->IsValid())
+		if (!It->IsValid() || It->Get()->GetStationKind() != EStationKind::Delivery)
 		{
 			It.RemoveCurrent();
 		}
 	}
 
-	for (TActorIterator<ADeliveryStation> It(GetWorld()); It; ++It)
+	for (TActorIterator<AStationActorBase> It(GetWorld()); It; ++It)
 	{
 		RegisterDeliveryStation(*It);
 	}
 }
 
-void UOrderDeliveryBridgeSubsystem::RegisterDeliveryStation(ADeliveryStation* DeliveryStation)
+void UOrderDeliveryBridgeSubsystem::RegisterDeliveryStation(AStationActorBase* DeliveryStation)
 {
-	if (!IsAuthorityWorld() || DeliveryStation == nullptr)
+	if (!IsAuthorityWorld()
+		|| DeliveryStation == nullptr
+		|| DeliveryStation->GetStationKind() != EStationKind::Delivery)
 	{
 		return;
 	}
@@ -87,7 +89,7 @@ void UOrderDeliveryBridgeSubsystem::RegisterDeliveryStation(ADeliveryStation* De
 	BoundStations.Add(DeliveryStation);
 }
 
-void UOrderDeliveryBridgeSubsystem::UnregisterDeliveryStation(ADeliveryStation* DeliveryStation)
+void UOrderDeliveryBridgeSubsystem::UnregisterDeliveryStation(AStationActorBase* DeliveryStation)
 {
 	if (DeliveryStation == nullptr)
 	{
@@ -101,7 +103,7 @@ void UOrderDeliveryBridgeSubsystem::UnregisterDeliveryStation(ADeliveryStation* 
 int32 UOrderDeliveryBridgeSubsystem::GetBoundDeliveryStationCount() const
 {
 	int32 ValidCount = 0;
-	for (const TWeakObjectPtr<ADeliveryStation>& WeakStation : BoundStations)
+	for (const TWeakObjectPtr<AStationActorBase>& WeakStation : BoundStations)
 	{
 		if (WeakStation.IsValid())
 		{
@@ -136,7 +138,7 @@ void UOrderDeliveryBridgeSubsystem::HandleActorSpawned(AActor* SpawnedActor)
 		return;
 	}
 
-	if (ADeliveryStation* DeliveryStation = Cast<ADeliveryStation>(SpawnedActor))
+	if (AStationActorBase* DeliveryStation = Cast<AStationActorBase>(SpawnedActor))
 	{
 		RegisterDeliveryStation(DeliveryStation);
 	}

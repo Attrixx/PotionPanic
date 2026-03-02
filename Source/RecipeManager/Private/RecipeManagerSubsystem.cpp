@@ -4,7 +4,6 @@
 #include "CarriableComponent.h"
 #include "Instruction.h"
 #include "Cauldron.h"
-#include "FireStation.h"
 #include "ItemActor.h"
 #include "ItemAsset.h"
 #include "RecipeSystem.h"
@@ -38,9 +37,9 @@ void URecipeManagerSubsystem::Deinitialize()
 		ActorSpawnedHandle.Reset();
 	}
 
-	for (const TWeakObjectPtr<AFireStation>& WeakStation : BoundFireStations)
+	for (const TWeakObjectPtr<AStationActorBase>& WeakStation : BoundFireStations)
 	{
-		if (AFireStation* FireStation = WeakStation.Get())
+		if (AStationActorBase* FireStation = WeakStation.Get())
 		{
 			FireStation->OnProcessRequested.RemoveDynamic(this, &URecipeManagerSubsystem::HandleFireStationProcessRequested);
 			FireStation->OnDestroyed.RemoveDynamic(this, &URecipeManagerSubsystem::HandleFireStationDestroyed);
@@ -229,7 +228,7 @@ void ConfigureFireStationInstructionForCauldron(FInstruction& StationInstruction
 }
 
 bool TryQueueFireStationExecutionPlan(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	const FRecipeExecutionPlan& ExecutionPlan,
 	const FPrimaryAssetId& HeldCauldronItemId,
 	int32& OutQueuedSteps)
@@ -699,7 +698,7 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlanAcrossStations(
 	return Result;
 }
 
-void URecipeManagerSubsystem::StartFireStationProcessing(AFireStation* FireStation, APlayerController* InstigatorController) const
+void URecipeManagerSubsystem::StartFireStationProcessing(AStationActorBase* FireStation, APlayerController* InstigatorController) const
 {
 	if (FireStation == nullptr)
 	{
@@ -711,7 +710,7 @@ void URecipeManagerSubsystem::StartFireStationProcessing(AFireStation* FireStati
 }
 
 bool URecipeManagerSubsystem::TryResumeExistingFireStationExecution(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	ACauldron* HeldCauldron,
 	APlayerController* InstigatorController)
 {
@@ -774,7 +773,7 @@ bool URecipeManagerSubsystem::TryBuildFireStationExecutionPlan(ACauldron* HeldCa
 }
 
 bool URecipeManagerSubsystem::TryStartNewFireStationExecution(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	ACauldron* HeldCauldron,
 	const FPrimaryAssetId& HeldCauldronItemId,
 	const FRecipeExecutionPlan& ExecutionPlan)
@@ -799,7 +798,7 @@ bool URecipeManagerSubsystem::TryStartNewFireStationExecution(
 }
 
 bool URecipeManagerSubsystem::ConsumeProcessedFireStationStep(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	FFireStationExecutionContext& Context)
 {
 	if (Context.RemainingSteps <= 0)
@@ -816,7 +815,7 @@ bool URecipeManagerSubsystem::ConsumeProcessedFireStationStep(
 }
 
 void URecipeManagerSubsystem::HandleFailedFireStationExecution(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	const FFireStationExecutionContext& FailedContext)
 {
 	if (FireStation == nullptr)
@@ -838,7 +837,7 @@ void URecipeManagerSubsystem::HandleFailedFireStationExecution(
 }
 
 void URecipeManagerSubsystem::HandleCompletedFireStationExecution(
-	AFireStation* FireStation,
+	AStationActorBase* FireStation,
 	const FFireStationExecutionContext& CompletedContext)
 {
 	if (FireStation == nullptr)
@@ -860,9 +859,12 @@ void URecipeManagerSubsystem::HandleCompletedFireStationExecution(
 	}
 }
 
-void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation)
+void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerController* InstigatorController, AStationActorBase* FireStation)
 {
-	if (!IsAuthorityWorld() || FireStation == nullptr || !FireStation->HasAuthority())
+	if (!IsAuthorityWorld()
+		|| FireStation == nullptr
+		|| !FireStation->HasAuthority()
+		|| FireStation->GetStationKind() != EStationKind::Fire)
 	{
 		return;
 	}
@@ -904,13 +906,12 @@ void URecipeManagerSubsystem::HandleFireStationInstructionProcessed(AStationActo
 {
 	(void)Instruction;
 
-	AFireStation* FireStation = Cast<AFireStation>(Station);
-	if (!IsAuthorityWorld() || FireStation == nullptr)
+	if (!IsAuthorityWorld() || Station == nullptr || Station->GetStationKind() != EStationKind::Fire)
 	{
 		return;
 	}
 
-	FFireStationExecutionContext* Context = ActiveFireStationExecutions.Find(FireStation);
+	FFireStationExecutionContext* Context = ActiveFireStationExecutions.Find(Station);
 	if (Context == nullptr)
 	{
 		return;
@@ -919,19 +920,19 @@ void URecipeManagerSubsystem::HandleFireStationInstructionProcessed(AStationActo
 	if (!bSuccess)
 	{
 		const FFireStationExecutionContext FailedContext = *Context;
-		ActiveFireStationExecutions.Remove(FireStation);
-		HandleFailedFireStationExecution(FireStation, FailedContext);
+		ActiveFireStationExecutions.Remove(Station);
+		HandleFailedFireStationExecution(Station, FailedContext);
 		return;
 	}
 
-	if (!ConsumeProcessedFireStationStep(FireStation, *Context))
+	if (!ConsumeProcessedFireStationStep(Station, *Context))
 	{
 		return;
 	}
 
 	const FFireStationExecutionContext CompletedContext = *Context;
-	ActiveFireStationExecutions.Remove(FireStation);
-	HandleCompletedFireStationExecution(FireStation, CompletedContext);
+	ActiveFireStationExecutions.Remove(Station);
+	HandleCompletedFireStationExecution(Station, CompletedContext);
 }
 
 void URecipeManagerSubsystem::RefreshFireStations()
@@ -943,13 +944,13 @@ void URecipeManagerSubsystem::RefreshFireStations()
 
 	for (auto It = BoundFireStations.CreateIterator(); It; ++It)
 	{
-		if (!It->IsValid())
+		if (!It->IsValid() || It->Get()->GetStationKind() != EStationKind::Fire)
 		{
 			It.RemoveCurrent();
 		}
 	}
 
-	for (TActorIterator<AFireStation> It(GetWorld()); It; ++It)
+	for (TActorIterator<AStationActorBase> It(GetWorld()); It; ++It)
 	{
 		RegisterFireStation(*It);
 	}
@@ -962,7 +963,7 @@ void URecipeManagerSubsystem::HandleActorSpawned(AActor* SpawnedActor)
 		return;
 	}
 
-	if (AFireStation* FireStation = Cast<AFireStation>(SpawnedActor))
+	if (AStationActorBase* FireStation = Cast<AStationActorBase>(SpawnedActor))
 	{
 		RegisterFireStation(FireStation);
 	}
@@ -975,15 +976,17 @@ void URecipeManagerSubsystem::HandleFireStationDestroyed(AActor* DestroyedActor)
 		return;
 	}
 
-	if (AFireStation* FireStation = Cast<AFireStation>(DestroyedActor))
+	if (AStationActorBase* FireStation = Cast<AStationActorBase>(DestroyedActor))
 	{
 		UnregisterFireStation(FireStation);
 	}
 }
 
-void URecipeManagerSubsystem::RegisterFireStation(AFireStation* FireStation)
+void URecipeManagerSubsystem::RegisterFireStation(AStationActorBase* FireStation)
 {
-	if (!IsAuthorityWorld() || FireStation == nullptr)
+	if (!IsAuthorityWorld()
+		|| FireStation == nullptr
+		|| FireStation->GetStationKind() != EStationKind::Fire)
 	{
 		return;
 	}
@@ -999,7 +1002,7 @@ void URecipeManagerSubsystem::RegisterFireStation(AFireStation* FireStation)
 	BoundFireStations.Add(FireStation);
 }
 
-void URecipeManagerSubsystem::UnregisterFireStation(AFireStation* FireStation)
+void URecipeManagerSubsystem::UnregisterFireStation(AStationActorBase* FireStation)
 {
 	if (FireStation == nullptr)
 	{

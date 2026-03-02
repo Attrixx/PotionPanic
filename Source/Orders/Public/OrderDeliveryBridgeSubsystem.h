@@ -5,7 +5,7 @@
 #include "OrderDeliveryBridgeSubsystem.generated.h"
 
 class AActor;
-class ADeliveryStation;
+class AStationActorBase;
 
 UCLASS()
 class ORDERS_API UOrderDeliveryBridgeSubsystem : public UWorldSubsystem
@@ -23,10 +23,10 @@ public:
 	void RefreshDeliveryStations();
 
 	UFUNCTION(BlueprintCallable, Category = "Orders|Delivery")
-	void RegisterDeliveryStation(ADeliveryStation* DeliveryStation);
+	void RegisterDeliveryStation(AStationActorBase* DeliveryStation);
 
 	UFUNCTION(BlueprintCallable, Category = "Orders|Delivery")
-	void UnregisterDeliveryStation(ADeliveryStation* DeliveryStation);
+	void UnregisterDeliveryStation(AStationActorBase* DeliveryStation);
 
 	UFUNCTION(BlueprintPure, Category = "Orders|Delivery")
 	int32 GetBoundDeliveryStationCount() const;
@@ -38,6 +38,6 @@ private:
 	void HandleActorSpawned(AActor* SpawnedActor);
 
 private:
-	TSet<TWeakObjectPtr<ADeliveryStation>> BoundStations;
+	TSet<TWeakObjectPtr<AStationActorBase>> BoundStations;
 	FDelegateHandle ActorSpawnedHandle;
 };

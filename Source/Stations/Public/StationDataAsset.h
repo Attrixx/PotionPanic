@@ -9,8 +9,8 @@ class UActivityAsset;
 class UStaticMesh;
 
 /**
- * Configuration for a generic station.
- * Defines station visuals/capabilities.
+ * Optional station configuration data usable by Blueprint stations.
+ * Defines visuals/capabilities.
  */
 UCLASS()
 class STATIONS_API UStationDataAsset : public UPrimaryDataAsset

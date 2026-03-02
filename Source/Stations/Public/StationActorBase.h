@@ -40,6 +40,16 @@ enum class EStationCancelPolicy : uint8
 };
 
 UENUM(BlueprintType)
+enum class EStationKind : uint8
+{
+	Processor UMETA(DisplayName = "Processor"),
+	Fire UMETA(DisplayName = "Fire"),
+	Delivery UMETA(DisplayName = "Delivery"),
+	Trash UMETA(DisplayName = "Trash"),
+	Dispenser UMETA(DisplayName = "Dispenser")
+};
+
+UENUM(BlueprintType)
 enum class EStationRuntimeError : uint8
 {
 	None UMETA(DisplayName = "None"),
@@ -63,8 +73,10 @@ struct STATIONS_API FStationActivityInteraction
 };
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FStationInstructionProcessedEvent, AStationActorBase*, const FInstruction&, bool);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStationProcessRequestedEvent, APlayerController*, InstigatorController, AStationActorBase*, Station);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStationItemDeliveredDelegate, FPrimaryAssetId, DeliveredItemId, AActor*, SourceStation);
 
-UCLASS()
+UCLASS(Blueprintable)
 class STATIONS_API AStationActorBase : public AActor, public IInteractable
 {
 	GENERATED_BODY()
@@ -115,12 +127,21 @@ public:
 	/** Native event fired whenever one instruction finishes (success/failure). */
 	FStationInstructionProcessedEvent OnInstructionProcessed;
 
+	UPROPERTY(BlueprintAssignable, Category = "Station|Events")
+	FStationProcessRequestedEvent OnProcessRequested;
+
+	UPROPERTY(BlueprintAssignable, Category = "Station|Events")
+	FStationItemDeliveredDelegate OnItemDelivered;
+
 	/** For QTE/IFT stations: push one interaction attempt result. */
 	UFUNCTION(BlueprintCallable, Category = "Station|Interaction")
 	void SubmitInteractionAttempt(bool bSuccess);
 
 	UFUNCTION(BlueprintPure, Category = "Station")
 	TArray<UActivityAsset*> GetActivities() const;
+
+	UFUNCTION(BlueprintPure, Category = "Station")
+	EStationKind GetStationKind() const { return StationKind; }
 
 	/**
 	 * Checks if a specific item can be placed on this station.
@@ -173,11 +194,18 @@ protected:
 	bool ConsumeCarriable(UCarriableComponent* Carriable) const;
 	bool SpawnInstructionOutput(const FInstruction& Instruction);
 	void TrySpawnPendingOutput();
+	bool TryHandleDispenserInteraction(UHolderComponent* PlayerHolder);
+	bool TryHandleDeliveryInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem);
+	bool TryHandleTrashInteraction(APlayerController& InInstigator, UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem);
+	bool TryHandleFireStationInteraction(APlayerController& InInstigator, UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem);
 	void ResetCurrentInstructionState();
 	int32 GetRequiredInputCount(const FInstruction& Instruction) const;
 	int32 GetRequiredOutputCount(const FInstruction& Instruction) const;
 
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Mode")
+	EStationKind StationKind = EStationKind::Processor;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> StationMesh;
 
@@ -247,6 +275,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Visuals")
 	void OnStationRuntimeErrorBP(EStationRuntimeError ErrorCode, const FText& Message);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Station|Events")
+	void OnTrashSucceededBP(APlayerController* InstigatorController, const FPrimaryAssetId& TrashedItemId);
+
 protected:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<APawn> CurrentInstigator;
@@ -278,6 +309,32 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules")
 	EStationCancelPolicy CancelPolicy = EStationCancelPolicy::KeepConsumed;
+
+	/** Fire-mode stations only accept this item id as input. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Fire", meta = (EditCondition = "StationKind == EStationKind::Fire"))
+	FPrimaryAssetId RequiredCauldronItemId;
+
+	/** Delivery-mode allow-list. Empty means any valid item id. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Delivery", meta = (EditCondition = "StationKind == EStationKind::Delivery"))
+	TArray<FPrimaryAssetId> AcceptedItems;
+
+	/** Trash-mode flag: when true only ingredients can be trashed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Trash", meta = (EditCondition = "StationKind == EStationKind::Trash"))
+	bool bTrashOnlyIngredients = true;
+
+	/** Dispenser-mode item id to spawn when player interacts with empty hands. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Dispenser", meta = (EditCondition = "StationKind == EStationKind::Dispenser"))
+	FPrimaryAssetId ItemToDispense;
+
+	/** Dispenser-mode optional actor class override for spawned item. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Dispenser", meta = (EditCondition = "StationKind == EStationKind::Dispenser"))
+	TSubclassOf<AItemActor> ItemActorClass = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Dispenser", meta = (ClampMin = "0.0", EditCondition = "StationKind == EStationKind::Dispenser"))
+	float DispenseCooldownSeconds = 0.0f;
+
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Station|Dispenser", meta = (AllowPrivateAccess = "true"))
+	float NextAllowedDispenseTimeSeconds = 0.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Failure")
 	bool bUseStationFailureOutputOverride = false;

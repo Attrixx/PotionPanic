@@ -128,9 +128,7 @@ int32 UInteractionBase::GetRequiredSuccessCount() const
 		return 1;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.RequiredSuccessCount
-		: Definition->IFT.RequiredSuccessCount;
+	return Definition->Rules.RequiredSuccessCount;
 }
 
 int32 UInteractionBase::GetAllowedFailureCount() const
@@ -140,9 +138,7 @@ int32 UInteractionBase::GetAllowedFailureCount() const
 		return 0;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.AllowedFailureCount
-		: Definition->IFT.AllowedFailureCount;
+	return Definition->Rules.AllowedFailureCount;
 }
 
 float UInteractionBase::GetMaxDurationSeconds() const
@@ -152,9 +148,7 @@ float UInteractionBase::GetMaxDurationSeconds() const
 		return 0.0f;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.MaxDurationSeconds
-		: Definition->IFT.MaxDurationSeconds;
+	return Definition->Rules.MaxDurationSeconds;
 }
 
 int32 UInteractionBase::GetPointsPerSuccess() const
@@ -164,9 +158,7 @@ int32 UInteractionBase::GetPointsPerSuccess() const
 		return 0;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.PointsPerSuccess
-		: Definition->IFT.PointsPerSuccess;
+	return Definition->Rules.PointsPerSuccess;
 }
 
 int32 UInteractionBase::GetPointsPerFailure() const
@@ -176,7 +168,5 @@ int32 UInteractionBase::GetPointsPerFailure() const
 		return 0;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.PointsPerFailure
-		: Definition->IFT.PointsPerFailure;
+	return Definition->Rules.PointsPerFailure;
 }

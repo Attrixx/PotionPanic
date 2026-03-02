@@ -6,8 +6,10 @@
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "HolderComponent.h"
+#include "IngredientData.h"
 #include "ItemActor.h"
 #include "ItemAsset.h"
+#include "ItemSpawnLibrary.h"
 #include "Logging/StructuredLog.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
@@ -23,9 +25,24 @@ float GetInteractionDefinitionDuration(const UInteractionDefinitionAsset* Defini
 		return 0.0f;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.MaxDurationSeconds
-		: Definition->IFT.MaxDurationSeconds;
+	return Definition->Rules.MaxDurationSeconds;
+}
+
+UItemAsset* ResolveItemAssetFromId(const FPrimaryAssetId& ItemId)
+{
+	if (!ItemId.IsValid())
+	{
+		return nullptr;
+	}
+
+	UItemAsset* ItemAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(ItemId);
+	if (ItemAsset != nullptr)
+	{
+		return ItemAsset;
+	}
+
+	const FSoftObjectPath AssetPath = UAssetManager::Get().GetPrimaryAssetPath(ItemId);
+	return Cast<UItemAsset>(AssetPath.TryLoad());
 }
 
 bool AreInstructionsEquivalent(const FInstruction& Left, const FInstruction& Right)
@@ -177,7 +194,7 @@ TArray<UActivityAsset*> AStationActorBase::GetActivities() const
 
 void AStationActorBase::Interact(APlayerController& InInstigator)
 {
-	if (!HasAuthority() || StationState == EStationState::Processing || ItemHolder == nullptr)
+	if (!HasAuthority() || ItemHolder == nullptr)
 	{
 		return;
 	}
@@ -200,6 +217,30 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	UCarriableComponent* PlayerItem = PlayerHolder->GetCarriable();
 	UCarriableComponent* StationItem = ItemHolder->GetCarriable();
 
+	switch (StationKind)
+	{
+	case EStationKind::Dispenser:
+		TryHandleDispenserInteraction(PlayerHolder);
+		return;
+	case EStationKind::Delivery:
+		TryHandleDeliveryInteraction(PlayerHolder, PlayerItem);
+		return;
+	case EStationKind::Trash:
+		TryHandleTrashInteraction(InInstigator, PlayerHolder, PlayerItem);
+		return;
+	case EStationKind::Fire:
+		TryHandleFireStationInteraction(InInstigator, PlayerHolder, PlayerItem, StationItem);
+		return;
+	case EStationKind::Processor:
+	default:
+		break;
+	}
+
+	if (StationState == EStationState::Processing)
+	{
+		return;
+	}
+
 	if (TryHandlePlayerItemInteraction(PlayerHolder, PlayerItem, StationItem))
 	{
 		return;
@@ -219,6 +260,167 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	{
 		ResetBufferedBatch();
 	}
+}
+
+bool AStationActorBase::TryHandleDispenserInteraction(UHolderComponent* PlayerHolder)
+{
+	if (PlayerHolder == nullptr || PlayerHolder->GetCarriable() != nullptr)
+	{
+		return true;
+	}
+
+	if (!ItemToDispense.IsValid())
+	{
+		UE_LOGFMT(MS_StationActorBase, Warning, "ItemToDispense is not configured for station '{0}'.", GetName());
+		return true;
+	}
+
+	const UWorld* World = GetWorld();
+	if (World == nullptr)
+	{
+		return true;
+	}
+
+	const float CurrentServerTime = World->GetTimeSeconds();
+	if (CurrentServerTime < NextAllowedDispenseTimeSeconds)
+	{
+		return true;
+	}
+
+	const FTransform SpawnTransform = ItemHolder ? ItemHolder->GetComponentTransform() : GetActorTransform();
+	AItemActor* SpawnedItem = UItemSpawnLibrary::SpawnItemFromPrimaryAssetId(this, ItemToDispense, SpawnTransform, ItemActorClass);
+	if (SpawnedItem == nullptr)
+	{
+		UE_LOGFMT(MS_StationActorBase, Warning, "Failed to spawn item '{0}' on station '{1}'.", ItemToDispense.ToString(), GetName());
+		return true;
+	}
+
+	UCarriableComponent* SpawnedCarriable = SpawnedItem->FindComponentByClass<UCarriableComponent>();
+	if (SpawnedCarriable == nullptr)
+	{
+		UE_LOGFMT(MS_StationActorBase, Warning, "Spawned item '{0}' has no UCarriableComponent.", SpawnedItem->GetName());
+		SpawnedItem->DestroyItem(true);
+		return true;
+	}
+
+	PlayerHolder->Replace(SpawnedCarriable);
+	NextAllowedDispenseTimeSeconds = CurrentServerTime + FMath::Max(0.0f, DispenseCooldownSeconds);
+	return true;
+}
+
+bool AStationActorBase::TryHandleDeliveryInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem)
+{
+	if (PlayerHolder == nullptr || PlayerItem == nullptr)
+	{
+		return true;
+	}
+
+	const FPrimaryAssetId HeldItemId = PlayerItem->GetItemId();
+	if (!CanPlaceItem(HeldItemId))
+	{
+		return true;
+	}
+
+	UCarriableComponent* RemovedCarriable = PlayerHolder->Replace(nullptr);
+	if (RemovedCarriable == nullptr)
+	{
+		return true;
+	}
+
+	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
+	{
+		ItemActor->DestroyItem(true);
+	}
+	else if (AActor* OwnerActor = RemovedCarriable->GetOwner())
+	{
+		OwnerActor->Destroy();
+	}
+
+	OnItemDelivered.Broadcast(HeldItemId, this);
+	return true;
+}
+
+bool AStationActorBase::TryHandleTrashInteraction(APlayerController& InInstigator, UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem)
+{
+	if (PlayerHolder == nullptr || PlayerItem == nullptr)
+	{
+		return true;
+	}
+
+	const FPrimaryAssetId HeldItemId = PlayerItem->GetItemId();
+	if (!CanPlaceItem(HeldItemId))
+	{
+		return true;
+	}
+
+	UCarriableComponent* RemovedCarriable = PlayerHolder->Replace(nullptr);
+	if (RemovedCarriable == nullptr)
+	{
+		return true;
+	}
+
+	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
+	{
+		ItemActor->DestroyItem(true);
+	}
+	else if (AActor* OwnerActor = RemovedCarriable->GetOwner())
+	{
+		OwnerActor->Destroy();
+	}
+
+	OnTrashSucceededBP(&InInstigator, HeldItemId);
+	return true;
+}
+
+bool AStationActorBase::TryHandleFireStationInteraction(
+	APlayerController& InInstigator,
+	UHolderComponent* PlayerHolder,
+	UCarriableComponent* PlayerItem,
+	UCarriableComponent* StationItem)
+{
+	if (PlayerHolder == nullptr || ItemHolder == nullptr)
+	{
+		return true;
+	}
+
+	const bool bPlayerHasItem = PlayerItem != nullptr;
+	const bool bStationHasItem = StationItem != nullptr;
+
+	if (!bPlayerHasItem && bStationHasItem)
+	{
+		if (StationState == EStationState::Processing || GetQueuedInstructionCount() > 0)
+		{
+			OnProcessRequested.Broadcast(&InInstigator, this);
+			return true;
+		}
+
+		UCarriableComponent* MovedCarriable = ItemHolder->Replace(nullptr);
+		if (MovedCarriable != nullptr)
+		{
+			PlayerHolder->Replace(MovedCarriable);
+		}
+		return true;
+	}
+
+	if (bPlayerHasItem)
+	{
+		if (bStationHasItem || !CanPlaceItem(PlayerItem->GetItemId()))
+		{
+			return true;
+		}
+
+		UCarriableComponent* MovedCarriable = PlayerHolder->Replace(nullptr);
+		if (MovedCarriable == nullptr)
+		{
+			return true;
+		}
+
+		ItemHolder->Replace(MovedCarriable);
+		OnProcessRequested.Broadcast(&InInstigator, this);
+		return true;
+	}
+
+	return true;
 }
 
 bool AStationActorBase::TryHandlePlayerItemInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem)
@@ -356,21 +558,40 @@ bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 		return false;
 	}
 
+	if (StationKind == EStationKind::Delivery)
+	{
+		return AcceptedItems.Num() == 0 || AcceptedItems.Contains(ItemId);
+	}
+
+	if (StationKind == EStationKind::Trash)
+	{
+		if (!bTrashOnlyIngredients)
+		{
+			return true;
+		}
+
+		return Cast<UIngredientData>(ResolveItemAssetFromId(ItemId)) != nullptr;
+	}
+
+	if (StationKind == EStationKind::Fire)
+	{
+		if (!RequiredCauldronItemId.IsValid() || ItemId != RequiredCauldronItemId)
+		{
+			return false;
+		}
+	}
+
 	if (AllowedInputItems.Num() > 0 && !AllowedInputItems.Contains(ItemId))
 	{
 		return false;
 	}
 
-	const bool bRequiresItemAsset = !bAcceptContainerItems || RequiredInputDataTags.Num() > 0;
+	const bool bAllowContainerItems = bAcceptContainerItems || StationKind == EStationKind::Fire;
+	const bool bRequiresItemAsset = !bAllowContainerItems || RequiredInputDataTags.Num() > 0;
 	UItemAsset* ItemAsset = nullptr;
 	if (bRequiresItemAsset)
 	{
-		ItemAsset = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(ItemId);
-		if (ItemAsset == nullptr)
-		{
-			const FSoftObjectPath AssetPath = UAssetManager::Get().GetPrimaryAssetPath(ItemId);
-			ItemAsset = Cast<UItemAsset>(AssetPath.TryLoad());
-		}
+		ItemAsset = ResolveItemAssetFromId(ItemId);
 
 		if (ItemAsset == nullptr)
 		{
@@ -378,7 +599,7 @@ bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 		}
 	}
 
-	if (!bAcceptContainerItems && ItemAsset != nullptr && ItemAsset->bIsContainer)
+	if (!bAllowContainerItems && ItemAsset != nullptr && ItemAsset->bIsContainer)
 	{
 		return false;
 	}

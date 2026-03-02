@@ -15,9 +15,7 @@ static float GetInteractionDefinitionDuration(const UInteractionDefinitionAsset*
 		return 0.0f;
 	}
 
-	return Definition->Type == EInteractionType::QTE
-		? Definition->QTE.MaxDurationSeconds
-		: Definition->IFT.MaxDurationSeconds;
+	return Definition->Rules.MaxDurationSeconds;
 }
 
 static UItemAsset* ResolveItemAssetFromId(const FPrimaryAssetId& ItemId)
