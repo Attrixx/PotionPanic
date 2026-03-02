@@ -60,8 +60,10 @@ struct RECIPEMANAGER_API FRecipeManagerResult
 };
 
 /**
- * Server-side adapter between RecipeSystem execution plans and station instruction queues.
- * Keeps Recipes decoupled from station runtime execution details.
+ * Contract:
+ * - Single runtime orchestrator between RecipeSystem and stations/orders.
+ * - Recipes define/validate/score only (what to do), never where/how to execute.
+ * - Stations execute queued instructions only, and never resolve recipes.
  */
 UCLASS()
 class RECIPEMANAGER_API URecipeManagerSubsystem : public UWorldSubsystem
@@ -128,6 +130,7 @@ private:
 	void HandleActorSpawned(AActor* SpawnedActor);
 	void RegisterFireStation(AFireStation* FireStation);
 	void UnregisterFireStation(AFireStation* FireStation);
+	bool ApplyRecipeFailureToCauldron(URecipeSystem* RecipeSystem, const FRecipeExecutionPlan& FailedPlan, ACauldron* Cauldron);
 	bool TryApplyExecutionPlanToCauldron(const FRecipeExecutionPlan& ExecutionPlan, ACauldron* Cauldron);
 	bool IsAuthorityWorld() const;
 

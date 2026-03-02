@@ -22,6 +22,7 @@ class AStationActorBase;
  *
  * Stations execute and consume instructions.
  * They do not know about recipes, game modes, game flow, or UI logic.
+ * Runtime instructions are expected to be injected by an external orchestrator.
  */
 UENUM(BlueprintType)
 enum class EStationState : uint8

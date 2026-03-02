@@ -214,6 +214,10 @@ struct RECIPES_API FRecipeScoreContext
 	float StreakMultiplier = 1.0f;
 };
 
+/**
+ * Pure recipe domain subsystem.
+ * Owns recipe validation/planning/scoring and never executes station runtime.
+ */
 UCLASS()
 class RECIPES_API URecipeSystem : public UWorldSubsystem
 {

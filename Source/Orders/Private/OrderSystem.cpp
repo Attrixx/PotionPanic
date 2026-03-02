@@ -152,11 +152,12 @@ void UOrderSystem::CancelOrder(const FGuid& OrderId)
 			continue;
 		}
 
-		FOrderRuntime Cancelled = ActiveOrders[Index];
-		Cancelled.State = EOrderState::Cancelled;
-		Cancelled.ResolvedTimeSeconds = ResolveServerTime(-1.0f);
-		ActiveOrders.RemoveAt(Index);
-		CancelledOrders.Add(Cancelled);
+		TransitionActiveOrderToResolved(
+			Index,
+			EOrderState::Cancelled,
+			ResolveServerTime(-1.0f),
+			0,
+			CancelledOrders);
 		RefreshReplicatedStateActor();
 		return;
 	}
@@ -180,6 +181,7 @@ void UOrderSystem::ClearRuntimeState()
 	CompletedOrders.Reset();
 	ExpiredOrders.Reset();
 	CancelledOrders.Reset();
+	ProcessedSubmissionCache.Reset();
 	TotalScore = 0;
 	OnTotalScoreChanged.Broadcast(TotalScore);
 
@@ -194,12 +196,15 @@ void UOrderSystem::ApplyRuntimeConfig()
 	}
 
 	ExpirationTickIntervalSeconds = FMath::Max(0.05f, ExpirationTickIntervalSeconds);
+	ExpirationWarningLeadTimeSeconds = FMath::Max(0.0f, ExpirationWarningLeadTimeSeconds);
 	TargetActiveOrderCount = FMath::Max(0, TargetActiveOrderCount);
 	MinAutoSpawnIntervalSeconds = FMath::Max(0.1f, MinAutoSpawnIntervalSeconds);
 	MaxAutoSpawnIntervalSeconds = FMath::Max(MinAutoSpawnIntervalSeconds, MaxAutoSpawnIntervalSeconds);
 	InitialAutoSpawnDelaySeconds = FMath::Max(0.0f, InitialAutoSpawnDelaySeconds);
 	OrdersPerArrival = FMath::Max(1, OrdersPerArrival);
 	MaxAutoSpawnPerTick = FMath::Max(1, MaxAutoSpawnPerTick);
+	ProcessedSubmissionTtlSeconds = FMath::Max(0.0f, ProcessedSubmissionTtlSeconds);
+	MaxProcessedSubmissionCacheEntries = FMath::Max(16, MaxProcessedSubmissionCacheEntries);
 
 	UWorld* World = GetWorld();
 	check(World != nullptr);
@@ -258,6 +263,20 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 	}
 
 	const float ServerTime = ResolveServerTime(Payload.ServerTimeSeconds);
+	FOrderSubmissionResult CachedReplayResult;
+	if (TryGetProcessedSubmissionResult(Payload.SubmissionId, CachedReplayResult, ServerTime))
+	{
+		CachedReplayResult.RejectReason = EOrderSubmissionRejectReason::DuplicateSubmission;
+		CachedReplayResult.Reason = FText::FromString(TEXT("Duplicate submission replayed without side effects."));
+		return CachedReplayResult;
+	}
+
+	auto CacheAndReturn = [this, &Payload, ServerTime](const FOrderSubmissionResult& InResult)
+	{
+		CacheProcessedSubmissionResult(Payload.SubmissionId, InResult, ServerTime);
+		return InResult;
+	};
+
 	ExpireOrders(ServerTime);
 	RefreshReplicatedStateActor();
 
@@ -265,7 +284,7 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 	{
 		Result.RejectReason = EOrderSubmissionRejectReason::NoActiveOrders;
 		Result.Reason = FText::FromString(TEXT("No active orders."));
-		return Result;
+		return CacheAndReturn(Result);
 	}
 
 	const int32 MatchIndex = FindBestMatchingActiveOrderIndex(Payload.DeliveredItemId, ServerTime);
@@ -287,19 +306,25 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 			: FText::FromString(TEXT("No active order matches delivered item."));
 		OnDeliveryRejected.Broadcast(Payload, Penalty);
 		RefreshReplicatedStateActor();
-		return Result;
+		return CacheAndReturn(Result);
 	}
 
-	FOrderRuntime MatchedOrder = ActiveOrders[MatchIndex];
+	const FOrderRuntime MatchedOrder = ActiveOrders[MatchIndex];
 	const int32 ScoreGain = ComputeCompletionScore(MatchedOrder, ServerTime);
 	ApplyScoreDelta(ScoreGain);
 
-	MatchedOrder.State = EOrderState::Completed;
-	MatchedOrder.AwardedScore = ScoreGain;
-	MatchedOrder.ResolvedTimeSeconds = ServerTime;
-
-	ActiveOrders.RemoveAt(MatchIndex);
-	CompletedOrders.Add(MatchedOrder);
+	if (!TransitionActiveOrderToResolved(
+		MatchIndex,
+		EOrderState::Completed,
+		ServerTime,
+		ScoreGain,
+		CompletedOrders))
+	{
+		Result.RejectReason = EOrderSubmissionRejectReason::InvalidPayload;
+		Result.Reason = FText::FromString(TEXT("Order state transition failed during delivery resolution."));
+		RefreshReplicatedStateActor();
+		return CacheAndReturn(Result);
+	}
 
 	Result.bMatched = true;
 	Result.MatchedOrderId = MatchedOrder.OrderId;
@@ -311,7 +336,7 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 
 	OnOrderCompleted.Broadcast(MatchedOrder.OrderId, ScoreGain);
 	RefreshReplicatedStateActor();
-	return Result;
+	return CacheAndReturn(Result);
 }
 
 TArray<UOrderDataAsset*> UOrderSystem::GetOrderCatalog() const
@@ -335,33 +360,219 @@ float UOrderSystem::ResolveServerTime(float RequestedServerTimeSeconds) const
 	return GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 }
 
+bool UOrderSystem::IsOrderInProgressState(EOrderState State)
+{
+	return State == EOrderState::Active || State == EOrderState::Warning;
+}
+
+bool UOrderSystem::CanTransitionOrderState(EOrderState FromState, EOrderState ToState)
+{
+	if (FromState == EOrderState::Active)
+	{
+		return ToState == EOrderState::Warning
+			|| ToState == EOrderState::Completed
+			|| ToState == EOrderState::Expired
+			|| ToState == EOrderState::Cancelled;
+	}
+
+	if (FromState == EOrderState::Warning)
+	{
+		return ToState == EOrderState::Completed
+			|| ToState == EOrderState::Expired
+			|| ToState == EOrderState::Cancelled;
+	}
+
+	return false;
+}
+
+bool UOrderSystem::TransitionActiveOrderToWarning(int32 ActiveOrderIndex)
+{
+	if (!ActiveOrders.IsValidIndex(ActiveOrderIndex))
+	{
+		return false;
+	}
+
+	FOrderRuntime& RuntimeOrder = ActiveOrders[ActiveOrderIndex];
+	const EOrderState PreviousState = RuntimeOrder.State;
+	if (!CanTransitionOrderState(PreviousState, EOrderState::Warning))
+	{
+		ensureMsgf(
+			false,
+			TEXT("Invalid order warning transition for order '%s' (%d -> %d)."),
+			*RuntimeOrder.OrderId.ToString(EGuidFormats::DigitsWithHyphens),
+			static_cast<int32>(PreviousState),
+			static_cast<int32>(EOrderState::Warning));
+		return false;
+	}
+
+	RuntimeOrder.State = EOrderState::Warning;
+	OnOrderStateChanged.Broadcast(RuntimeOrder.OrderId, PreviousState, RuntimeOrder.State);
+	return true;
+}
+
+bool UOrderSystem::TransitionActiveOrderToResolved(
+	int32 ActiveOrderIndex,
+	EOrderState TargetState,
+	float ResolvedTimeSeconds,
+	int32 AwardedScore,
+	TArray<FOrderRuntime>& OutResolvedOrders)
+{
+	if (!ActiveOrders.IsValidIndex(ActiveOrderIndex))
+	{
+		return false;
+	}
+
+	const FOrderRuntime SourceOrder = ActiveOrders[ActiveOrderIndex];
+	if (!CanTransitionOrderState(SourceOrder.State, TargetState))
+	{
+		ensureMsgf(
+			false,
+			TEXT("Invalid order transition for order '%s' (%d -> %d)."),
+			*SourceOrder.OrderId.ToString(EGuidFormats::DigitsWithHyphens),
+			static_cast<int32>(SourceOrder.State),
+			static_cast<int32>(TargetState));
+		return false;
+	}
+
+	FOrderRuntime ResolvedOrder = SourceOrder;
+	ResolvedOrder.State = TargetState;
+	ResolvedOrder.ResolvedTimeSeconds = ResolvedTimeSeconds;
+	ResolvedOrder.AwardedScore = AwardedScore;
+
+	ActiveOrders.RemoveAt(ActiveOrderIndex);
+	OutResolvedOrders.Add(ResolvedOrder);
+	OnOrderStateChanged.Broadcast(ResolvedOrder.OrderId, SourceOrder.State, TargetState);
+	return true;
+}
+
+void UOrderSystem::PruneProcessedSubmissionCache(float ServerTimeSeconds)
+{
+	if (ProcessedSubmissionCache.Num() == 0)
+	{
+		return;
+	}
+
+	if (ProcessedSubmissionTtlSeconds > 0.0f)
+	{
+		for (int32 Index = ProcessedSubmissionCache.Num() - 1; Index >= 0; --Index)
+		{
+			const float AgeSeconds = ServerTimeSeconds - ProcessedSubmissionCache[Index].ProcessedServerTimeSeconds;
+			if (AgeSeconds > ProcessedSubmissionTtlSeconds)
+			{
+				ProcessedSubmissionCache.RemoveAt(Index);
+			}
+		}
+	}
+
+	const int32 MaxEntries = FMath::Max(16, MaxProcessedSubmissionCacheEntries);
+	if (ProcessedSubmissionCache.Num() <= MaxEntries)
+	{
+		return;
+	}
+
+	const int32 OverflowCount = ProcessedSubmissionCache.Num() - MaxEntries;
+	ProcessedSubmissionCache.RemoveAt(0, OverflowCount);
+}
+
+bool UOrderSystem::TryGetProcessedSubmissionResult(const FGuid& SubmissionId, FOrderSubmissionResult& OutResult, float ServerTimeSeconds)
+{
+	if (!SubmissionId.IsValid())
+	{
+		return false;
+	}
+
+	PruneProcessedSubmissionCache(ServerTimeSeconds);
+
+	for (int32 Index = ProcessedSubmissionCache.Num() - 1; Index >= 0; --Index)
+	{
+		if (ProcessedSubmissionCache[Index].SubmissionId != SubmissionId)
+		{
+			continue;
+		}
+
+		OutResult = ProcessedSubmissionCache[Index].Result;
+		OutResult.bWasReplay = true;
+		return true;
+	}
+
+	return false;
+}
+
+void UOrderSystem::CacheProcessedSubmissionResult(const FGuid& SubmissionId, const FOrderSubmissionResult& Result, float ServerTimeSeconds)
+{
+	if (!SubmissionId.IsValid())
+	{
+		return;
+	}
+
+	PruneProcessedSubmissionCache(ServerTimeSeconds);
+
+	FOrderSubmissionResult CachedResult = Result;
+	CachedResult.bWasReplay = false;
+
+	for (int32 Index = ProcessedSubmissionCache.Num() - 1; Index >= 0; --Index)
+	{
+		if (ProcessedSubmissionCache[Index].SubmissionId != SubmissionId)
+		{
+			continue;
+		}
+
+		ProcessedSubmissionCache[Index].Result = CachedResult;
+		ProcessedSubmissionCache[Index].ProcessedServerTimeSeconds = ServerTimeSeconds;
+		return;
+	}
+
+	FProcessedSubmissionEntry& Entry = ProcessedSubmissionCache.AddDefaulted_GetRef();
+	Entry.SubmissionId = SubmissionId;
+	Entry.Result = CachedResult;
+	Entry.ProcessedServerTimeSeconds = ServerTimeSeconds;
+	PruneProcessedSubmissionCache(ServerTimeSeconds);
+}
+
 void UOrderSystem::ExpireOrders(float ServerTimeSeconds)
 {
 	for (int32 Index = ActiveOrders.Num() - 1; Index >= 0; --Index)
 	{
-		FOrderRuntime& Candidate = ActiveOrders[Index];
-		if (Candidate.State != EOrderState::Active)
+		const FOrderRuntime Candidate = ActiveOrders[Index];
+		if (!IsOrderInProgressState(Candidate.State))
 		{
 			continue;
 		}
 
-		if (ServerTimeSeconds < Candidate.EndTimeSeconds)
+		if (ServerTimeSeconds >= Candidate.EndTimeSeconds)
+		{
+			const int32 Penalty = Candidate.Data ? FMath::Max(0, Candidate.Data->ExpirePenalty) : 0;
+			if (Penalty > 0)
+			{
+				ApplyScoreDelta(-Penalty);
+			}
+
+			const FGuid ExpiredOrderId = Candidate.OrderId;
+			const bool bTransitioned = TransitionActiveOrderToResolved(
+				Index,
+				EOrderState::Expired,
+				ServerTimeSeconds,
+				0,
+				ExpiredOrders);
+			ensureMsgf(bTransitioned, TEXT("Failed transitioning expired order '%s' to Expired state."), *ExpiredOrderId.ToString(EGuidFormats::DigitsWithHyphens));
+			OnOrderExpired.Broadcast(ExpiredOrderId, Penalty);
+			continue;
+		}
+
+		if (Candidate.State != EOrderState::Active || ExpirationWarningLeadTimeSeconds <= 0.0f)
 		{
 			continue;
 		}
 
-		Candidate.State = EOrderState::Expired;
-		Candidate.ResolvedTimeSeconds = ServerTimeSeconds;
-
-		const int32 Penalty = Candidate.Data ? FMath::Max(0, Candidate.Data->ExpirePenalty) : 0;
-		if (Penalty > 0)
+		const float RemainingSeconds = Candidate.EndTimeSeconds - ServerTimeSeconds;
+		if (RemainingSeconds <= ExpirationWarningLeadTimeSeconds)
 		{
-			ApplyScoreDelta(-Penalty);
+			const bool bTransitionedToWarning = TransitionActiveOrderToWarning(Index);
+			ensureMsgf(
+				bTransitionedToWarning,
+				TEXT("Failed transitioning order '%s' to Warning state."),
+				*Candidate.OrderId.ToString(EGuidFormats::DigitsWithHyphens));
 		}
-
-		OnOrderExpired.Broadcast(Candidate.OrderId, Penalty);
-		ExpiredOrders.Add(Candidate);
-		ActiveOrders.RemoveAt(Index);
 	}
 }
 
@@ -391,7 +602,7 @@ int32 UOrderSystem::ComputeWrongDeliveryPenalty() const
 	case EWrongDeliveryPenaltyPolicy::FirstActiveOrder:
 		for (const FOrderRuntime& Order : ActiveOrders)
 		{
-			if (Order.State != EOrderState::Active || Order.Data == nullptr)
+			if (!IsOrderInProgressState(Order.State) || Order.Data == nullptr)
 			{
 				continue;
 			}
@@ -405,7 +616,7 @@ int32 UOrderSystem::ComputeWrongDeliveryPenalty() const
 		int32 BestPenalty = DefaultPenalty;
 		for (const FOrderRuntime& Order : ActiveOrders)
 		{
-			if (Order.State != EOrderState::Active || Order.Data == nullptr)
+			if (!IsOrderInProgressState(Order.State) || Order.Data == nullptr)
 			{
 				continue;
 			}
@@ -426,7 +637,7 @@ int32 UOrderSystem::FindBestMatchingActiveOrderIndex(const FPrimaryAssetId& Deli
 	for (int32 Index = 0; Index < ActiveOrders.Num(); ++Index)
 	{
 		const FOrderRuntime& Candidate = ActiveOrders[Index];
-		if (Candidate.State != EOrderState::Active || Candidate.Data == nullptr)
+		if (!IsOrderInProgressState(Candidate.State) || Candidate.Data == nullptr)
 		{
 			continue;
 		}

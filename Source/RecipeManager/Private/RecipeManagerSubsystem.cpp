@@ -581,6 +581,7 @@ void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerControlle
 	FRecipeExecutionPlan ExecutionPlan;
 	if (!RecipeSystem->TryBuildExecutionPlan(ActiveRoundRecipes, InputItems, ExecutionPlan))
 	{
+		ApplyRecipeFailureToCauldron(RecipeSystem, ExecutionPlan, HeldCauldron);
 		return;
 	}
 
@@ -613,6 +614,13 @@ void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerControlle
 		FireStation->QueueInstruction(StationInstruction);
 		++QueuedSteps;
 	}
+
+	ensureMsgf(
+		QueuedSteps == ExecutionPlan.Instructions.Num(),
+		TEXT("Fire-station queued step count mismatch for recipe '%s' (%d queued vs %d expected)."),
+		ExecutionPlan.Recipe ? *ExecutionPlan.Recipe->GetName() : TEXT("None"),
+		QueuedSteps,
+		ExecutionPlan.Instructions.Num());
 
 	if (QueuedSteps <= 0)
 	{
@@ -653,57 +661,34 @@ void URecipeManagerSubsystem::HandleFireStationInstructionProcessed(AStationActo
 		FireStation->ClearInstructionQueue();
 
 		ACauldron* Cauldron = FailedContext.Cauldron.Get();
-		URecipeDataAsset* Recipe = FailedContext.ExecutionPlan.Recipe.Get();
 		URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
-		if (Cauldron == nullptr || !Cauldron->HasAuthority() || Recipe == nullptr || RecipeSystem == nullptr)
+		if (Cauldron == nullptr || !Cauldron->HasAuthority() || RecipeSystem == nullptr)
 		{
 			return;
 		}
 
 		const int32 TotalStepCount = FailedContext.ExecutionPlan.Instructions.Num();
-		const int32 CompletedStepCount = FMath::Clamp(TotalStepCount - FailedContext.RemainingSteps, 0, TotalStepCount);
+		FRecipeExecutionPlan FailurePlan = FailedContext.ExecutionPlan;
+		FailurePlan.Validation.bIsValid = false;
+		FailurePlan.Validation.ErrorCode = ERecipeValidationError::StepNoMatch;
+		FailurePlan.Validation.MatchedStepCount = FMath::Clamp(TotalStepCount - FailedContext.RemainingSteps, 0, TotalStepCount);
+		FailurePlan.Validation.FirstFailedStepIndex = TotalStepCount > 0
+			? FMath::Clamp(FailurePlan.Validation.MatchedStepCount, 0, TotalStepCount - 1)
+			: INDEX_NONE;
+		FailurePlan.Validation.FailureReason = FText::FromString(TEXT("Station instruction failed during fire-station execution."));
 
-		FRecipeValidationResult FailureValidation = FailedContext.ExecutionPlan.Validation;
-		FailureValidation.bIsValid = false;
-		FailureValidation.ErrorCode = ERecipeValidationError::StepNoMatch;
-		FailureValidation.MatchedStepCount = CompletedStepCount;
-		FailureValidation.FirstFailedStepIndex = TotalStepCount > 0 ? FMath::Clamp(CompletedStepCount, 0, TotalStepCount - 1) : INDEX_NONE;
-		FailureValidation.FailureReason = FText::FromString(TEXT("Station instruction failed during fire-station execution."));
-
-		const FRecipeFailureOutcome FailureOutcome = RecipeSystem->ResolveFailureOutcome(Recipe, FailureValidation);
-		const FRecipeItemFlow CompletedFlow = RecipeSystem->BuildItemFlowForCompletedSteps(Recipe, CompletedStepCount);
-
-		if (FailureOutcome.bConsumeMatchedInputs && CompletedFlow.ConsumedItems.Num() > 0
-			&& !Cauldron->ConsumeIngredientAssetIds(CompletedFlow.ConsumedItems, true))
-		{
-			UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed consuming matched items on fire-station recipe failure for cauldron '{0}'.", Cauldron->GetName());
-		}
-
-		if (FailureOutcome.bProducesFailureOutput && FailureOutcome.FailureOutputItem.IsValid())
-		{
-			const int32 FailureOutputQuantity = FMath::Max(1, FailureOutcome.FailureOutputQuantity);
-			if (Cauldron->GetIngredientCount() + FailureOutputQuantity > Cauldron->GetMaxIngredientCount())
-			{
-				UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Cannot add failure output to cauldron '{0}': capacity exceeded.", Cauldron->GetName());
-			}
-			else
-			{
-				for (int32 Index = 0; Index < FailureOutputQuantity; ++Index)
-				{
-					if (!Cauldron->AddContentAssetId(FailureOutcome.FailureOutputItem))
-					{
-						UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed adding failure output item to cauldron '{0}'.", Cauldron->GetName());
-						break;
-					}
-				}
-			}
-		}
+		ApplyRecipeFailureToCauldron(RecipeSystem, FailurePlan, Cauldron);
 		return;
 	}
 
 	if (Context->RemainingSteps > 0)
 	{
 		--Context->RemainingSteps;
+	}
+	else
+	{
+		ensureMsgf(false, TEXT("Received fire-station instruction callback with no remaining steps on '%s'."), *FireStation->GetName());
+		return;
 	}
 
 	if (Context->RemainingSteps > 0)
@@ -806,6 +791,51 @@ void URecipeManagerSubsystem::UnregisterFireStation(AFireStation* FireStation)
 	BoundFireStations.Remove(FireStation);
 }
 
+bool URecipeManagerSubsystem::ApplyRecipeFailureToCauldron(URecipeSystem* RecipeSystem, const FRecipeExecutionPlan& FailedPlan, ACauldron* Cauldron)
+{
+	if (RecipeSystem == nullptr || Cauldron == nullptr || !Cauldron->HasAuthority() || FailedPlan.Recipe == nullptr)
+	{
+		return false;
+	}
+
+	const URecipeDataAsset* Recipe = FailedPlan.Recipe.Get();
+	const FRecipeValidationResult& Validation = FailedPlan.Validation;
+	const FRecipeFailureOutcome FailureOutcome = RecipeSystem->ResolveFailureOutcome(Recipe, Validation);
+
+	const int32 CompletedStepCount = FMath::Clamp(Validation.MatchedStepCount, 0, Recipe->Steps.Num());
+	const FRecipeItemFlow CompletedFlow = RecipeSystem->BuildItemFlowForCompletedSteps(Recipe, CompletedStepCount);
+
+	if (FailureOutcome.bConsumeMatchedInputs && CompletedFlow.ConsumedItems.Num() > 0
+		&& !Cauldron->ConsumeIngredientAssetIds(CompletedFlow.ConsumedItems, true))
+	{
+		UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed consuming matched items on recipe failure for cauldron '{0}'.", Cauldron->GetName());
+		return false;
+	}
+
+	if (!FailureOutcome.bProducesFailureOutput || !FailureOutcome.FailureOutputItem.IsValid())
+	{
+		return true;
+	}
+
+	const int32 FailureOutputQuantity = FMath::Max(1, FailureOutcome.FailureOutputQuantity);
+	if (Cauldron->GetIngredientCount() + FailureOutputQuantity > Cauldron->GetMaxIngredientCount())
+	{
+		UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Cannot add failure output to cauldron '{0}': capacity exceeded.", Cauldron->GetName());
+		return false;
+	}
+
+	for (int32 Index = 0; Index < FailureOutputQuantity; ++Index)
+	{
+		if (!Cauldron->AddContentAssetId(FailureOutcome.FailureOutputItem))
+		{
+			UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed adding failure output item to cauldron '{0}'.", Cauldron->GetName());
+			return false;
+		}
+	}
+
+	return true;
+}
+
 bool URecipeManagerSubsystem::TryApplyExecutionPlanToCauldron(const FRecipeExecutionPlan& ExecutionPlan, ACauldron* Cauldron)
 {
 	if (Cauldron == nullptr || !Cauldron->HasAuthority() || ExecutionPlan.Recipe == nullptr || !ExecutionPlan.Validation.bIsValid)
@@ -818,9 +848,19 @@ bool URecipeManagerSubsystem::TryApplyExecutionPlanToCauldron(const FRecipeExecu
 		? ExecutionPlan.ItemFlow.NetProducedItems
 		: ExecutionPlan.ItemFlow.GeneratedItems;
 
+	for (const FPrimaryAssetId& ProducedItem : ProducedItems)
+	{
+		if (!ProducedItem.IsValid())
+		{
+			ensureMsgf(false, TEXT("Execution plan contains invalid produced item id for recipe '%s'."), *ExecutionPlan.Recipe->GetName());
+			return false;
+		}
+	}
+
 	const int32 ProjectedCount = FMath::Max(0, Cauldron->GetIngredientCount() - ConsumedItems.Num()) + ProducedItems.Num();
 	if (ProjectedCount > Cauldron->GetMaxIngredientCount())
 	{
+		ensureMsgf(false, TEXT("Cauldron capacity exceeded while applying recipe '%s' (%d > %d)."), *ExecutionPlan.Recipe->GetName(), ProjectedCount, Cauldron->GetMaxIngredientCount());
 		return false;
 	}
 

@@ -122,6 +122,7 @@ void UOrderDeliveryBridgeSubsystem::HandleDeliveryItem(FPrimaryAssetId Delivered
 	if (UOrderSystem* OrderSystem = GetWorld()->GetSubsystem<UOrderSystem>())
 	{
 		FDeliveredItemPayload Payload;
+		Payload.SubmissionId = FGuid::NewGuid();
 		Payload.DeliveredItemId = DeliveredItemId;
 		Payload.ServerTimeSeconds = -1.0f;
 		OrderSystem->SubmitDeliveryWithContext(Payload, SourceStation);

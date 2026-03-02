@@ -12,6 +12,7 @@ UENUM(BlueprintType)
 enum class EOrderState : uint8
 {
 	Active UMETA(DisplayName = "Active"),
+	Warning UMETA(DisplayName = "Warning"),
 	Completed UMETA(DisplayName = "Completed"),
 	Expired UMETA(DisplayName = "Expired"),
 	Cancelled UMETA(DisplayName = "Cancelled")
@@ -21,6 +22,7 @@ UENUM(BlueprintType)
 enum class EOrderSubmissionRejectReason : uint8
 {
 	None UMETA(DisplayName = "None"),
+	DuplicateSubmission UMETA(DisplayName = "DuplicateSubmission"),
 	NotAuthority UMETA(DisplayName = "NotAuthority"),
 	InvalidPayload UMETA(DisplayName = "InvalidPayload"),
 	NoActiveOrders UMETA(DisplayName = "NoActiveOrders"),
@@ -67,6 +69,10 @@ struct ORDERS_API FDeliveredItemPayload
 {
 	GENERATED_BODY()
 
+	/** Optional id used to make delivery submissions idempotent. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Order|Delivery")
+	FGuid SubmissionId;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Order|Delivery")
 	FPrimaryAssetId DeliveredItemId;
 
@@ -93,9 +99,21 @@ struct ORDERS_API FOrderSubmissionResult
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Order|Delivery")
 	FText Reason;
+
+	/** True when this result comes from previously processed submission replay. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Order|Delivery")
+	bool bWasReplay = false;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOrderRuntimeEvent, FOrderRuntime, RuntimeOrder);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
+	FOrderStateChangedEvent,
+	FGuid,
+	OrderId,
+	EOrderState,
+	PreviousState,
+	EOrderState,
+	NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOrderCompletedEvent, FGuid, OrderId, int32, ScoreGain);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOrderExpiredEvent, FGuid, OrderId, int32, Penalty);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOrderDeliveryRejectedEvent, FDeliveredItemPayload, Payload, int32, Penalty);
@@ -166,6 +184,9 @@ public:
 	FOrderRuntimeEvent OnOrderSpawned;
 
 	UPROPERTY(BlueprintAssignable, Category = "Orders|Events")
+	FOrderStateChangedEvent OnOrderStateChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "Orders|Events")
 	FOrderCompletedEvent OnOrderCompleted;
 
 	UPROPERTY(BlueprintAssignable, Category = "Orders|Events")
@@ -178,11 +199,30 @@ public:
 	FOrderTotalScoreChangedEvent OnTotalScoreChanged;
 
 private:
+	struct FProcessedSubmissionEntry
+	{
+		FGuid SubmissionId;
+		FOrderSubmissionResult Result;
+		float ProcessedServerTimeSeconds = 0.0f;
+	};
+
 	float ResolveServerTime(float RequestedServerTimeSeconds) const;
+	static bool IsOrderInProgressState(EOrderState State);
+	static bool CanTransitionOrderState(EOrderState FromState, EOrderState ToState);
+	bool TransitionActiveOrderToWarning(int32 ActiveOrderIndex);
+	bool TransitionActiveOrderToResolved(
+		int32 ActiveOrderIndex,
+		EOrderState TargetState,
+		float ResolvedTimeSeconds,
+		int32 AwardedScore,
+		TArray<FOrderRuntime>& OutResolvedOrders);
 	void ExpireOrders(float ServerTimeSeconds);
 	int32 ComputeCompletionScore(const FOrderRuntime& Order, float ServerTimeSeconds) const;
 	int32 ComputeWrongDeliveryPenalty() const;
 	int32 FindBestMatchingActiveOrderIndex(const FPrimaryAssetId& DeliveredItemId, float ServerTimeSeconds) const;
+	void PruneProcessedSubmissionCache(float ServerTimeSeconds);
+	bool TryGetProcessedSubmissionResult(const FGuid& SubmissionId, FOrderSubmissionResult& OutResult, float ServerTimeSeconds);
+	void CacheProcessedSubmissionResult(const FGuid& SubmissionId, const FOrderSubmissionResult& Result, float ServerTimeSeconds);
 	FOrderSubmissionResult SubmitDeliveryInternal(const FDeliveredItemPayload& Payload, AActor* SourceStation);
 	void ApplyScoreDelta(int32 DeltaScore);
 	void HandleExpirationTick();
@@ -223,6 +263,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Orders|Config", meta = (ClampMin = "0.05", AllowPrivateAccess = "true"))
 	float ExpirationTickIntervalSeconds = 0.25f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Orders|Config", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float ExpirationWarningLeadTimeSeconds = 5.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Orders|Config", meta = (AllowPrivateAccess = "true"))
 	bool bAutoOrderArrivalsEnabled = true;
 
@@ -252,4 +295,12 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AOrderRuntimeStateActor> ReplicatedStateActor = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Orders|Delivery", meta = (ClampMin = "0.0", AllowPrivateAccess = "true"))
+	float ProcessedSubmissionTtlSeconds = 30.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Orders|Delivery", meta = (ClampMin = "16", AllowPrivateAccess = "true"))
+	int32 MaxProcessedSubmissionCacheEntries = 128;
+
+	TArray<FProcessedSubmissionEntry> ProcessedSubmissionCache;
 };
