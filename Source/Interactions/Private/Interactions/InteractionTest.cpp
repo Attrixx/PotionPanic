@@ -2,10 +2,17 @@
 
 
 #include "Interactions/InteractionTest.h"
+#include "Logging/StructuredLog.h"
 
 DEFINE_LOG_CATEGORY_STATIC(PP_InteractionTest, Log, All);
 
-void UInteractionTest::StartInteraction(const FInteractionContext& Context)
+bool UInteractionTest::StartTestInteraction(const UInteractionDefinitionAsset* InteractionDefinition)
 {
-	UE_LOGFMT(PP_InteractionTest, Log, "Interaction test, started!");
+	const bool bStarted = StartInteraction(InteractionDefinition);
+	if (bStarted)
+	{
+		UE_LOGFMT(PP_InteractionTest, Log, "Interaction test started.");
+	}
+
+	return bStarted;
 }
