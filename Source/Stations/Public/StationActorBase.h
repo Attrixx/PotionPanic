@@ -15,6 +15,7 @@ class UCarriableComponent;
 class UHolderComponent;
 class UInteractionBase;
 class UInteractionDefinitionAsset;
+class AStationActorBase;
 
 /**
  * Base class for all station actors.
@@ -60,6 +61,8 @@ struct STATIONS_API FStationActivityInteraction
 	TObjectPtr<UInteractionDefinitionAsset> InteractionDefinition = nullptr;
 };
 
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FStationInstructionProcessedEvent, AStationActorBase*, const FInstruction&, bool);
+
 UCLASS()
 class STATIONS_API AStationActorBase : public AActor, public IInteractable
 {
@@ -84,6 +87,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Station|Instructions")
 	int32 GetQueuedInstructionCount() const { return InstructionQueue.Num(); }
 
+	UFUNCTION(BlueprintPure, Category = "Station|Items")
+	AItemActor* GetHeldItemActor() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Station|Processing")
+	bool TryStartProcessingHeldItem(APawn* InstigatorPawn = nullptr);
+
 	UFUNCTION(BlueprintPure, Category = "Station|Instructions")
 	bool HasBufferedBatch() const { return BufferedInputCount > 0; }
 
@@ -101,6 +110,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Station|Failure")
 	int32 GetFailureOutputOverrideQuantity() const { return FMath::Max(1, StationFailureOutputQuantity); }
+
+	/** Native event fired whenever one instruction finishes (success/failure). */
+	FStationInstructionProcessedEvent OnInstructionProcessed;
 
 	/** For QTE/IFT stations: push one interaction attempt result. */
 	UFUNCTION(BlueprintCallable, Category = "Station|Interaction")
@@ -151,6 +163,7 @@ protected:
 	void SetStationState(EStationState NewState);
 	void ReportRuntimeError(EStationRuntimeError ErrorCode, const FText& Message);
 	bool TryResolveInstructionForItem(const FPrimaryAssetId& ItemId, FInstruction& OutInstruction);
+	bool RemoveFirstMatchingQueuedInstruction(const FInstruction& Instruction);
 	const UInteractionDefinitionAsset* ResolveInteractionDefinition(const FInstruction& Instruction) const;
 	bool ConsumeCarriable(UCarriableComponent* Carriable) const;
 	bool SpawnInstructionOutput(const FInstruction& Instruction);
@@ -172,9 +185,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station")
 	TArray<TObjectPtr<UActivityAsset>> Activities;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station")
-	TArray<FInstruction> PossibleInstructions;
 
 	/** Optional activity -> interaction mapping used by QTE/IFT stations. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Interaction")
@@ -250,6 +260,10 @@ protected:
 	/** Tag-matching mode for RequiredInputDataTags. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Filters")
 	bool bRequireAllInputDataTags = true;
+
+	/** If false, items marked as container are rejected by this station. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Filters")
+	bool bAcceptContainerItems = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Station|Rules", meta = (ClampMin = "0.01"))
 	float ExecutionTickInterval = 0.1f;

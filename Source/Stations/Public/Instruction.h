@@ -32,6 +32,14 @@ struct STATIONS_API FInstruction
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction")
 	bool bRequiresProximity = true;
 
+	/** If true, the held input is consumed/destroyed when processing succeeds. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Success")
+	bool bConsumeInputOnSuccess = true;
+
+	/** If true, output item(s) are spawned when processing succeeds. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Success")
+	bool bProduceOutputOnSuccess = true;
+
 	/** If true, consumed input should be removed when processing fails/cancels. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Instruction|Failure")
 	bool bConsumeInputOnFailure = false;

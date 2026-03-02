@@ -68,6 +68,14 @@
 			]
 		},
 		{
+			"Name": "RecipeManager",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		},
+		{
 			"Name": "Stations",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",

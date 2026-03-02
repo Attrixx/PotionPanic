@@ -33,6 +33,12 @@ bool UItemTransformation::IsStepDefinitionValid(FText& OutFailureReason) const
 		return false;
 	}
 
+	if (InputItem == nullptr)
+	{
+		OutFailureReason = FText::FromString(TEXT("Step has no required input item."));
+		return false;
+	}
+
 	if (Activity == nullptr)
 	{
 		OutFailureReason = FText::FromString(TEXT("Step has no activity."));

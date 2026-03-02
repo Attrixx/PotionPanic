@@ -573,6 +573,7 @@ bool URecipeSystem::TryResolveBestRecipe(const TArray<URecipeDataAsset*>& Candid
 	int32 BestRecipeStepCount = INDEX_NONE;
 	FRecipeValidationResult BestPartialValidation;
 	URecipeDataAsset* BestPartialRecipe = nullptr;
+	bool bHasBestPartialCandidate = false;
 
 	for (URecipeDataAsset* CandidateRecipe : CandidateRecipes)
 	{
@@ -600,10 +601,11 @@ bool URecipeSystem::TryResolveBestRecipe(const TArray<URecipeDataAsset*>& Candid
 		}
 		else if (OutRecipe == nullptr)
 		{
-			if (Validation.MatchedStepCount > BestPartialValidation.MatchedStepCount)
+			if (!bHasBestPartialCandidate || Validation.MatchedStepCount > BestPartialValidation.MatchedStepCount)
 			{
 				BestPartialValidation = Validation;
 				BestPartialRecipe = CandidateRecipe;
+				bHasBestPartialCandidate = true;
 			}
 		}
 	}

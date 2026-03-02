@@ -1,17 +1,22 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "RecipeSystem.h"
 #include "Subsystems/WorldSubsystem.h"
-#include "RecipeStationIntegrationSubsystem.generated.h"
+#include "RecipeManagerSubsystem.generated.h"
 
+class AFireStation;
 class AStationActorBase;
+class ACauldron;
+class APlayerController;
+class AActor;
 class URecipeDataAsset;
+struct FInstruction;
 
 UENUM(BlueprintType)
-enum class ERecipeStationIntegrationError : uint8
+enum class ERecipeManagerError : uint8
 {
 	None UMETA(DisplayName = "None"),
 	NullStation UMETA(DisplayName = "NullStation"),
@@ -28,7 +33,7 @@ enum class ERecipeStationIntegrationError : uint8
 };
 
 USTRUCT(BlueprintType)
-struct STATIONS_API FRecipeStationIntegrationResult
+struct RECIPEMANAGER_API FRecipeManagerResult
 {
 	GENERATED_BODY()
 
@@ -36,7 +41,7 @@ struct STATIONS_API FRecipeStationIntegrationResult
 	bool bSuccess = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Integration")
-	ERecipeStationIntegrationError ErrorCode = ERecipeStationIntegrationError::None;
+	ERecipeManagerError ErrorCode = ERecipeManagerError::None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Recipe|Integration")
 	FText Message;
@@ -59,46 +64,49 @@ struct STATIONS_API FRecipeStationIntegrationResult
  * Keeps Recipes decoupled from station runtime execution details.
  */
 UCLASS()
-class STATIONS_API URecipeStationIntegrationSubsystem : public UWorldSubsystem
+class RECIPEMANAGER_API URecipeManagerSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 
 public:
+	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
+	virtual void Deinitialize() override;
+
 	/** Uses recipes currently active in RecipeSystem runtime rotation. */
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult BuildPlanAndQueueFromActiveRoundRecipes(
+	FRecipeManagerResult BuildPlanAndQueueFromActiveRoundRecipes(
 		AStationActorBase* Station,
 		const TArray<FPrimaryAssetId>& InputItems,
 		bool bClearExistingQueue = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult BuildPlanAndQueueInstructions(
+	FRecipeManagerResult BuildPlanAndQueueInstructions(
 		AStationActorBase* Station,
 		const TArray<URecipeDataAsset*>& CandidateRecipes,
 		const TArray<FPrimaryAssetId>& InputItems,
 		bool bClearExistingQueue = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult QueueExecutionPlan(
+	FRecipeManagerResult QueueExecutionPlan(
 		AStationActorBase* Station,
 		const FRecipeExecutionPlan& ExecutionPlan,
 		bool bClearExistingQueue = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult BuildPlanAndQueueAcrossStationsFromActiveRoundRecipes(
+	FRecipeManagerResult BuildPlanAndQueueAcrossStationsFromActiveRoundRecipes(
 		const TArray<AStationActorBase*>& StepStations,
 		const TArray<FPrimaryAssetId>& InputItems,
 		bool bClearExistingQueues = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult BuildPlanAndQueueAcrossStations(
+	FRecipeManagerResult BuildPlanAndQueueAcrossStations(
 		const TArray<AStationActorBase*>& StepStations,
 		const TArray<URecipeDataAsset*>& CandidateRecipes,
 		const TArray<FPrimaryAssetId>& InputItems,
 		bool bClearExistingQueues = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Recipe|Integration")
-	FRecipeStationIntegrationResult QueueExecutionPlanAcrossStations(
+	FRecipeManagerResult QueueExecutionPlanAcrossStations(
 		const TArray<AStationActorBase*>& StepStations,
 		const FRecipeExecutionPlan& ExecutionPlan,
 		bool bClearExistingQueues = true);
@@ -110,10 +118,37 @@ public:
 		bool bClearExistingQueue = true);
 
 private:
-	FRecipeStationIntegrationResult MakeFailure(
-		ERecipeStationIntegrationError ErrorCode,
+	UFUNCTION()
+	void HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation);
+	UFUNCTION()
+	void HandleFireStationDestroyed(AActor* DestroyedActor);
+	void HandleFireStationInstructionProcessed(AStationActorBase* Station, const FInstruction& Instruction, bool bSuccess);
+
+	void RefreshFireStations();
+	void HandleActorSpawned(AActor* SpawnedActor);
+	void RegisterFireStation(AFireStation* FireStation);
+	void UnregisterFireStation(AFireStation* FireStation);
+	bool TryApplyExecutionPlanToCauldron(const FRecipeExecutionPlan& ExecutionPlan, ACauldron* Cauldron);
+	bool IsAuthorityWorld() const;
+
+	FRecipeManagerResult MakeFailure(
+		ERecipeManagerError ErrorCode,
 		const FText& Message,
 		const URecipeDataAsset* Recipe,
 		const FRecipeValidationResult& Validation,
 		int32 InstructionsQueued) const;
+
+private:
+	struct FFireStationExecutionContext
+	{
+		TWeakObjectPtr<ACauldron> Cauldron;
+		FRecipeExecutionPlan ExecutionPlan;
+		int32 RemainingSteps = 0;
+	};
+
+	TSet<TWeakObjectPtr<AFireStation>> BoundFireStations;
+	TMap<TWeakObjectPtr<AFireStation>, FFireStationExecutionContext> ActiveFireStationExecutions;
+	FDelegateHandle ActorSpawnedHandle;
 };
+
+

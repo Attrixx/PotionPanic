@@ -33,7 +33,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Step")
 	FText StepName;
 
-	/** Required input item for this step (optional if only tag/state validation is used). */
+	/** Required input item for this step. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UItemAsset> InputItem;
 

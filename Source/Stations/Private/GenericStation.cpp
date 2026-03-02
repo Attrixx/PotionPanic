@@ -37,11 +37,6 @@ void AGenericStation::CheckForErrors()
 		UE_LOGFMT(MS_GenericStation, Warning, "GenericStation '{0}' StationData has no StationMesh configured.", GetName());
 	}
 
-	if (StationData->Instructions.Num() == 0)
-	{
-		UE_LOGFMT(MS_GenericStation, Warning, "GenericStation '{0}' StationData has no Instructions configured.", GetName());
-	}
-
 	if (StationData->SupportedActivities.Num() == 0)
 	{
 		UE_LOGFMT(MS_GenericStation, Warning, "GenericStation '{0}' StationData has no SupportedActivities configured.", GetName());
@@ -67,5 +62,4 @@ void AGenericStation::ApplyStationData()
 
 	InteractionDistance = StationData->InteractionDistance;
 	Activities = StationData->SupportedActivities;
-	PossibleInstructions = StationData->Instructions;
 }

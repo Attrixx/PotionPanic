@@ -59,7 +59,7 @@ public:
 	/** Optional output item produced when the recipe fails. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Failure")
 	TObjectPtr<UItemAsset> FailureOutputItem = nullptr;
-	/** Station-level overrides can replace this fallback in RecipeStationIntegrationSubsystem. */
+	/** Station-level overrides can replace this fallback in RecipeManagerSubsystem. */
 
 	/** Quantity of failure output generated when a failure output item is configured. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Failure", meta = (ClampMin = "1", EditCondition = "FailureOutputItem != nullptr"))

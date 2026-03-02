@@ -57,6 +57,14 @@ void UOrderDeliveryBridgeSubsystem::RefreshDeliveryStations()
 		return;
 	}
 
+	for (auto It = BoundStations.CreateIterator(); It; ++It)
+	{
+		if (!It->IsValid())
+		{
+			It.RemoveCurrent();
+		}
+	}
+
 	for (TActorIterator<ADeliveryStation> It(GetWorld()); It; ++It)
 	{
 		RegisterDeliveryStation(*It);
@@ -92,7 +100,16 @@ void UOrderDeliveryBridgeSubsystem::UnregisterDeliveryStation(ADeliveryStation* 
 
 int32 UOrderDeliveryBridgeSubsystem::GetBoundDeliveryStationCount() const
 {
-	return BoundStations.Num();
+	int32 ValidCount = 0;
+	for (const TWeakObjectPtr<ADeliveryStation>& WeakStation : BoundStations)
+	{
+		if (WeakStation.IsValid())
+		{
+			++ValidCount;
+		}
+	}
+
+	return ValidCount;
 }
 
 void UOrderDeliveryBridgeSubsystem::HandleDeliveryItem(FPrimaryAssetId DeliveredItemId, AActor* SourceStation)

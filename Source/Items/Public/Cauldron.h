@@ -25,6 +25,21 @@ public:
 	bool AddIngredientAssetId(FPrimaryAssetId IngredientAssetId);
 
 	UFUNCTION(BlueprintCallable, Category = "Cauldron|Contents")
+	bool AddContentAssetId(FPrimaryAssetId ContentAssetId);
+
+	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
+	bool CanAcceptContentAssetId(FPrimaryAssetId ContentAssetId) const;
+
+	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
+	bool CanAcceptIngredientAssetId(FPrimaryAssetId IngredientAssetId) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Cauldron|Contents")
+	bool RemoveIngredientAssetId(FPrimaryAssetId IngredientAssetId);
+
+	UFUNCTION(BlueprintCallable, Category = "Cauldron|Contents")
+	bool ConsumeIngredientAssetIds(const TArray<FPrimaryAssetId>& IngredientAssetIds, bool bRequireExactCounts = true);
+
+	UFUNCTION(BlueprintCallable, Category = "Cauldron|Contents")
 	void ClearIngredients();
 
 	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
@@ -34,7 +49,13 @@ public:
 	int32 GetIngredientCount() const { return IngredientContents.Num(); }
 
 	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
+	int32 GetMaxIngredientCount() const { return FMath::Max(1, MaxIngredientCount); }
+
+	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
 	TArray<FPrimaryAssetId> GetIngredientAssetIds() const { return IngredientContents; }
+
+	UFUNCTION(BlueprintPure, Category = "Cauldron|Contents")
+	TArray<FPrimaryAssetId> GetIngredientAssetIdsSorted() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Cauldron|Visuals")
 	void SetFillRatio(float NewFillRatio);
@@ -55,6 +76,8 @@ public:
 	const TArray<FName>& GetVisualFlags() const { return VisualFlags; }
 
 protected:
+	void UpdateFillRatioFromContents();
+
 	UFUNCTION()
 	void OnRep_VisualState();
 
@@ -72,6 +95,12 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cauldron|Contents", meta = (ClampMin = "1"))
 	int32 MaxIngredientVisualCount = 6;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cauldron|Contents", meta = (ClampMin = "1"))
+	int32 MaxIngredientCount = 12;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cauldron|Contents")
+	bool bAcceptOnlyIngredientAssets = true;
 
 	UPROPERTY(ReplicatedUsing = OnRep_VisualState, VisibleInstanceOnly, BlueprintReadOnly, Category = "Cauldron|Visuals", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float FillRatio = 0.0f;

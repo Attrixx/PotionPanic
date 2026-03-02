@@ -10,7 +10,7 @@ class UStaticMesh;
 
 /**
  * Configuration for a generic station.
- * Defines station visuals and executable instructions.
+ * Defines station visuals/capabilities.
  */
 UCLASS()
 class STATIONS_API UStationDataAsset : public UPrimaryDataAsset
@@ -28,7 +28,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Logic")
 	TArray<TObjectPtr<UActivityAsset>> SupportedActivities;
 
-	/** List of instructions this station can execute. */
+	/** Optional reference instructions for external orchestrators/tools. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Logic")
 	TArray<FInstruction> Instructions;
 
