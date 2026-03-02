@@ -45,6 +45,6 @@ protected:
 	
 private:
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
 	TObjectPtr<UCarriableComponent> Carriable;
 };
