@@ -13,6 +13,8 @@ UCLASS(BlueprintType)
 class INTERACTIONS_API UInteractionTest : public UInteractionBase
 {
 	GENERATED_BODY()
-	
-	void StartInteraction(const FInteractionContext& Context) override;
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Interaction|Test")
+	bool StartTestInteraction(const UInteractionDefinitionAsset* InteractionDefinition);
 };
