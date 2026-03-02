@@ -29,6 +29,8 @@ AItemActor::AItemActor()
 
 void AItemActor::OnConstruction(const FTransform& Transform)
 {
+	Super::OnConstruction(Transform);
+	
 	if (ItemAsset)
 	{
 		SetItemAsset(*ItemAsset);
