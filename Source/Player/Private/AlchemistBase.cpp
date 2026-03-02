@@ -56,7 +56,18 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 {
 	auto Axis2D = Value.Get<FInputActionValue::Axis2D>();
-	FVector MovementInput = GetControlRotation().RotateVector({Axis2D.Y, Axis2D.X, 0});
+
+	FRotator CamRotation;
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (PlayerController->PlayerCameraManager)
+		{
+			CamRotation = PlayerController->PlayerCameraManager->GetCameraRotation();
+		}
+	}
+
+	FVector RotatedInput = CamRotation.RotateVector({Axis2D.Y, Axis2D.X, 0});
+	FVector MovementInput = FVector::VectorPlaneProject(RotatedInput, GetActorUpVector()).GetSafeNormal();
 	AddMovementInput(MovementInput);
 }
 
