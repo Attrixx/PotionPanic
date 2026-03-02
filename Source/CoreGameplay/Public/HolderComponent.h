@@ -18,6 +18,9 @@ class COREGAMEPLAY_API UHolderComponent : public USceneComponent
 
 public:
 
+	UFUNCTION(BlueprintPure)
+	UCarriableComponent* GetCarriable() const { return Carriable; }
+	
 	/**
 	 * Replace the CarriableComponent currently held by this component.
 	 * @param NewCarriable Can be nullptr.
@@ -25,6 +28,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	UCarriableComponent* Replace(UCarriableComponent* NewCarriable);
+	
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
+	void Throw();
 
 protected:
 	

@@ -26,6 +26,11 @@ UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable
 		return Carriable;
 	}
 
+	if (Carriable == NewCarriable)
+	{
+		return NewCarriable;
+	}
+
 	if (Carriable)
 	{
 		Carriable->SetHolder(nullptr);
@@ -39,6 +44,16 @@ UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable
 	UCarriableComponent* OldCarriable = std::exchange(Carriable, NewCarriable);
 	OnCarriableChanged(OldCarriable, NewCarriable);
 	return OldCarriable;
+}
+
+void UHolderComponent::Throw()
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "Throw must execute on authority. Call ignored.");
+		return;
+	}
+
 }
 
 void UHolderComponent::OnRep_Carriable(UCarriableComponent* OldCarriable)

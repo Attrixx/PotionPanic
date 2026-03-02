@@ -6,9 +6,14 @@
 #include "GameFramework/Character.h"
 #include "AlchemistBase.generated.h"
 
+class UHolderComponent;
+class UCapsuleComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
+
+class IInteractable;
+class UCarriableComponent;
 
 UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
@@ -19,8 +24,21 @@ class PLAYER_API AAlchemistBase : public ACharacter
 
 protected:
 
+	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	void Tick(float DeltaSeconds) override;
+
+protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UHolderComponent> HolderComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	FName HolderParentSocket = NAME_None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UCapsuleComponent> CapsuleOverlapComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MappingContext;
@@ -33,18 +51,39 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> InteractAction;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> PickupOrDropAction;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> ThrowAction;
-	
+
 private:
+
+	void UpdateBestComponents();
+
+	UFUNCTION()
+	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
+	                           bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Dash();
 	void Input_Interact();
 	void Input_PickupOrDrop();
 	void Input_Throw();
+
+private:
+
+	struct FOverlappedActor
+	{
+		AActor* Actor;
+		uint64 NbOccurrences;
+	};
+	TArray<FOverlappedActor> OverlappedActors;
+
+	TScriptInterface<IInteractable> BestInteractable = nullptr;
+	UCarriableComponent* BestCarriable = nullptr;
 };

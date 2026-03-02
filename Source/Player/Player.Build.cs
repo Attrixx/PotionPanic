@@ -14,7 +14,9 @@ public class Player : ModuleRules
             "EnhancedInput",
             "InputCore",
             "AudioMixer",
-            "UMG"
+            "UMG",
+            
+            "CoreGameplay"
         });
     }
 }
