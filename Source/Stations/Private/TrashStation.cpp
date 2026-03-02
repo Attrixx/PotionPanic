@@ -1,17 +1,66 @@
 #include "TrashStation.h"
-#include "ItemAsset.h"
+#include "CarriableComponent.h"
 #include "Engine/AssetManager.h"
+#include "GameFramework/Pawn.h"
+#include "HolderComponent.h"
+#include "IngredientData.h"
+#include "ItemActor.h"
+#include "ItemAsset.h"
+
+void ATrashStation::Interact(APlayerController& InInstigator)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	APawn* Pawn = InInstigator.GetPawn();
+	if (Pawn == nullptr)
+	{
+		return;
+	}
+
+	UHolderComponent* PlayerHolder = Pawn->FindComponentByClass<UHolderComponent>();
+	if (PlayerHolder == nullptr)
+	{
+		return;
+	}
+
+	UCarriableComponent* HeldCarriable = PlayerHolder->GetCarriable();
+	if (HeldCarriable == nullptr)
+	{
+		return;
+	}
+
+	if (!CanPlaceItem(HeldCarriable->GetItemId()))
+	{
+		return;
+	}
+
+	UCarriableComponent* RemovedCarriable = PlayerHolder->Replace(nullptr);
+	if (RemovedCarriable == nullptr)
+	{
+		return;
+	}
+
+	if (AItemActor* ItemActor = Cast<AItemActor>(RemovedCarriable->GetOwner()))
+	{
+		ItemActor->DestroyItem(true);
+	}
+	else if (AActor* OwnerActor = RemovedCarriable->GetOwner())
+	{
+		OwnerActor->Destroy();
+	}
+}
 
 bool ATrashStation::CanPlaceItem(const FPrimaryAssetId& ItemId) const
 {
-	// Check if item is loaded to verify destructibility
-	// If not loaded, we assume it's valid to be trashed (or we could force load, but let's avoid sync loads)
-	UItemAsset* Item = Cast<UItemAsset>(UAssetManager::Get().GetPrimaryAssetObject(ItemId));
-	
-	// Logic: If Item IS NOT Destructible (i.e. is Indestructible), we CANNOT trash it. -- Fix logic
-	if (Item && !Item->bIsDestructible)
+	UItemAsset* Item = UAssetManager::Get().GetPrimaryAssetObject<UItemAsset>(ItemId);
+	if (Item == nullptr && ItemId.IsValid())
 	{
-		return false;
+		const FSoftObjectPath AssetPath = UAssetManager::Get().GetPrimaryAssetPath(ItemId);
+		Item = Cast<UItemAsset>(AssetPath.TryLoad());
 	}
-	return Super::CanPlaceItem(ItemId);
+
+	return Cast<UIngredientData>(Item) != nullptr;
 }

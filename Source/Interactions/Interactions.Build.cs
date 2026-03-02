@@ -10,7 +10,8 @@ public class Interactions : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "CoreGameplay"
         });
     }
 }

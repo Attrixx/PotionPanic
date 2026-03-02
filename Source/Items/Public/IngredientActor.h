@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "IngredientTypes.h"
 #include "ItemActor.h"
 #include "IngredientActor.generated.h"
 
@@ -14,25 +15,25 @@ class UIngredientData;
 UCLASS()
 class ITEMS_API AIngredientActor : public AItemActor
 {
-    GENERATED_BODY()
+	GENERATED_BODY()
 
 public:
-    AIngredientActor();
+	AIngredientActor();
 
-    virtual void SetItemAsset(UItemAsset &NewItemAsset) override;
+	virtual void SetItemAsset(UItemAsset* NewItemAsset) override;
 
-    UFUNCTION(BlueprintPure, Category = "Ingredient")
-    const UIngredientData *GetIngredientData() const;
+	UFUNCTION(BlueprintPure, Category = "Ingredient")
+	const UIngredientData* GetIngredientData() const;
 
-    UFUNCTION(BlueprintPure, Category = "Ingredient")
-    EIngredientType GetIngredientType() const;
+	UFUNCTION(BlueprintPure, Category = "Ingredient")
+	EIngredientType GetIngredientType() const;
 
-    // TODO (Nath): Add 'OnProcessed' event/delegate when an ingredient changes from Raw -> Processed.
+	UFUNCTION(BlueprintPure, Category = "Ingredient")
+	FIngredientStateDescriptor GetIngredientStateDescriptor() const;
+
+	// TODO (Nath): If runtime state transitions are needed, keep transition rules in station/interaction modules.
 
 protected:
-    virtual void BeginPlay() override;
-
-    virtual void NotifyHit(UPrimitiveComponent *MyComp, AActor *Other, UPrimitiveComponent *OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult &Hit) override;
-
-    // TODO (Nath): Implement specific physical behaviors (e.g. Ice melting if near heat source).
+	virtual void BeginPlay() override;
+	virtual void NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
 };

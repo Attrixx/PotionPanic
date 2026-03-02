@@ -5,8 +5,8 @@
 #include "UtensilActor.generated.h"
 
 /**
- * Base class for indestructible tools (Cauldron, etc.).
- * Cannot be destroyed by TrashStation.
+ * Base class for tool-like items.
+ * Does not encode station/game-flow rules.
  */
 UCLASS()
 class ITEMS_API AUtensilActor : public AItemActor
@@ -15,4 +15,7 @@ class ITEMS_API AUtensilActor : public AItemActor
 	
 public:
 	AUtensilActor();
+	virtual void DestroyItem(bool bPlayFeedback = true) override;
+
+	// TODO (Nath): If a special "broken utensil" gameplay loop is added later, keep the original utensil instance persistent.
 };

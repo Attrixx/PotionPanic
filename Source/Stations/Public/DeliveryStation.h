@@ -4,22 +4,28 @@
 #include "StationActorBase.h"
 #include "DeliveryStation.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDeliveryStationItemDeliveredDelegate, FPrimaryAssetId, DeliveredItemId);
+
 /**
- * Station where players deliver finished potions.
- * Validates the item and awards score.
+ * Delivery station for completed items.
+ * Consumes held item and emits a delivery event.
  */
 UCLASS()
 class STATIONS_API ADeliveryStation : public AStationActorBase
 {
 	GENERATED_BODY()
-	
-public:
-	ADeliveryStation();
 
-	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
+public:
 	virtual void Interact(APlayerController& InInstigator) override;
+	virtual bool CanPlaceItem(const FPrimaryAssetId& ItemId) const override;
+
+	UPROPERTY(BlueprintAssignable, Category = "Delivery")
+	FDeliveryStationItemDeliveredDelegate OnItemDelivered;
 
 protected:
-	virtual void StartProcessing(const FInstruction& Instruction) override;
-	virtual void FinishProcessing() override;
+	/** Optional allow-list. If empty, any valid item id is accepted. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Delivery")
+	TArray<FPrimaryAssetId> AcceptedItems;
+
+	// TODO (Nath): Forward delivery result to order/score manager once that system is integrated.
 };
