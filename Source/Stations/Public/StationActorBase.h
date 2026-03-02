@@ -158,10 +158,14 @@ protected:
 	void OnExecutionTick();
 	void OnProcessingTimerFinished();
 	void OnBufferedBatchTimeout();
+	bool TryHandlePlayerItemInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem);
+	bool TryHandleStationItemInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem);
+	bool TryHandlePendingOutputInteraction(UCarriableComponent* PlayerItem, UCarriableComponent* StationItem);
 	void StopExecutionTimers();
 	void StopBufferedBatchTimer();
 	void StopPendingOutputRetryTimer();
 	void SetStationState(EStationState NewState);
+	EStationState ResolveIdleOrCompletedState() const;
 	void ReportRuntimeError(EStationRuntimeError ErrorCode, const FText& Message);
 	bool TryResolveInstructionForItem(const FPrimaryAssetId& ItemId, FInstruction& OutInstruction);
 	bool RemoveFirstMatchingQueuedInstruction(const FInstruction& Instruction);

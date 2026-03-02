@@ -7,6 +7,7 @@
 class AOrderRuntimeStateActor;
 class AActor;
 class UOrderDataAsset;
+class UWorld;
 
 UENUM(BlueprintType)
 enum class EOrderState : uint8
@@ -231,6 +232,14 @@ private:
 	void ScheduleNextOrderArrival(float OverrideDelaySeconds = -1.0f);
 	float ComputeNextOrderArrivalDelay() const;
 	bool AreAutoOrderArrivalsEnabled() const;
+	void SanitizeRuntimeConfigValues();
+	void ConfigureExpirationTimer(UWorld& World);
+	void ConfigureArrivalTimer(UWorld& World);
+	bool TryGetReplaySubmissionResult(const FDeliveredItemPayload& Payload, float ServerTimeSeconds, FOrderSubmissionResult& OutReplayResult);
+	FOrderSubmissionResult FinalizeSubmissionResult(const FGuid& SubmissionId, const FOrderSubmissionResult& Result, float ServerTimeSeconds);
+	FOrderSubmissionResult BuildNoActiveOrdersResult() const;
+	FOrderSubmissionResult BuildCompletedOrderResult(const FOrderRuntime& MatchedOrder, int32 ScoreGain) const;
+	FOrderSubmissionResult BuildNoMatchingOrderResult(AActor* SourceStation, int32 Penalty) const;
 	void ApplyRuntimeConfig();
 	void EnsureReplicatedStateActor();
 	void RefreshReplicatedStateActor();

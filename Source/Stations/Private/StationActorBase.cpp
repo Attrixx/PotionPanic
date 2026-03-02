@@ -200,123 +200,153 @@ void AStationActorBase::Interact(APlayerController& InInstigator)
 	UCarriableComponent* PlayerItem = PlayerHolder->GetCarriable();
 	UCarriableComponent* StationItem = ItemHolder->GetCarriable();
 
-	if (PlayerItem)
+	if (TryHandlePlayerItemInteraction(PlayerHolder, PlayerItem, StationItem))
 	{
-		if (PendingOutputCount > 0 || PendingOutputItem.IsValid())
-		{
-			return;
-		}
-
-		const FPrimaryAssetId ItemId = PlayerItem->GetItemId();
-		if (!CanPlaceItem(ItemId))
-		{
-			return;
-		}
-
-		FInstruction ResolvedInstruction;
-		const bool bHasBufferedBatch =
-			BufferedInputCount > 0 &&
-			CurrentInstruction.InputItem.IsValid() &&
-			BufferedInputCount < GetRequiredInputCount(CurrentInstruction);
-
-		if (bHasBufferedBatch)
-		{
-			if (CurrentInstruction.InputItem != ItemId || !CanExecuteInstruction(CurrentInstruction))
-			{
-				return;
-			}
-
-			ResolvedInstruction = CurrentInstruction;
-		}
-		else if (!TryResolveInstructionForItem(ItemId, ResolvedInstruction))
-		{
-			UE_LOGFMT(MS_StationActorBase, Log, "No instruction found for item {0} on station {1}", ItemId.ToString(), GetName());
-			return;
-		}
-
-		const int32 RequiredInputCount = GetRequiredInputCount(ResolvedInstruction);
-		if (RequiredInputCount > 1)
-		{
-			if (StationItem != nullptr)
-			{
-				return;
-			}
-
-			if (!ConsumeCarriable(PlayerItem))
-			{
-				return;
-			}
-
-			CurrentInstruction = ResolvedInstruction;
-			BufferedInputCount = FMath::Min(BufferedInputCount + 1, RequiredInputCount);
-
-			if (BufferedInputCount >= RequiredInputCount)
-			{
-				StopBufferedBatchTimer();
-				StartProcessing(CurrentInstruction);
-			}
-			else if (UWorld* World = GetWorld())
-			{
-				World->GetTimerManager().SetTimer(
-					BufferedBatchTimer,
-					this,
-					&AStationActorBase::OnBufferedBatchTimeout,
-					FMath::Max(0.1f, BufferedBatchTimeoutSeconds),
-					false);
-			}
-			return;
-		}
-
-		if (StationItem != nullptr)
-		{
-			return;
-		}
-
-		UCarriableComponent* MovedCarriable = PlayerHolder->Replace(nullptr);
-		if (MovedCarriable == nullptr)
-		{
-			return;
-		}
-
-		ItemHolder->Replace(MovedCarriable);
-		CurrentInstruction = ResolvedInstruction;
-		BufferedInputCount = 1;
-		StartProcessing(ResolvedInstruction);
 		return;
 	}
 
-	if (!PlayerItem && StationItem)
+	if (TryHandleStationItemInteraction(PlayerHolder, PlayerItem, StationItem))
 	{
-		UCarriableComponent* MovedCarriable = ItemHolder->Replace(nullptr);
-		if (MovedCarriable)
-		{
-			PlayerHolder->Replace(MovedCarriable);
-		}
-
-		if (PendingOutputCount > 0)
-		{
-			TrySpawnPendingOutput();
-			SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
-			return;
-		}
-
-		PendingOutputItem = FPrimaryAssetId();
-		ResetCurrentInstructionState();
-		SetStationState(EStationState::Idle);
 		return;
 	}
 
-	if (!PlayerItem && !StationItem && PendingOutputCount > 0)
+	if (TryHandlePendingOutputInteraction(PlayerItem, StationItem))
 	{
-		TrySpawnPendingOutput();
-		SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
 		return;
 	}
 
-	if (!PlayerItem && !StationItem && BufferedInputCount > 0)
+	if (PlayerItem == nullptr && StationItem == nullptr && BufferedInputCount > 0)
 	{
 		ResetBufferedBatch();
 	}
+}
+
+bool AStationActorBase::TryHandlePlayerItemInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem)
+{
+	if (PlayerItem == nullptr)
+	{
+		return false;
+	}
+
+	if (PendingOutputCount > 0 || PendingOutputItem.IsValid())
+	{
+		return true;
+	}
+
+	const FPrimaryAssetId ItemId = PlayerItem->GetItemId();
+	if (!CanPlaceItem(ItemId))
+	{
+		return true;
+	}
+
+	FInstruction ResolvedInstruction;
+	const bool bHasBufferedBatch =
+		BufferedInputCount > 0 &&
+		CurrentInstruction.InputItem.IsValid() &&
+		BufferedInputCount < GetRequiredInputCount(CurrentInstruction);
+
+	if (bHasBufferedBatch)
+	{
+		if (CurrentInstruction.InputItem != ItemId || !CanExecuteInstruction(CurrentInstruction))
+		{
+			return true;
+		}
+
+		ResolvedInstruction = CurrentInstruction;
+	}
+	else if (!TryResolveInstructionForItem(ItemId, ResolvedInstruction))
+	{
+		UE_LOGFMT(MS_StationActorBase, Log, "No instruction found for item {0} on station {1}", ItemId.ToString(), GetName());
+		return true;
+	}
+
+	const int32 RequiredInputCount = GetRequiredInputCount(ResolvedInstruction);
+	if (RequiredInputCount > 1)
+	{
+		if (StationItem != nullptr)
+		{
+			return true;
+		}
+
+		if (!ConsumeCarriable(PlayerItem))
+		{
+			return true;
+		}
+
+		CurrentInstruction = ResolvedInstruction;
+		BufferedInputCount = FMath::Min(BufferedInputCount + 1, RequiredInputCount);
+
+		if (BufferedInputCount >= RequiredInputCount)
+		{
+			StopBufferedBatchTimer();
+			StartProcessing(CurrentInstruction);
+		}
+		else if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimer(
+				BufferedBatchTimer,
+				this,
+				&AStationActorBase::OnBufferedBatchTimeout,
+				FMath::Max(0.1f, BufferedBatchTimeoutSeconds),
+				false);
+		}
+		return true;
+	}
+
+	if (StationItem != nullptr)
+	{
+		return true;
+	}
+
+	UCarriableComponent* MovedCarriable = PlayerHolder->Replace(nullptr);
+	if (MovedCarriable == nullptr)
+	{
+		return true;
+	}
+
+	ItemHolder->Replace(MovedCarriable);
+	CurrentInstruction = ResolvedInstruction;
+	BufferedInputCount = 1;
+	StartProcessing(ResolvedInstruction);
+	return true;
+}
+
+bool AStationActorBase::TryHandleStationItemInteraction(UHolderComponent* PlayerHolder, UCarriableComponent* PlayerItem, UCarriableComponent* StationItem)
+{
+	if (PlayerItem != nullptr || StationItem == nullptr)
+	{
+		return false;
+	}
+
+	UCarriableComponent* MovedCarriable = ItemHolder->Replace(nullptr);
+	if (MovedCarriable != nullptr)
+	{
+		PlayerHolder->Replace(MovedCarriable);
+	}
+
+	if (PendingOutputCount > 0)
+	{
+		TrySpawnPendingOutput();
+		SetStationState(ResolveIdleOrCompletedState());
+		return true;
+	}
+
+	PendingOutputItem = FPrimaryAssetId();
+	ResetCurrentInstructionState();
+	SetStationState(EStationState::Idle);
+	return true;
+}
+
+bool AStationActorBase::TryHandlePendingOutputInteraction(UCarriableComponent* PlayerItem, UCarriableComponent* StationItem)
+{
+	if (PlayerItem != nullptr || StationItem != nullptr || PendingOutputCount <= 0)
+	{
+		return false;
+	}
+
+	TrySpawnPendingOutput();
+	SetStationState(ResolveIdleOrCompletedState());
+	return true;
 }
 
 bool AStationActorBase::CanPlaceItem(const FPrimaryAssetId& ItemId) const
@@ -571,7 +601,7 @@ void AStationActorBase::FinishProcessing()
 	}
 
 	ResetCurrentInstructionState();
-	SetStationState(PendingOutputCount > 0 || (ItemHolder && ItemHolder->GetCarriable() != nullptr) ? EStationState::Completed : EStationState::Idle);
+	SetStationState(ResolveIdleOrCompletedState());
 	OnInstructionProcessed.Broadcast(this, CompletedInstruction, true);
 }
 
@@ -608,7 +638,7 @@ void AStationActorBase::CancelProcessing()
 		PendingOutputItem = FailedInstruction.FailureOutputItem;
 		PendingOutputCount = FMath::Max(1, FailedInstruction.FailureOutputQuantity);
 		TrySpawnPendingOutput();
-		bHasFailureOutputAvailable = PendingOutputCount > 0 || (ItemHolder != nullptr && ItemHolder->GetCarriable() != nullptr);
+		bHasFailureOutputAvailable = ResolveIdleOrCompletedState() == EStationState::Completed;
 	}
 
 	ResetCurrentInstructionState();
@@ -673,7 +703,7 @@ bool AStationActorBase::ApplyFailureOutcome(const FPrimaryAssetId& FailureOutput
 	}
 
 	ResetCurrentInstructionState();
-	SetStationState(PendingOutputCount > 0 || ItemHolder->GetCarriable() != nullptr ? EStationState::Completed : EStationState::Idle);
+	SetStationState(ResolveIdleOrCompletedState());
 	return true;
 }
 
@@ -965,6 +995,21 @@ void AStationActorBase::SetStationState(EStationState NewState)
 
 	StationState = NewState;
 	OnStationStateChangedBP(StationState);
+}
+
+EStationState AStationActorBase::ResolveIdleOrCompletedState() const
+{
+	if (PendingOutputCount > 0)
+	{
+		return EStationState::Completed;
+	}
+
+	if (ItemHolder != nullptr && ItemHolder->GetCarriable() != nullptr)
+	{
+		return EStationState::Completed;
+	}
+
+	return EStationState::Idle;
 }
 
 void AStationActorBase::ReportRuntimeError(EStationRuntimeError ErrorCode, const FText& Message)

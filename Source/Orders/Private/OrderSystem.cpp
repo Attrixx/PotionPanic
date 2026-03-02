@@ -37,6 +37,36 @@ FReplicatedOrderEntry BuildReplicatedEntry(const FOrderRuntime& RuntimeOrder)
 
 	return Entry;
 }
+
+TArray<FReplicatedOrderEntry> BuildReplicatedSnapshot(const TArray<FOrderRuntime>& RuntimeOrders)
+{
+	TArray<FReplicatedOrderEntry> Snapshot;
+	Snapshot.Reserve(RuntimeOrders.Num());
+	for (const FOrderRuntime& RuntimeOrder : RuntimeOrders)
+	{
+		Snapshot.Add(BuildReplicatedEntry(RuntimeOrder));
+	}
+	return Snapshot;
+}
+
+FOrderSubmissionResult MakeRejectedSubmissionResult(EOrderSubmissionRejectReason RejectReason, const FText& Reason)
+{
+	FOrderSubmissionResult Result;
+	Result.RejectReason = RejectReason;
+	Result.Reason = Reason;
+	return Result;
+}
+
+bool ShouldTransitionOrderToWarning(const FOrderRuntime& Candidate, float ServerTimeSeconds, float WarningLeadTimeSeconds)
+{
+	if (Candidate.State != EOrderState::Active || WarningLeadTimeSeconds <= 0.0f)
+	{
+		return false;
+	}
+
+	const float RemainingSeconds = Candidate.EndTimeSeconds - ServerTimeSeconds;
+	return RemainingSeconds <= WarningLeadTimeSeconds;
+}
 }
 
 void UOrderSystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -78,7 +108,13 @@ bool UOrderSystem::IsAuthorityWorld() const
 
 void UOrderSystem::SetOrderCatalog(const TArray<UOrderDataAsset*>& InOrderCatalog)
 {
+	if (!IsAuthorityWorld())
+	{
+		return;
+	}
+
 	OrderCatalog.Reset();
+	OrderCatalog.Reserve(InOrderCatalog.Num());
 	for (UOrderDataAsset* OrderData : InOrderCatalog)
 	{
 		if (OrderData != nullptr)
@@ -177,6 +213,11 @@ void UOrderSystem::TickOrders(float ServerTimeSeconds)
 
 void UOrderSystem::ClearRuntimeState()
 {
+	if (!IsAuthorityWorld())
+	{
+		return;
+	}
+
 	ActiveOrders.Reset();
 	CompletedOrders.Reset();
 	ExpiredOrders.Reset();
@@ -195,6 +236,17 @@ void UOrderSystem::ApplyRuntimeConfig()
 		return;
 	}
 
+	SanitizeRuntimeConfigValues();
+
+	UWorld* World = GetWorld();
+	check(World != nullptr);
+	ConfigureExpirationTimer(*World);
+	ConfigureArrivalTimer(*World);
+	RefreshReplicatedStateActor();
+}
+
+void UOrderSystem::SanitizeRuntimeConfigValues()
+{
 	ExpirationTickIntervalSeconds = FMath::Max(0.05f, ExpirationTickIntervalSeconds);
 	ExpirationWarningLeadTimeSeconds = FMath::Max(0.0f, ExpirationWarningLeadTimeSeconds);
 	TargetActiveOrderCount = FMath::Max(0, TargetActiveOrderCount);
@@ -205,18 +257,21 @@ void UOrderSystem::ApplyRuntimeConfig()
 	MaxAutoSpawnPerTick = FMath::Max(1, MaxAutoSpawnPerTick);
 	ProcessedSubmissionTtlSeconds = FMath::Max(0.0f, ProcessedSubmissionTtlSeconds);
 	MaxProcessedSubmissionCacheEntries = FMath::Max(16, MaxProcessedSubmissionCacheEntries);
+}
 
-	UWorld* World = GetWorld();
-	check(World != nullptr);
-
-	World->GetTimerManager().ClearTimer(ExpirationTickTimer);
-	World->GetTimerManager().SetTimer(
+void UOrderSystem::ConfigureExpirationTimer(UWorld& World)
+{
+	World.GetTimerManager().ClearTimer(ExpirationTickTimer);
+	World.GetTimerManager().SetTimer(
 		ExpirationTickTimer,
 		this,
 		&UOrderSystem::HandleExpirationTick,
 		ExpirationTickIntervalSeconds,
 		true);
+}
 
+void UOrderSystem::ConfigureArrivalTimer(UWorld& World)
+{
 	if (AreAutoOrderArrivalsEnabled())
 	{
 		if (bSpawnFirstOrderImmediately)
@@ -228,10 +283,8 @@ void UOrderSystem::ApplyRuntimeConfig()
 	}
 	else
 	{
-		World->GetTimerManager().ClearTimer(ArrivalTickTimer);
+		World.GetTimerManager().ClearTimer(ArrivalTickTimer);
 	}
-
-	RefreshReplicatedStateActor();
 }
 
 FOrderSubmissionResult UOrderSystem::SubmitDelivery(const FDeliveredItemPayload& Payload)
@@ -244,47 +297,93 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryWithContext(const FDeliveredI
 	return SubmitDeliveryInternal(Payload, SourceStation);
 }
 
-FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItemPayload& Payload, AActor* SourceStation)
+FOrderSubmissionResult UOrderSystem::BuildNoMatchingOrderResult(AActor* SourceStation, int32 Penalty) const
 {
 	FOrderSubmissionResult Result;
+	Result.bMatched = false;
+	Result.ScoreDelta = -Penalty;
+	Result.RejectReason = EOrderSubmissionRejectReason::NoMatchingOrder;
+	Result.Reason = SourceStation != nullptr
+		? FText::Format(
+			FText::FromString(TEXT("No active order matches delivered item at station '{0}'.")),
+			FText::FromString(SourceStation->GetName()))
+		: FText::FromString(TEXT("No active order matches delivered item."));
+	return Result;
+}
 
+bool UOrderSystem::TryGetReplaySubmissionResult(
+	const FDeliveredItemPayload& Payload,
+	float ServerTimeSeconds,
+	FOrderSubmissionResult& OutReplayResult)
+{
+	if (!TryGetProcessedSubmissionResult(Payload.SubmissionId, OutReplayResult, ServerTimeSeconds))
+	{
+		return false;
+	}
+
+	OutReplayResult.RejectReason = EOrderSubmissionRejectReason::DuplicateSubmission;
+	OutReplayResult.Reason = FText::FromString(TEXT("Duplicate submission replayed without side effects."));
+	return true;
+}
+
+FOrderSubmissionResult UOrderSystem::FinalizeSubmissionResult(
+	const FGuid& SubmissionId,
+	const FOrderSubmissionResult& Result,
+	float ServerTimeSeconds)
+{
+	CacheProcessedSubmissionResult(SubmissionId, Result, ServerTimeSeconds);
+	return Result;
+}
+
+FOrderSubmissionResult UOrderSystem::BuildNoActiveOrdersResult() const
+{
+	return MakeRejectedSubmissionResult(
+		EOrderSubmissionRejectReason::NoActiveOrders,
+		FText::FromString(TEXT("No active orders.")));
+}
+
+FOrderSubmissionResult UOrderSystem::BuildCompletedOrderResult(const FOrderRuntime& MatchedOrder, int32 ScoreGain) const
+{
+	FOrderSubmissionResult Result;
+	Result.bMatched = true;
+	Result.MatchedOrderId = MatchedOrder.OrderId;
+	Result.ScoreDelta = ScoreGain;
+	Result.RejectReason = EOrderSubmissionRejectReason::None;
+	Result.Reason = FText::Format(
+		FText::FromString(TEXT("Order completed (+{0}).")),
+		ScoreGain);
+	return Result;
+}
+
+FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItemPayload& Payload, AActor* SourceStation)
+{
 	if (!IsAuthorityWorld())
 	{
-		Result.RejectReason = EOrderSubmissionRejectReason::NotAuthority;
-		Result.Reason = FText::FromString(TEXT("SubmitDelivery must run on authority."));
-		return Result;
+		return MakeRejectedSubmissionResult(
+			EOrderSubmissionRejectReason::NotAuthority,
+			FText::FromString(TEXT("SubmitDelivery must run on authority.")));
 	}
 
 	if (!Payload.DeliveredItemId.IsValid())
 	{
-		Result.RejectReason = EOrderSubmissionRejectReason::InvalidPayload;
-		Result.Reason = FText::FromString(TEXT("Delivered item id is invalid."));
-		return Result;
+		return MakeRejectedSubmissionResult(
+			EOrderSubmissionRejectReason::InvalidPayload,
+			FText::FromString(TEXT("Delivered item id is invalid.")));
 	}
 
 	const float ServerTime = ResolveServerTime(Payload.ServerTimeSeconds);
-	FOrderSubmissionResult CachedReplayResult;
-	if (TryGetProcessedSubmissionResult(Payload.SubmissionId, CachedReplayResult, ServerTime))
+	FOrderSubmissionResult ReplayResult;
+	if (TryGetReplaySubmissionResult(Payload, ServerTime, ReplayResult))
 	{
-		CachedReplayResult.RejectReason = EOrderSubmissionRejectReason::DuplicateSubmission;
-		CachedReplayResult.Reason = FText::FromString(TEXT("Duplicate submission replayed without side effects."));
-		return CachedReplayResult;
+		return ReplayResult;
 	}
-
-	auto CacheAndReturn = [this, &Payload, ServerTime](const FOrderSubmissionResult& InResult)
-	{
-		CacheProcessedSubmissionResult(Payload.SubmissionId, InResult, ServerTime);
-		return InResult;
-	};
 
 	ExpireOrders(ServerTime);
 	RefreshReplicatedStateActor();
 
 	if (ActiveOrders.Num() == 0)
 	{
-		Result.RejectReason = EOrderSubmissionRejectReason::NoActiveOrders;
-		Result.Reason = FText::FromString(TEXT("No active orders."));
-		return CacheAndReturn(Result);
+		return FinalizeSubmissionResult(Payload.SubmissionId, BuildNoActiveOrdersResult(), ServerTime);
 	}
 
 	const int32 MatchIndex = FindBestMatchingActiveOrderIndex(Payload.DeliveredItemId, ServerTime);
@@ -296,17 +395,10 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 			ApplyScoreDelta(-Penalty);
 		}
 
-		Result.bMatched = false;
-		Result.ScoreDelta = -Penalty;
-		Result.RejectReason = EOrderSubmissionRejectReason::NoMatchingOrder;
-		Result.Reason = SourceStation != nullptr
-			? FText::Format(
-				FText::FromString(TEXT("No active order matches delivered item at station '{0}'.")),
-				FText::FromString(SourceStation->GetName()))
-			: FText::FromString(TEXT("No active order matches delivered item."));
+		const FOrderSubmissionResult Result = BuildNoMatchingOrderResult(SourceStation, Penalty);
 		OnDeliveryRejected.Broadcast(Payload, Penalty);
 		RefreshReplicatedStateActor();
-		return CacheAndReturn(Result);
+		return FinalizeSubmissionResult(Payload.SubmissionId, Result, ServerTime);
 	}
 
 	const FOrderRuntime MatchedOrder = ActiveOrders[MatchIndex];
@@ -320,23 +412,18 @@ FOrderSubmissionResult UOrderSystem::SubmitDeliveryInternal(const FDeliveredItem
 		ScoreGain,
 		CompletedOrders))
 	{
-		Result.RejectReason = EOrderSubmissionRejectReason::InvalidPayload;
-		Result.Reason = FText::FromString(TEXT("Order state transition failed during delivery resolution."));
+		const FOrderSubmissionResult Result = MakeRejectedSubmissionResult(
+			EOrderSubmissionRejectReason::InvalidPayload,
+			FText::FromString(TEXT("Order state transition failed during delivery resolution.")));
 		RefreshReplicatedStateActor();
-		return CacheAndReturn(Result);
+		return FinalizeSubmissionResult(Payload.SubmissionId, Result, ServerTime);
 	}
 
-	Result.bMatched = true;
-	Result.MatchedOrderId = MatchedOrder.OrderId;
-	Result.ScoreDelta = ScoreGain;
-	Result.RejectReason = EOrderSubmissionRejectReason::None;
-	Result.Reason = FText::Format(
-		FText::FromString(TEXT("Order completed (+{0}).")),
-		ScoreGain);
+	const FOrderSubmissionResult Result = BuildCompletedOrderResult(MatchedOrder, ScoreGain);
 
 	OnOrderCompleted.Broadcast(MatchedOrder.OrderId, ScoreGain);
 	RefreshReplicatedStateActor();
-	return CacheAndReturn(Result);
+	return FinalizeSubmissionResult(Payload.SubmissionId, Result, ServerTime);
 }
 
 TArray<UOrderDataAsset*> UOrderSystem::GetOrderCatalog() const
@@ -559,13 +646,7 @@ void UOrderSystem::ExpireOrders(float ServerTimeSeconds)
 			continue;
 		}
 
-		if (Candidate.State != EOrderState::Active || ExpirationWarningLeadTimeSeconds <= 0.0f)
-		{
-			continue;
-		}
-
-		const float RemainingSeconds = Candidate.EndTimeSeconds - ServerTimeSeconds;
-		if (RemainingSeconds <= ExpirationWarningLeadTimeSeconds)
+		if (ShouldTransitionOrderToWarning(Candidate, ServerTimeSeconds, ExpirationWarningLeadTimeSeconds))
 		{
 			const bool bTransitionedToWarning = TransitionActiveOrderToWarning(Index);
 			ensureMsgf(
@@ -729,7 +810,6 @@ void UOrderSystem::ScheduleNextOrderArrival(float OverrideDelaySeconds)
 
 	UWorld* World = GetWorld();
 	check(World != nullptr);
-
 	World->GetTimerManager().ClearTimer(ArrivalTickTimer);
 
 	if (!AreAutoOrderArrivalsEnabled() || TargetActiveOrderCount <= 0 || OrderCatalog.Num() == 0)
@@ -798,33 +878,10 @@ void UOrderSystem::RefreshReplicatedStateActor()
 		return;
 	}
 
-	TArray<FReplicatedOrderEntry> ActiveSnapshot;
-	ActiveSnapshot.Reserve(ActiveOrders.Num());
-	for (const FOrderRuntime& Runtime : ActiveOrders)
-	{
-		ActiveSnapshot.Add(BuildReplicatedEntry(Runtime));
-	}
-
-	TArray<FReplicatedOrderEntry> CompletedSnapshot;
-	CompletedSnapshot.Reserve(CompletedOrders.Num());
-	for (const FOrderRuntime& Runtime : CompletedOrders)
-	{
-		CompletedSnapshot.Add(BuildReplicatedEntry(Runtime));
-	}
-
-	TArray<FReplicatedOrderEntry> ExpiredSnapshot;
-	ExpiredSnapshot.Reserve(ExpiredOrders.Num());
-	for (const FOrderRuntime& Runtime : ExpiredOrders)
-	{
-		ExpiredSnapshot.Add(BuildReplicatedEntry(Runtime));
-	}
-
-	TArray<FReplicatedOrderEntry> CancelledSnapshot;
-	CancelledSnapshot.Reserve(CancelledOrders.Num());
-	for (const FOrderRuntime& Runtime : CancelledOrders)
-	{
-		CancelledSnapshot.Add(BuildReplicatedEntry(Runtime));
-	}
+	const TArray<FReplicatedOrderEntry> ActiveSnapshot = BuildReplicatedSnapshot(ActiveOrders);
+	const TArray<FReplicatedOrderEntry> CompletedSnapshot = BuildReplicatedSnapshot(CompletedOrders);
+	const TArray<FReplicatedOrderEntry> ExpiredSnapshot = BuildReplicatedSnapshot(ExpiredOrders);
+	const TArray<FReplicatedOrderEntry> CancelledSnapshot = BuildReplicatedSnapshot(CancelledOrders);
 
 	ReplicatedStateActor->SetReplicatedSnapshot(
 		TotalScore,

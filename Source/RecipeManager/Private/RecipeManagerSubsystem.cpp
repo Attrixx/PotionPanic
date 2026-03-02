@@ -55,6 +55,20 @@ void URecipeManagerSubsystem::Deinitialize()
 
 namespace
 {
+enum class EStationInstructionValidationFailure : uint8
+{
+	None,
+	InvalidInputOutputIds,
+	ActivityMismatch,
+	InputFilterMismatch
+};
+
+struct FStationInstructionValidationResult
+{
+	EStationInstructionValidationFailure Failure = EStationInstructionValidationFailure::None;
+	FInstruction StationInstruction;
+};
+
 FInstruction BuildStationInstruction(const FRecipeInstructionData& RecipeInstruction, const URecipeDataAsset* Recipe)
 {
 	FInstruction StationInstruction;
@@ -79,6 +93,197 @@ FInstruction BuildStationInstruction(const FRecipeInstructionData& RecipeInstruc
 	}
 
 	return StationInstruction;
+}
+
+FStationInstructionValidationResult ValidateStationInstructionForStep(
+	const FRecipeInstructionData& RecipeInstruction,
+	const URecipeDataAsset* Recipe,
+	const AStationActorBase* Station)
+{
+	FStationInstructionValidationResult ValidationResult;
+
+	if (!RecipeInstruction.InputItem.IsValid() || !RecipeInstruction.OutputItem.IsValid())
+	{
+		ValidationResult.Failure = EStationInstructionValidationFailure::InvalidInputOutputIds;
+		return ValidationResult;
+	}
+
+	ValidationResult.StationInstruction = BuildStationInstruction(RecipeInstruction, Recipe);
+	if (Station != nullptr && !Station->CanExecuteInstruction(ValidationResult.StationInstruction))
+	{
+		ValidationResult.Failure = EStationInstructionValidationFailure::ActivityMismatch;
+		return ValidationResult;
+	}
+
+	if (Station != nullptr && !Station->CanPlaceItem(ValidationResult.StationInstruction.InputItem))
+	{
+		ValidationResult.Failure = EStationInstructionValidationFailure::InputFilterMismatch;
+		return ValidationResult;
+	}
+
+	return ValidationResult;
+}
+
+ERecipeManagerError MapInstructionValidationFailureToManagerError(EStationInstructionValidationFailure Failure)
+{
+	switch (Failure)
+	{
+	case EStationInstructionValidationFailure::InvalidInputOutputIds:
+		return ERecipeManagerError::InvalidInstruction;
+	case EStationInstructionValidationFailure::ActivityMismatch:
+	case EStationInstructionValidationFailure::InputFilterMismatch:
+		return ERecipeManagerError::StationCannotExecuteInstruction;
+	case EStationInstructionValidationFailure::None:
+	default:
+		return ERecipeManagerError::None;
+	}
+}
+
+FText BuildInstructionValidationFailureMessage(EStationInstructionValidationFailure Failure, int32 StepIndex, bool bAcrossStations)
+{
+	switch (Failure)
+	{
+	case EStationInstructionValidationFailure::InvalidInputOutputIds:
+		return FText::Format(
+			FText::FromString(TEXT("Instruction at step {0} has invalid input/output item id.")),
+			StepIndex);
+	case EStationInstructionValidationFailure::ActivityMismatch:
+		return FText::Format(
+			FText::FromString(
+				bAcrossStations
+					? TEXT("Station at step {0} cannot execute instruction (activity mismatch).")
+					: TEXT("Station cannot execute instruction at step {0} (activity mismatch).")),
+			StepIndex);
+	case EStationInstructionValidationFailure::InputFilterMismatch:
+		return FText::Format(
+			FText::FromString(
+				bAcrossStations
+					? TEXT("Station at step {0} cannot accept instruction input item (item filter mismatch).")
+					: TEXT("Station cannot accept input item for instruction at step {0} (item filter mismatch).")),
+			StepIndex);
+	case EStationInstructionValidationFailure::None:
+	default:
+		return FText::GetEmpty();
+	}
+}
+
+FText ResolveNoMatchingRecipeMessage(const FRecipeExecutionPlan& ExecutionPlan)
+{
+	return ExecutionPlan.Validation.FailureReason.IsEmpty()
+		? FText::FromString(TEXT("No matching recipe for provided input items."))
+		: ExecutionPlan.Validation.FailureReason;
+}
+
+bool RestoreCauldronContents(ACauldron* Cauldron, const TArray<FPrimaryAssetId>& SnapshotContents)
+{
+	if (Cauldron == nullptr || !Cauldron->HasAuthority())
+	{
+		return false;
+	}
+
+	Cauldron->ClearIngredients();
+	for (const FPrimaryAssetId& ContentId : SnapshotContents)
+	{
+		if (!Cauldron->AddContentAssetId(ContentId))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool TryRollbackCauldronContents(ACauldron* Cauldron, const TArray<FPrimaryAssetId>& SnapshotContents, const TCHAR* ContextLabel)
+{
+	if (RestoreCauldronContents(Cauldron, SnapshotContents))
+	{
+		return true;
+	}
+
+	UE_LOGFMT(
+		MS_RecipeManagerSubsystem,
+		Error,
+		"Failed rolling back cauldron '{0}' after {1}.",
+		Cauldron ? Cauldron->GetName() : TEXT("Unknown"),
+		ContextLabel ? FString(ContextLabel) : FString(TEXT("unknown error")));
+	return false;
+}
+
+FPrimaryAssetId ResolveHeldItemId(const AItemActor* HeldItemActor)
+{
+	const UCarriableComponent* HeldCarriable = HeldItemActor ? HeldItemActor->FindComponentByClass<UCarriableComponent>() : nullptr;
+	return HeldCarriable ? HeldCarriable->GetItemId() : FPrimaryAssetId();
+}
+
+void ConfigureFireStationInstructionForCauldron(FInstruction& StationInstruction, const FPrimaryAssetId& HeldCauldronItemId)
+{
+	StationInstruction.InputItem = HeldCauldronItemId;
+	StationInstruction.InputQuantity = 1;
+	StationInstruction.OutputItem = FPrimaryAssetId();
+	StationInstruction.OutputQuantity = 1;
+	StationInstruction.bConsumeInputOnSuccess = false;
+	StationInstruction.bProduceOutputOnSuccess = false;
+	StationInstruction.bConsumeInputOnFailure = false;
+	StationInstruction.FailureOutputItem = FPrimaryAssetId();
+	StationInstruction.FailureOutputQuantity = 1;
+}
+
+bool TryQueueFireStationExecutionPlan(
+	AFireStation* FireStation,
+	const FRecipeExecutionPlan& ExecutionPlan,
+	const FPrimaryAssetId& HeldCauldronItemId,
+	int32& OutQueuedSteps)
+{
+	OutQueuedSteps = 0;
+	if (FireStation == nullptr)
+	{
+		return false;
+	}
+
+	FireStation->ClearInstructionQueue();
+	for (const FRecipeInstructionData& RecipeInstruction : ExecutionPlan.Instructions)
+	{
+		FInstruction StationInstruction = BuildStationInstruction(RecipeInstruction, ExecutionPlan.Recipe.Get());
+		ConfigureFireStationInstructionForCauldron(StationInstruction, HeldCauldronItemId);
+
+		if (!FireStation->CanExecuteInstruction(StationInstruction))
+		{
+			FireStation->ClearInstructionQueue();
+			return false;
+		}
+
+		FireStation->QueueInstruction(StationInstruction);
+		++OutQueuedSteps;
+	}
+
+	ensureMsgf(
+		OutQueuedSteps == ExecutionPlan.Instructions.Num(),
+		TEXT("Fire-station queued step count mismatch for recipe '%s' (%d queued vs %d expected)."),
+		ExecutionPlan.Recipe ? *ExecutionPlan.Recipe->GetName() : TEXT("None"),
+		OutQueuedSteps,
+		ExecutionPlan.Instructions.Num());
+
+	if (OutQueuedSteps <= 0)
+	{
+		FireStation->ClearInstructionQueue();
+		return false;
+	}
+
+	return true;
+}
+
+FRecipeExecutionPlan BuildFireStationFailurePlan(const FRecipeExecutionPlan& SourcePlan, int32 RemainingSteps)
+{
+	const int32 TotalStepCount = SourcePlan.Instructions.Num();
+	FRecipeExecutionPlan FailurePlan = SourcePlan;
+	FailurePlan.Validation.bIsValid = false;
+	FailurePlan.Validation.ErrorCode = ERecipeValidationError::StepNoMatch;
+	FailurePlan.Validation.MatchedStepCount = FMath::Clamp(TotalStepCount - RemainingSteps, 0, TotalStepCount);
+	FailurePlan.Validation.FirstFailedStepIndex = TotalStepCount > 0
+		? FMath::Clamp(FailurePlan.Validation.MatchedStepCount, 0, TotalStepCount - 1)
+		: INDEX_NONE;
+	FailurePlan.Validation.FailureReason = FText::FromString(TEXT("Station instruction failed during fire-station execution."));
+	return FailurePlan;
 }
 }
 
@@ -110,7 +315,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueInstructions(
 			0);
 	}
 
-	URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
 	if (RecipeSystem == nullptr)
 	{
 		return MakeFailure(
@@ -126,9 +331,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueInstructions(
 	{
 		FRecipeManagerResult FailureResult = MakeFailure(
 			ERecipeManagerError::NoMatchingRecipe,
-			ExecutionPlan.Validation.FailureReason.IsEmpty()
-				? FText::FromString(TEXT("No matching recipe for provided input items."))
-				: ExecutionPlan.Validation.FailureReason,
+			ResolveNoMatchingRecipeMessage(ExecutionPlan),
 			ExecutionPlan.Recipe.Get(),
 			ExecutionPlan.Validation,
 			0);
@@ -172,7 +375,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueFromActiveRoundRe
 			0);
 	}
 
-	URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
 	if (RecipeSystem == nullptr)
 	{
 		return MakeFailure(
@@ -202,8 +405,6 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlan(
 	const FRecipeExecutionPlan& ExecutionPlan,
 	bool bClearExistingQueue)
 {
-	FRecipeValidationResult EmptyValidation;
-
 	if (Station == nullptr)
 	{
 		return MakeFailure(
@@ -239,33 +440,21 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlan(
 	for (int32 StepIndex = 0; StepIndex < ExecutionPlan.Instructions.Num(); ++StepIndex)
 	{
 		const FRecipeInstructionData& RecipeInstruction = ExecutionPlan.Instructions[StepIndex];
-
-		if (!RecipeInstruction.InputItem.IsValid() || !RecipeInstruction.OutputItem.IsValid())
+		const FStationInstructionValidationResult ValidationResult = ValidateStationInstructionForStep(
+			RecipeInstruction,
+			ExecutionPlan.Recipe.Get(),
+			Station);
+		if (ValidationResult.Failure != EStationInstructionValidationFailure::None)
 		{
 			return MakeFailure(
-				ERecipeManagerError::InvalidInstruction,
-				FText::Format(
-					FText::FromString(TEXT("Instruction at step {0} has invalid input/output item id.")),
-					StepIndex),
+				MapInstructionValidationFailureToManagerError(ValidationResult.Failure),
+				BuildInstructionValidationFailureMessage(ValidationResult.Failure, StepIndex, false),
 				ExecutionPlan.Recipe.Get(),
 				ExecutionPlan.Validation,
 				0);
 		}
 
-		const FInstruction StationInstruction = BuildStationInstruction(RecipeInstruction, ExecutionPlan.Recipe.Get());
-		if (!Station->CanExecuteInstruction(StationInstruction))
-		{
-			return MakeFailure(
-				ERecipeManagerError::StationCannotExecuteInstruction,
-				FText::Format(
-					FText::FromString(TEXT("Station cannot execute instruction at step {0} (activity mismatch).")),
-					StepIndex),
-				ExecutionPlan.Recipe.Get(),
-				ExecutionPlan.Validation,
-				0);
-		}
-
-		StationInstructions.Add(StationInstruction);
+		StationInstructions.Add(ValidationResult.StationInstruction);
 	}
 
 	if (bClearExistingQueue)
@@ -310,7 +499,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueAcrossStationsFro
 			0);
 	}
 
-	URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
 	if (RecipeSystem == nullptr)
 	{
 		return MakeFailure(
@@ -363,7 +552,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueAcrossStations(
 			0);
 	}
 
-	URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
 	if (RecipeSystem == nullptr)
 	{
 		return MakeFailure(
@@ -379,9 +568,7 @@ FRecipeManagerResult URecipeManagerSubsystem::BuildPlanAndQueueAcrossStations(
 	{
 		FRecipeManagerResult FailureResult = MakeFailure(
 			ERecipeManagerError::NoMatchingRecipe,
-			ExecutionPlan.Validation.FailureReason.IsEmpty()
-				? FText::FromString(TEXT("No matching recipe for provided input items."))
-				: ExecutionPlan.Validation.FailureReason,
+			ResolveNoMatchingRecipeMessage(ExecutionPlan),
 			ExecutionPlan.Recipe.Get(),
 			ExecutionPlan.Validation,
 			0);
@@ -406,8 +593,6 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlanAcrossStations(
 	const FRecipeExecutionPlan& ExecutionPlan,
 	bool bClearExistingQueues)
 {
-	FRecipeValidationResult EmptyValidation;
-
 	if (ExecutionPlan.Recipe == nullptr || !ExecutionPlan.Validation.bIsValid)
 	{
 		return MakeFailure(
@@ -460,33 +645,21 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlanAcrossStations(
 				0);
 		}
 
-		const FRecipeInstructionData& RecipeInstruction = ExecutionPlan.Instructions[StepIndex];
-		if (!RecipeInstruction.InputItem.IsValid() || !RecipeInstruction.OutputItem.IsValid())
+		const FStationInstructionValidationResult ValidationResult = ValidateStationInstructionForStep(
+			ExecutionPlan.Instructions[StepIndex],
+			ExecutionPlan.Recipe.Get(),
+			StepStation);
+		if (ValidationResult.Failure != EStationInstructionValidationFailure::None)
 		{
 			return MakeFailure(
-				ERecipeManagerError::InvalidInstruction,
-				FText::Format(
-					FText::FromString(TEXT("Instruction at step {0} has invalid input/output item id.")),
-					StepIndex),
+				MapInstructionValidationFailureToManagerError(ValidationResult.Failure),
+				BuildInstructionValidationFailureMessage(ValidationResult.Failure, StepIndex, true),
 				ExecutionPlan.Recipe.Get(),
 				ExecutionPlan.Validation,
 				0);
 		}
 
-		const FInstruction StationInstruction = BuildStationInstruction(RecipeInstruction, ExecutionPlan.Recipe.Get());
-		if (!StepStation->CanExecuteInstruction(StationInstruction))
-		{
-			return MakeFailure(
-				ERecipeManagerError::StationCannotExecuteInstruction,
-				FText::Format(
-					FText::FromString(TEXT("Station at step {0} cannot execute instruction (activity mismatch).")),
-					StepIndex),
-				ExecutionPlan.Recipe.Get(),
-				ExecutionPlan.Validation,
-				0);
-		}
-
-		BuiltInstructions.Add(StationInstruction);
+		BuiltInstructions.Add(ValidationResult.StationInstruction);
 	}
 
 	TSet<TObjectPtr<AStationActorBase>> ClearedStations;
@@ -526,105 +699,95 @@ FRecipeManagerResult URecipeManagerSubsystem::QueueExecutionPlanAcrossStations(
 	return Result;
 }
 
-void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation)
+void URecipeManagerSubsystem::StartFireStationProcessing(AFireStation* FireStation, APlayerController* InstigatorController) const
 {
-	if (!IsAuthorityWorld() || FireStation == nullptr || !FireStation->HasAuthority())
+	if (FireStation == nullptr)
 	{
 		return;
 	}
 
-	const AItemActor* HeldItemActor = FireStation->GetHeldItemActor();
-	ACauldron* HeldCauldron = Cast<ACauldron>(const_cast<AItemActor*>(HeldItemActor));
+	APawn* InstigatorPawn = InstigatorController ? InstigatorController->GetPawn() : nullptr;
+	FireStation->TryStartProcessingHeldItem(InstigatorPawn);
+}
+
+bool URecipeManagerSubsystem::TryResumeExistingFireStationExecution(
+	AFireStation* FireStation,
+	ACauldron* HeldCauldron,
+	APlayerController* InstigatorController)
+{
+	if (FireStation == nullptr)
+	{
+		return false;
+	}
+
+	FFireStationExecutionContext* ExistingContext = ActiveFireStationExecutions.Find(FireStation);
+	if (ExistingContext == nullptr)
+	{
+		return false;
+	}
+
+	if (HeldCauldron != nullptr && ExistingContext->Cauldron.Get() == HeldCauldron && ExistingContext->RemainingSteps > 0)
+	{
+		StartFireStationProcessing(FireStation, InstigatorController);
+		return true;
+	}
+
+	ActiveFireStationExecutions.Remove(FireStation);
+	return false;
+}
+
+bool URecipeManagerSubsystem::TryBuildFireStationExecutionPlan(ACauldron* HeldCauldron, FRecipeExecutionPlan& OutExecutionPlan)
+{
+	OutExecutionPlan = FRecipeExecutionPlan();
 	if (HeldCauldron == nullptr)
 	{
-		ActiveFireStationExecutions.Remove(FireStation);
-		return;
+		return false;
 	}
 
-	if (FFireStationExecutionContext* ExistingContext = ActiveFireStationExecutions.Find(FireStation))
-	{
-		if (ExistingContext->Cauldron.Get() == HeldCauldron && ExistingContext->RemainingSteps > 0)
-		{
-			APawn* InstigatorPawn = InstigatorController ? InstigatorController->GetPawn() : nullptr;
-			FireStation->TryStartProcessingHeldItem(InstigatorPawn);
-			return;
-		}
-
-		ActiveFireStationExecutions.Remove(FireStation);
-	}
-
-	const UCarriableComponent* HeldCarriable = HeldItemActor ? HeldItemActor->FindComponentByClass<UCarriableComponent>() : nullptr;
-	const FPrimaryAssetId HeldCauldronItemId = HeldCarriable ? HeldCarriable->GetItemId() : FPrimaryAssetId();
-	if (!HeldCauldronItemId.IsValid())
-	{
-		return;
-	}
-
-	URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
 	if (RecipeSystem == nullptr)
 	{
-		return;
+		return false;
 	}
 
 	const TArray<URecipeDataAsset*> ActiveRoundRecipes = RecipeSystem->GetActiveRoundRecipes();
 	if (ActiveRoundRecipes.Num() == 0)
 	{
-		return;
+		return false;
 	}
 
 	const TArray<FPrimaryAssetId> InputItems = HeldCauldron->GetIngredientAssetIdsSorted();
 	if (InputItems.Num() == 0)
 	{
-		return;
+		return false;
 	}
 
-	FRecipeExecutionPlan ExecutionPlan;
-	if (!RecipeSystem->TryBuildExecutionPlan(ActiveRoundRecipes, InputItems, ExecutionPlan))
+	if (!RecipeSystem->TryBuildExecutionPlan(ActiveRoundRecipes, InputItems, OutExecutionPlan))
 	{
-		ApplyRecipeFailureToCauldron(RecipeSystem, ExecutionPlan, HeldCauldron);
-		return;
+		ApplyRecipeFailureToCauldron(RecipeSystem, OutExecutionPlan, HeldCauldron);
+		return false;
 	}
 
-	if (ExecutionPlan.Recipe == nullptr || !ExecutionPlan.Validation.bIsValid || ExecutionPlan.Instructions.Num() == 0)
+	return OutExecutionPlan.Recipe != nullptr
+		&& OutExecutionPlan.Validation.bIsValid
+		&& OutExecutionPlan.Instructions.Num() > 0;
+}
+
+bool URecipeManagerSubsystem::TryStartNewFireStationExecution(
+	AFireStation* FireStation,
+	ACauldron* HeldCauldron,
+	const FPrimaryAssetId& HeldCauldronItemId,
+	const FRecipeExecutionPlan& ExecutionPlan)
+{
+	if (FireStation == nullptr || HeldCauldron == nullptr)
 	{
-		return;
+		return false;
 	}
 
-	FireStation->ClearInstructionQueue();
 	int32 QueuedSteps = 0;
-	for (const FRecipeInstructionData& RecipeInstruction : ExecutionPlan.Instructions)
+	if (!TryQueueFireStationExecutionPlan(FireStation, ExecutionPlan, HeldCauldronItemId, QueuedSteps))
 	{
-		FInstruction StationInstruction = BuildStationInstruction(RecipeInstruction, ExecutionPlan.Recipe.Get());
-		StationInstruction.InputItem = HeldCauldronItemId;
-		StationInstruction.InputQuantity = 1;
-		StationInstruction.OutputItem = FPrimaryAssetId();
-		StationInstruction.OutputQuantity = 1;
-		StationInstruction.bConsumeInputOnSuccess = false;
-		StationInstruction.bProduceOutputOnSuccess = false;
-		StationInstruction.bConsumeInputOnFailure = false;
-		StationInstruction.FailureOutputItem = FPrimaryAssetId();
-		StationInstruction.FailureOutputQuantity = 1;
-
-		if (!FireStation->CanExecuteInstruction(StationInstruction))
-		{
-			FireStation->ClearInstructionQueue();
-			return;
-		}
-
-		FireStation->QueueInstruction(StationInstruction);
-		++QueuedSteps;
-	}
-
-	ensureMsgf(
-		QueuedSteps == ExecutionPlan.Instructions.Num(),
-		TEXT("Fire-station queued step count mismatch for recipe '%s' (%d queued vs %d expected)."),
-		ExecutionPlan.Recipe ? *ExecutionPlan.Recipe->GetName() : TEXT("None"),
-		QueuedSteps,
-		ExecutionPlan.Instructions.Num());
-
-	if (QueuedSteps <= 0)
-	{
-		return;
+		return false;
 	}
 
 	FFireStationExecutionContext Context;
@@ -632,9 +795,109 @@ void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerControlle
 	Context.ExecutionPlan = ExecutionPlan;
 	Context.RemainingSteps = QueuedSteps;
 	ActiveFireStationExecutions.Add(FireStation, Context);
+	return true;
+}
 
-	APawn* InstigatorPawn = InstigatorController ? InstigatorController->GetPawn() : nullptr;
-	FireStation->TryStartProcessingHeldItem(InstigatorPawn);
+bool URecipeManagerSubsystem::ConsumeProcessedFireStationStep(
+	AFireStation* FireStation,
+	FFireStationExecutionContext& Context)
+{
+	if (Context.RemainingSteps <= 0)
+	{
+		ensureMsgf(
+			false,
+			TEXT("Received fire-station instruction callback with no remaining steps on '%s'."),
+			FireStation ? *FireStation->GetName() : TEXT("Unknown"));
+		return false;
+	}
+
+	--Context.RemainingSteps;
+	return Context.RemainingSteps == 0;
+}
+
+void URecipeManagerSubsystem::HandleFailedFireStationExecution(
+	AFireStation* FireStation,
+	const FFireStationExecutionContext& FailedContext)
+{
+	if (FireStation == nullptr)
+	{
+		return;
+	}
+
+	FireStation->ClearInstructionQueue();
+
+	ACauldron* Cauldron = FailedContext.Cauldron.Get();
+	URecipeSystem* RecipeSystem = GetRecipeSystem();
+	if (Cauldron == nullptr || !Cauldron->HasAuthority() || RecipeSystem == nullptr)
+	{
+		return;
+	}
+
+	const FRecipeExecutionPlan FailurePlan = BuildFireStationFailurePlan(FailedContext.ExecutionPlan, FailedContext.RemainingSteps);
+	ApplyRecipeFailureToCauldron(RecipeSystem, FailurePlan, Cauldron);
+}
+
+void URecipeManagerSubsystem::HandleCompletedFireStationExecution(
+	AFireStation* FireStation,
+	const FFireStationExecutionContext& CompletedContext)
+{
+	if (FireStation == nullptr)
+	{
+		return;
+	}
+
+	FireStation->ClearInstructionQueue();
+
+	ACauldron* Cauldron = CompletedContext.Cauldron.Get();
+	if (Cauldron == nullptr || !Cauldron->HasAuthority())
+	{
+		return;
+	}
+
+	if (!TryApplyExecutionPlanToCauldron(CompletedContext.ExecutionPlan, Cauldron))
+	{
+		UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed applying completed fire-station execution plan to cauldron '{0}'.", Cauldron->GetName());
+	}
+}
+
+void URecipeManagerSubsystem::HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation)
+{
+	if (!IsAuthorityWorld() || FireStation == nullptr || !FireStation->HasAuthority())
+	{
+		return;
+	}
+
+	AItemActor* HeldItemActor = FireStation->GetHeldItemActor();
+	ACauldron* HeldCauldron = Cast<ACauldron>(HeldItemActor);
+	if (HeldCauldron == nullptr)
+	{
+		ActiveFireStationExecutions.Remove(FireStation);
+		return;
+	}
+
+	if (TryResumeExistingFireStationExecution(FireStation, HeldCauldron, InstigatorController))
+	{
+		return;
+	}
+
+	const FPrimaryAssetId HeldCauldronItemId = ResolveHeldItemId(HeldItemActor);
+	if (!HeldCauldronItemId.IsValid())
+	{
+		return;
+	}
+
+	FRecipeExecutionPlan ExecutionPlan;
+	if (!TryBuildFireStationExecutionPlan(HeldCauldron, ExecutionPlan))
+	{
+		return;
+	}
+
+	if (!TryStartNewFireStationExecution(FireStation, HeldCauldron, HeldCauldronItemId, ExecutionPlan))
+	{
+		return;
+	}
+
+	StartFireStationProcessing(FireStation, InstigatorController);
 }
 
 void URecipeManagerSubsystem::HandleFireStationInstructionProcessed(AStationActorBase* Station, const FInstruction& Instruction, bool bSuccess)
@@ -657,59 +920,18 @@ void URecipeManagerSubsystem::HandleFireStationInstructionProcessed(AStationActo
 	{
 		const FFireStationExecutionContext FailedContext = *Context;
 		ActiveFireStationExecutions.Remove(FireStation);
-
-		FireStation->ClearInstructionQueue();
-
-		ACauldron* Cauldron = FailedContext.Cauldron.Get();
-		URecipeSystem* RecipeSystem = GetWorld() ? GetWorld()->GetSubsystem<URecipeSystem>() : nullptr;
-		if (Cauldron == nullptr || !Cauldron->HasAuthority() || RecipeSystem == nullptr)
-		{
-			return;
-		}
-
-		const int32 TotalStepCount = FailedContext.ExecutionPlan.Instructions.Num();
-		FRecipeExecutionPlan FailurePlan = FailedContext.ExecutionPlan;
-		FailurePlan.Validation.bIsValid = false;
-		FailurePlan.Validation.ErrorCode = ERecipeValidationError::StepNoMatch;
-		FailurePlan.Validation.MatchedStepCount = FMath::Clamp(TotalStepCount - FailedContext.RemainingSteps, 0, TotalStepCount);
-		FailurePlan.Validation.FirstFailedStepIndex = TotalStepCount > 0
-			? FMath::Clamp(FailurePlan.Validation.MatchedStepCount, 0, TotalStepCount - 1)
-			: INDEX_NONE;
-		FailurePlan.Validation.FailureReason = FText::FromString(TEXT("Station instruction failed during fire-station execution."));
-
-		ApplyRecipeFailureToCauldron(RecipeSystem, FailurePlan, Cauldron);
+		HandleFailedFireStationExecution(FireStation, FailedContext);
 		return;
 	}
 
-	if (Context->RemainingSteps > 0)
-	{
-		--Context->RemainingSteps;
-	}
-	else
-	{
-		ensureMsgf(false, TEXT("Received fire-station instruction callback with no remaining steps on '%s'."), *FireStation->GetName());
-		return;
-	}
-
-	if (Context->RemainingSteps > 0)
+	if (!ConsumeProcessedFireStationStep(FireStation, *Context))
 	{
 		return;
 	}
 
 	const FFireStationExecutionContext CompletedContext = *Context;
 	ActiveFireStationExecutions.Remove(FireStation);
-	FireStation->ClearInstructionQueue();
-
-	ACauldron* Cauldron = CompletedContext.Cauldron.Get();
-	if (Cauldron == nullptr || !Cauldron->HasAuthority())
-	{
-		return;
-	}
-
-	if (!TryApplyExecutionPlanToCauldron(CompletedContext.ExecutionPlan, Cauldron))
-	{
-		UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed applying completed fire-station execution plan to cauldron '{0}'.", Cauldron->GetName());
-	}
+	HandleCompletedFireStationExecution(FireStation, CompletedContext);
 }
 
 void URecipeManagerSubsystem::RefreshFireStations()
@@ -798,6 +1020,8 @@ bool URecipeManagerSubsystem::ApplyRecipeFailureToCauldron(URecipeSystem* Recipe
 		return false;
 	}
 
+	const TArray<FPrimaryAssetId> OriginalContents = Cauldron->GetIngredientAssetIds();
+
 	const URecipeDataAsset* Recipe = FailedPlan.Recipe.Get();
 	const FRecipeValidationResult& Validation = FailedPlan.Validation;
 	const FRecipeFailureOutcome FailureOutcome = RecipeSystem->ResolveFailureOutcome(Recipe, Validation);
@@ -821,6 +1045,7 @@ bool URecipeManagerSubsystem::ApplyRecipeFailureToCauldron(URecipeSystem* Recipe
 	if (Cauldron->GetIngredientCount() + FailureOutputQuantity > Cauldron->GetMaxIngredientCount())
 	{
 		UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Cannot add failure output to cauldron '{0}': capacity exceeded.", Cauldron->GetName());
+		TryRollbackCauldronContents(Cauldron, OriginalContents, TEXT("failure-output capacity validation"));
 		return false;
 	}
 
@@ -829,6 +1054,7 @@ bool URecipeManagerSubsystem::ApplyRecipeFailureToCauldron(URecipeSystem* Recipe
 		if (!Cauldron->AddContentAssetId(FailureOutcome.FailureOutputItem))
 		{
 			UE_LOGFMT(MS_RecipeManagerSubsystem, Warning, "Failed adding failure output item to cauldron '{0}'.", Cauldron->GetName());
+			TryRollbackCauldronContents(Cauldron, OriginalContents, TEXT("failure-output add error"));
 			return false;
 		}
 	}
@@ -842,6 +1068,8 @@ bool URecipeManagerSubsystem::TryApplyExecutionPlanToCauldron(const FRecipeExecu
 	{
 		return false;
 	}
+
+	const TArray<FPrimaryAssetId> OriginalContents = Cauldron->GetIngredientAssetIds();
 
 	const TArray<FPrimaryAssetId>& ConsumedItems = ExecutionPlan.ItemFlow.ConsumedItems;
 	const TArray<FPrimaryAssetId>& ProducedItems = ExecutionPlan.ItemFlow.NetProducedItems.Num() > 0
@@ -873,11 +1101,22 @@ bool URecipeManagerSubsystem::TryApplyExecutionPlanToCauldron(const FRecipeExecu
 	{
 		if (!Cauldron->AddContentAssetId(ProducedItem))
 		{
+			TryRollbackCauldronContents(Cauldron, OriginalContents, TEXT("execution-plan output add error"));
 			return false;
 		}
 	}
 
 	return true;
+}
+
+URecipeSystem* URecipeManagerSubsystem::GetRecipeSystem() const
+{
+	if (UWorld* World = GetWorld())
+	{
+		return World->GetSubsystem<URecipeSystem>();
+	}
+
+	return nullptr;
 }
 
 bool URecipeManagerSubsystem::MaterializeFailureOutcomeOnStation(

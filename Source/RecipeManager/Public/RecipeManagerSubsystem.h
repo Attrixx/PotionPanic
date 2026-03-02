@@ -120,11 +120,27 @@ public:
 		bool bClearExistingQueue = true);
 
 private:
+	struct FFireStationExecutionContext;
+
 	UFUNCTION()
 	void HandleFireStationProcessRequested(APlayerController* InstigatorController, AFireStation* FireStation);
 	UFUNCTION()
 	void HandleFireStationDestroyed(AActor* DestroyedActor);
 	void HandleFireStationInstructionProcessed(AStationActorBase* Station, const FInstruction& Instruction, bool bSuccess);
+	void StartFireStationProcessing(AFireStation* FireStation, APlayerController* InstigatorController) const;
+	bool TryResumeExistingFireStationExecution(
+		AFireStation* FireStation,
+		ACauldron* HeldCauldron,
+		APlayerController* InstigatorController);
+	bool TryBuildFireStationExecutionPlan(ACauldron* HeldCauldron, FRecipeExecutionPlan& OutExecutionPlan);
+	bool TryStartNewFireStationExecution(
+		AFireStation* FireStation,
+		ACauldron* HeldCauldron,
+		const FPrimaryAssetId& HeldCauldronItemId,
+		const FRecipeExecutionPlan& ExecutionPlan);
+	bool ConsumeProcessedFireStationStep(AFireStation* FireStation, FFireStationExecutionContext& Context);
+	void HandleFailedFireStationExecution(AFireStation* FireStation, const FFireStationExecutionContext& FailedContext);
+	void HandleCompletedFireStationExecution(AFireStation* FireStation, const FFireStationExecutionContext& CompletedContext);
 
 	void RefreshFireStations();
 	void HandleActorSpawned(AActor* SpawnedActor);
@@ -132,6 +148,7 @@ private:
 	void UnregisterFireStation(AFireStation* FireStation);
 	bool ApplyRecipeFailureToCauldron(URecipeSystem* RecipeSystem, const FRecipeExecutionPlan& FailedPlan, ACauldron* Cauldron);
 	bool TryApplyExecutionPlanToCauldron(const FRecipeExecutionPlan& ExecutionPlan, ACauldron* Cauldron);
+	URecipeSystem* GetRecipeSystem() const;
 	bool IsAuthorityWorld() const;
 
 	FRecipeManagerResult MakeFailure(

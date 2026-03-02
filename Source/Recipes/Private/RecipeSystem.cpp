@@ -106,6 +106,27 @@ static int32 GetSafeOutputQuantity(const UItemTransformation* Step)
 	return Step ? FMath::Max(1, Step->OutputQuantity) : 1;
 }
 
+static bool IsGreedyCandidateBetter(
+	int32 LeftStepCount,
+	int32 LeftInputCount,
+	int32 LeftCompletionBonus,
+	int32 RightStepCount,
+	int32 RightInputCount,
+	int32 RightCompletionBonus)
+{
+	if (LeftStepCount != RightStepCount)
+	{
+		return LeftStepCount > RightStepCount;
+	}
+
+	if (LeftInputCount != RightInputCount)
+	{
+		return LeftInputCount > RightInputCount;
+	}
+
+	return LeftCompletionBonus > RightCompletionBonus;
+}
+
 template <typename T>
 static TArray<TObjectPtr<T>> ToObjectPtrArray(const TArray<T*>& Source)
 {
@@ -681,6 +702,11 @@ FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlans(
 			ValidCandidates.Add(CandidateRecipe);
 		}
 	}
+	if (ValidCandidates.Num() == 0)
+	{
+		Result.Message = FText::FromString(TEXT("No valid (non-null) candidate recipes provided."));
+		return Result;
+	}
 
 	const int32 SafeMaxPlans = MaxConcurrentRecipes <= 0 ? TNumericLimits<int32>::Max() : MaxConcurrentRecipes;
 
@@ -699,7 +725,7 @@ FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlans(
 		return LeftCompletionBonus > RightCompletionBonus;
 	};
 
-	auto BuildGreedySelection = [this, &ValidCandidates, &SafeMaxPlans, &IsScoreBetter](TMap<FPrimaryAssetId, int32>& InOutPool, TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>>& OutSelection)
+	auto BuildGreedySelection = [this, &ValidCandidates, &SafeMaxPlans](TMap<FPrimaryAssetId, int32>& InOutPool, TArray<TPair<TObjectPtr<URecipeDataAsset>, TArray<FPrimaryAssetId>>>& OutSelection)
 	{
 		while (OutSelection.Num() < SafeMaxPlans)
 		{
@@ -721,7 +747,13 @@ FRecipeConcurrentPlanResult URecipeSystem::BuildConcurrentExecutionPlans(
 				const int32 CandidateInputCount = CandidateInputs.Num();
 				const int32 CandidateCompletionBonus = CandidateRecipe->CompletionBonusScore;
 				const bool bIsBetter = BestRecipe == nullptr
-					|| IsScoreBetter(CandidateStepCount, CandidateInputCount, CandidateCompletionBonus, BestStepCount, BestInputCount, BestCompletionBonus);
+					|| IsGreedyCandidateBetter(
+						CandidateStepCount,
+						CandidateInputCount,
+						CandidateCompletionBonus,
+						BestStepCount,
+						BestInputCount,
+						BestCompletionBonus);
 
 				if (!bIsBetter)
 				{
