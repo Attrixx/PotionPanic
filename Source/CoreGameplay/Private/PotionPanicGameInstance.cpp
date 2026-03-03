@@ -1,17 +1,44 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "PotionPanicGameInstance.h"
+#include "MultiplayerSessionsSubsystem.h"
 
-void UPotionPanicGameInstance::SavePlayerColor(FUniqueNetIdRepl PlayerId, FColor Color)
+#include "OnlineSubsystem.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
+
+void UPotionPanicGameInstance::StartGameInstance()
 {
-	if (!PlayerId.IsValid()) return; 
-	PlayerSelectedColor.Add(PlayerId, Color); 
+	MultiplayerSessionsSubsystem = GetSubsystem<UMultiplayerSessionsSubsystem>();
+
+	if (MultiplayerSessionsSubsystem)
+	{
+		MultiplayerSessionsSubsystem->MultiplayerOnJoinSessionComplete.AddUObject(this, &ThisClass::OnJoinSessions);
+		MultiplayerSessionsSubsystem->MultiplayerOnSessionUserInviteAccepted.AddUObject(this, &ThisClass::OnAcceptInvite);
+	}
 }
 
-FColor UPotionPanicGameInstance::GetPlayerColor(FUniqueNetIdRepl PlayerId)
+void UPotionPanicGameInstance::OnJoinSessions(EOnJoinSessionCompleteResult::Type Result)
 {
-	if (PlayerSelectedColor.Contains(PlayerId)) {
+	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+	if (Subsystem)
+	{
+		IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			FString Address;
+			SessionInterface->GetResolvedConnectString(NAME_GameSession, Address);
 
-		return PlayerSelectedColor[PlayerId];
+			APlayerController* PlayerController = GetFirstLocalPlayerController();
+			if (PlayerController)
+			{
+				PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+			}
+		}
 	}
-	return FColor::White;
+}
+
+void UPotionPanicGameInstance::OnAcceptInvite(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
+{
+	if (!MultiplayerSessionsSubsystem) return;
+
+	MultiplayerSessionsSubsystem->JoinSession(InviteResult);
 }

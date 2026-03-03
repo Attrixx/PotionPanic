@@ -16,10 +16,6 @@ bool UCustomGameViewportClient::InputKey(const FInputKeyEventArgs& EventArgs)
 			{
 				if ((*It)->GetControllerId() == EventArgs.ControllerId)
 				{
-					if (GEngine)
-					{
-						GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, FString::Printf(TEXT("ControllerId %d is already assigned to a local player %s."), EventArgs.ControllerId, *(*It)->GetFullName()));
-					}
 					bIsAssigned = true;
 					break;
 				}

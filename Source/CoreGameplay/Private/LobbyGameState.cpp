@@ -55,16 +55,13 @@ void ALobbyGameState::MulticastPlayLevelSequence_Implementation(ECameraPosition 
 {
 	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		if (APlayerController* PC = Iterator->Get())
-		{
-			if (PC->IsLocalController())
-			{
-				if (ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>())
-				{
-					PS->PlayLevelSequence(TargetCameraPosition);
-				}
-			}
-		}
+		APlayerController* PC = Iterator->Get();
+		if (!IsValid(PC) || !PC->IsLocalController()) continue;
+		ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+		if (!IsValid(LocalPlayer) || LocalPlayer->GetControllerId() != 0) continue;
+		ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>();
+		if (!IsValid(PS)) continue;
+		PS->PlayLevelSequence(TargetCameraPosition);
 	}
 }
 
@@ -105,7 +102,6 @@ void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 	{
 		if (AvailableDefaultColors.Num() > 0)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, FString::Printf(TEXT("Assigning default color %s to player %s"), *AvailableDefaultColors[0].ToString(), *LobbyPS->GetPlayerName()));
 			LobbyPS->SetPlayerColor(AvailableDefaultColors[0]);
 			AvailableDefaultColors.RemoveAt(0);
 		}

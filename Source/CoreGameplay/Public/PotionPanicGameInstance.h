@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "PotionPanicGameInstance.generated.h"
 
 /**
@@ -14,10 +15,15 @@ class COREGAMEPLAY_API UPotionPanicGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 
-public :
-	void SavePlayerColor(FUniqueNetIdRepl PlayerId, FColor Color);
-	FColor GetPlayerColor(FUniqueNetIdRepl);
-protected : 
+protected:
 
-	TMap<FUniqueNetIdRepl, FColor> PlayerSelectedColor; 
+	void StartGameInstance() override;
+
+	void OnJoinSessions(EOnJoinSessionCompleteResult::Type Result);
+	void OnAcceptInvite(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult);
+
+private:
+
+	TObjectPtr<class UMultiplayerSessionsSubsystem> MultiplayerSessionsSubsystem;
+
 };

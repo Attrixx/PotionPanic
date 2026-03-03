@@ -11,7 +11,6 @@
 class ALobbyPlayerPreview;
 class ALobbySpawnPoint;
 class ALobbyPlayerState;
-class ATriggerBox;
 
 USTRUCT(BlueprintType)
 struct FTeleportPointsForArea
@@ -42,18 +41,13 @@ protected:
 
 	virtual void BeginPlay() override;
 
-	
-	void OnNewPlayerLogin(int32 PlayerId, const FString& PlayerName, bool bIsHost);
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lobby")
 	TSubclassOf<ALobbyPlayerPreview> LobbyPlayerPreviewClass;
 
 public:
 	
-	bool CanHandleNewPlayer();
+	bool CanHandleNewPlayer() const;
 
-	UFUNCTION(BlueprintCallable)
-	void RegisterTriggerBoxes(const TMap<ETriggerBoxType, ATriggerBox*>& TriggerBoxes);
 	UFUNCTION(BlueprintCallable)
 	void RegisterLobbySpawnPoints(const TArray<ALobbySpawnPoint*>& SpawnPoints);
 	UFUNCTION(BlueprintCallable)
@@ -61,9 +55,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void RequestLeaveInviteArea(APlayerController* PlayerController);
-	
-	UFUNCTION(BlueprintCallable)
-	void TMP_TravelToLevel(const FString& LevelUrl);
+
+	void OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea);
+	void OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea, bool bIsAnyActorInArea = false, bool bIsPlayerInArea = false);
 
 private:
 
@@ -72,16 +66,9 @@ private:
 	bool ArePlayersOnSameConnection(APlayerController* A, APlayerController* B);
 	void RearrangePlayers();
 
-	UFUNCTION()
-	void OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor* OtherActor);
-	UFUNCTION()
-	void OnTriggerBoxEndOverlap(AActor* TriggerBox, AActor* OtherActor);
-
 	bool IsHost(AActor* Actor) const;
 	void SwitchCameraForAllPlayers(ECameraPosition NewCameraPosition);
 	void SwitchCameraForTarget(AActor* TargetActor, ECameraPosition NewCameraPosition);
-	bool IsAnyActorInTriggerBox(TSubclassOf<AActor> ClassToSearch, ETriggerBoxType TriggerBoxType) const;
-	bool IsActorInTriggerBox(AActor* Actor, ETriggerBoxType TriggerBoxType) const;
 	void TeleportPlayersToArea(ECameraPosition CameraPosition);
 
 private:
@@ -95,7 +82,6 @@ private:
 	UPROPERTY()
 	TArray<ALobbySpawnPoint*> CachedSpawnPoints;
 
-	TMap<ETriggerBoxType, ATriggerBox*> RegisteredTriggerBoxes;
 	ECameraPosition CurrentCameraPosition = ECameraPosition::Exterior;
 	bool bDoorsOpen = false;
 

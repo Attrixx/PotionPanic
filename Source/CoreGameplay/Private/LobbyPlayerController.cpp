@@ -6,6 +6,7 @@
 #include "LobbyPlayerState.h"
 #include "LobbyPlayerPreview.h"
 #include "CustomGameViewportClient.h"
+#include "LocalPlayerRegistrationComponent.h"
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -18,6 +19,7 @@
 
 ALobbyPlayerController::ALobbyPlayerController()
 {
+	LocalPlayerRegistrationComponent = CreateDefaultSubobject<ULocalPlayerRegistrationComponent>(TEXT("LocalPlayerRegistrationComponent"));
 }
 
 void ALobbyPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -29,11 +31,7 @@ void ALobbyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TObjectPtr<UCustomGameViewportClient> ViewportClient = Cast<UCustomGameViewportClient>(GetWorld()->GetGameViewport());
-	if (ViewportClient)
-	{
-		ViewportClient->OnLocalPlayerJoinRequest.AddDynamic(this, &ALobbyPlayerController::HandleJoinRequest);
-	}
+	LocalPlayerRegistrationComponent->OnPrimaryPlayerRequestLeave.AddUObject(this, &ThisClass::PrimaryPlayerLeave);
 }
 
 void ALobbyPlayerController::ReceivedPlayer()
@@ -52,41 +50,6 @@ void ALobbyPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(LeaveAction, ETriggerEvent::Started, this, &ThisClass::Leave);
 		EnhancedInputComponent->BindAction(InviteAction, ETriggerEvent::Started, this, &ThisClass::Invite);
 		EnhancedInputComponent->BindAction(MenuAction, ETriggerEvent::Started, this, &ThisClass::HandleMenuAction);
-	}
-}
-
-void ALobbyPlayerController::HandleJoinRequest(int32 ControllerId)
-{
-	if (!bIsUsingLobbyMappingContext) return;
-
-	// TODO: Handle two request at the same time
-	PendingControllerId = ControllerId;
-	ServerRequestNewLocalPlayer();
-}
-
-void ALobbyPlayerController::ServerRequestNewLocalPlayer_Implementation()
-{
-	TObjectPtr<ALobbyGameMode> LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>();
-	if (LobbyGameMode && LobbyGameMode->CanHandleNewPlayer())
-	{
-		ClientAuthorizeNewLocalPlayer();
-	}
-}
-
-void ALobbyPlayerController::ClientAuthorizeNewLocalPlayer_Implementation()
-{
-	APlayerController* NewPC = UGameplayStatics::CreatePlayer(this->GetWorld(), PendingControllerId, true);
-}
-
-void ALobbyPlayerController::ServerLocalPlayerLeave_Implementation()
-{
-	// If this PC shares a connection with other PCs, we should not destroy the connection
-	UChildConnection* C = Cast<UChildConnection>(Player);
-	if (C)
-	{
-		UNetConnection* parent = C->Parent;
-		C->CleanUp();
-		parent->Children.Remove(C);
 	}
 }
 
@@ -125,35 +88,7 @@ void ALobbyPlayerController::ClientSwitchMappingContext_Implementation(bool bInL
 
 void ALobbyPlayerController::Leave(const FInputActionValue& Value)
 {
-	GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Leave action triggered"));
-	ULocalPlayer* LocalPlayer = GetLocalPlayer();
-	if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Primary player leaving"));
-		// Primary player leaves: exit invite/customize area if host, or leave lobby if not host
-		ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
-		if (!IsValid(PS)) return;
-
-		if (PS->IsHost())
-		{
-			if (ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
-			{
-				LobbyGameMode->RequestLeaveInviteArea(this);
-			}	
-		}
-		else
-		{
-			// TODO: Get Level name from somewhere
-			UGameplayStatics::OpenLevel(this, FName("MainMenu"));
-		}
-	}
-	else
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("Secondary player leaving"));
-		// Secondary player leaves
-		UGameplayStatics::RemovePlayer(this, true);
-		ServerLocalPlayerLeave();
-	}
+	LocalPlayerRegistrationComponent->HandleLeaveRequest();
 }
 
 void ALobbyPlayerController::Invite(const FInputActionValue& Value)
@@ -171,5 +106,25 @@ void ALobbyPlayerController::HandleMenuAction(const FInputActionValue& Value)
 	if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
 	{
 		UKismetSystemLibrary::QuitGame(GetWorld(), this, EQuitPreference::Quit, false);
+	}
+}
+
+void ALobbyPlayerController::PrimaryPlayerLeave()
+{
+	// exit invite/customize area if host, or leave lobby if not host
+	ALobbyPlayerState* PS = GetPlayerState<ALobbyPlayerState>();
+	if (!IsValid(PS)) return;
+
+	if (PS->IsHost())
+	{
+		if (ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
+		{
+			LobbyGameMode->RequestLeaveInviteArea(this);
+		}
+	}
+	else
+	{
+		// TODO: Get Level name from somewhere
+		UGameplayStatics::OpenLevel(this, FName("MainMenu"));
 	}
 }

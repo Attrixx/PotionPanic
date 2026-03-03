@@ -8,6 +8,7 @@
 #include "LobbyPlayerController.generated.h"
 
 class ULobby;
+class ULocalPlayerRegistrationComponent;
 class UInputMappingContext;
 class UInputAction;
 class ALobbySpawnPoint;
@@ -37,19 +38,6 @@ protected:
 	void SetupInputComponent() override;
 	void ReceivedPlayer() override;
 
-private:
-
-	UFUNCTION()
-	void HandleJoinRequest(int32 ControllerId);
-
-	UFUNCTION(Server, Reliable)
-	void ServerRequestNewLocalPlayer();
-	UFUNCTION(Client, Reliable)
-	void ClientAuthorizeNewLocalPlayer();
-
-	UFUNCTION(Server, Reliable)
-	void ServerLocalPlayerLeave();
-
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
@@ -64,6 +52,9 @@ private:
 	bool bIsUsingLobbyMappingContext = false;
 
 protected:
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<ULocalPlayerRegistrationComponent> LocalPlayerRegistrationComponent;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> BaseInputMappingContext;
@@ -83,5 +74,7 @@ protected:
 	void Leave(const FInputActionValue& Value);
 	void Invite(const FInputActionValue& Value);
 	void HandleMenuAction(const FInputActionValue& Value);
+
+	void PrimaryPlayerLeave();
 	
 };

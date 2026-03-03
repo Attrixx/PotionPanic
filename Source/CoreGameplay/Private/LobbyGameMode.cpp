@@ -13,8 +13,6 @@
 #include "Online/CoreOnline.h"
 #include "OnlineSubsystemTypes.h"
 #include "Kismet/GameplayStatics.h"
-#include "Engine/TriggerBox.h"
-#include "Components/ShapeComponent.h"
 
 ALobbyGameMode::ALobbyGameMode()
 {
@@ -66,8 +64,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 				PlayerState->GetPlayerId(),
 				*UniqueId.GetV1()->ToDebugString());
 		}
-
-		OnNewPlayerLogin(PlayerState->GetPlayerId(), PlayerState->GetPlayerName(), bIsHost);
 	}
 
 	if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(NewPlayer))
@@ -173,83 +169,6 @@ void ALobbyGameMode::RearrangePlayers()
 	}
 }
 
-void ALobbyGameMode::OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor* OtherActor)
-{
-	if (TriggerBox->ActorHasTag(TEXT("LobbyInterface")))
-	{
-		if (!IsHost(OtherActor)) return;
-		RearrangePlayers();
-		SwitchCameraForAllPlayers(ECameraPosition::LobbyInterface);
-		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-		{
-			if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(Iterator->Get()))
-			{
-				PC->ClientSwitchMappingContext_Implementation(true);
-			}
-		}
-	}
-	else if (TriggerBox->ActorHasTag(TEXT("Entrance")))
-	{
-		SwitchCameraForTarget(OtherActor, ECameraPosition::Entrance);
-		if (bDoorsOpen) return;
-		bDoorsOpen = true;
-		if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
-		{
-			LobbyGameState->MulticastOpenDoors();
-		}
-
-	}
-	else if (TriggerBox->ActorHasTag(TEXT("Interior")))
-	{
-		if (IsHost(OtherActor))
-		{
-			SwitchCameraForAllPlayers(ECameraPosition::Interior);
-			TeleportPlayersToArea(ECameraPosition::Interior);
-		}
-		else
-		{
-			SwitchCameraForTarget(OtherActor, ECameraPosition::Interior);
-		}
-	}
-}
-
-void ALobbyGameMode::OnTriggerBoxEndOverlap(AActor* TriggerBox, AActor* OtherActor)
-{
-	if (TriggerBox->ActorHasTag(TEXT("LobbyInterface")))
-	{
-	}
-	else if (TriggerBox->ActorHasTag(TEXT("Entrance")))
-	{
-		if (bDoorsOpen && !IsAnyActorInTriggerBox(AActor::StaticClass(), ETriggerBoxType::Entrance))
-		{
-			bDoorsOpen = false;
-			if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
-			{
-				LobbyGameState->MulticastOpenDoors(false);
-			}
-		}
-
-		if (IsHost(OtherActor))
-		{
-			if (CurrentCameraPosition == ECameraPosition::Interior)
-			{
-				SwitchCameraForAllPlayers(ECameraPosition::Exterior);
-				TeleportPlayersToArea(ECameraPosition::Exterior);
-			}
-		}
-		else
-		{
-			if (!IsActorInTriggerBox(OtherActor, ETriggerBoxType::Interior))
-			{
-				SwitchCameraForTarget(OtherActor, ECameraPosition::Exterior);
-			}
-		}
-	}
-	else if (TriggerBox->ActorHasTag(TEXT("Interior")))
-	{
-	}
-}
-
 bool ALobbyGameMode::IsHost(AActor* Actor) const
 {
 	if (ACharacter* Character = Cast<ACharacter>(Actor))
@@ -277,47 +196,6 @@ void ALobbyGameMode::SwitchCameraForTarget(AActor* TargetActor, ECameraPosition 
 	{
 		Character->GetPlayerState<ALobbyPlayerState>()->PlayLevelSequence(NewCameraPosition);
 	}
-}
-
-bool ALobbyGameMode::IsAnyActorInTriggerBox(TSubclassOf<AActor> ClassToSearch, ETriggerBoxType TriggerBoxType) const
-{
-	if (!IsValid(ClassToSearch)) return false;
-
-	ATriggerBox* TriggerBox = RegisteredTriggerBoxes.FindRef(TriggerBoxType);
-	UShapeComponent* CollisionComp = TriggerBox->GetCollisionComponent();
-	if (!CollisionComp)
-	{
-		return false;
-	}
-
-	TArray<AActor*> OverlappingActors;
-	CollisionComp->GetOverlappingActors(OverlappingActors);
-
-	for (const AActor* Actor : OverlappingActors)
-	{
-		if (Actor->IsA(ClassToSearch))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool ALobbyGameMode::IsActorInTriggerBox(AActor* Actor, ETriggerBoxType TriggerBoxType) const
-{
-	if (!IsValid(Actor)) return false;
-	
-	ATriggerBox* TriggerBox = RegisteredTriggerBoxes.FindRef(TriggerBoxType);
-	UShapeComponent* CollisionComp = TriggerBox->GetCollisionComponent();
-	if (!CollisionComp)
-	{
-		return false;
-	}
-
-	TArray<AActor*> OverlappingActors;
-	CollisionComp->GetOverlappingActors(OverlappingActors);
-
-	return OverlappingActors.Contains(Actor);
 }
 
 void ALobbyGameMode::TeleportPlayersToArea(ECameraPosition CameraPosition)
@@ -404,7 +282,7 @@ bool ALobbyGameMode::HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlay
 	return bFoundSiblings;
 }
 
-bool ALobbyGameMode::CanHandleNewPlayer()
+bool ALobbyGameMode::CanHandleNewPlayer() const
 {
 	if (PlayerCount >= MaxPlayer)
 	{
@@ -412,20 +290,6 @@ bool ALobbyGameMode::CanHandleNewPlayer()
 		return false;
 	}
 	return true;
-}
-
-void ALobbyGameMode::RegisterTriggerBoxes(const TMap<ETriggerBoxType, ATriggerBox*>& TriggerBoxes)
-{
-	RegisteredTriggerBoxes = TriggerBoxes;
-
-	for (const auto& Pair : RegisteredTriggerBoxes)
-	{
-		if (IsValid(Pair.Value))
-		{
-			Pair.Value->OnActorBeginOverlap.AddDynamic(this, &ALobbyGameMode::OnTriggerBoxBeginOverlap);
-			Pair.Value->OnActorEndOverlap.AddDynamic(this, &ALobbyGameMode::OnTriggerBoxEndOverlap);
-		}
-	}
 }
 
 void ALobbyGameMode::RegisterLobbySpawnPoints(const TArray<ALobbySpawnPoint*>& SpawnPoints)
@@ -466,15 +330,78 @@ void ALobbyGameMode::RequestLeaveInviteArea(APlayerController* PlayerController)
 	SwitchCameraForAllPlayers(ECameraPosition::Exterior);
 }
 
-void ALobbyGameMode::OnNewPlayerLogin(int32 PlayerId, const FString& PlayerName, bool bIsHost)
+void ALobbyGameMode::OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea)
 {
+	switch (TargetArea)
+	{
+	case ECameraPosition::LobbyInterface:
+		if (!IsHost(PlayerCharacter)) return;
+		RearrangePlayers();
+		SwitchCameraForAllPlayers(ECameraPosition::LobbyInterface);
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(Iterator->Get()))
+			{
+				PC->ClientSwitchMappingContext_Implementation(true);
+			}
+		}
+		break;
+	case ECameraPosition::Entrance:
+		SwitchCameraForTarget(PlayerCharacter, ECameraPosition::Entrance);
+		if (bDoorsOpen) return;
+		bDoorsOpen = true;
+		if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
+		{
+			LobbyGameState->MulticastOpenDoors();
+		}
+		break;
+	case ECameraPosition::Interior:
+		if (IsHost(PlayerCharacter))
+		{
+			SwitchCameraForAllPlayers(ECameraPosition::Interior);
+			TeleportPlayersToArea(ECameraPosition::Interior);
+		}
+		else
+		{
+			SwitchCameraForTarget(PlayerCharacter, ECameraPosition::Interior);
+		}
+		break;
+	}
 }
 
-void ALobbyGameMode::TMP_TravelToLevel(const FString& LevelUrl)
+void ALobbyGameMode::OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea, bool bIsAnyActorInArea, bool bIsPlayerInArea)
 {
-	if (UWorld* World = GetWorld())
+	switch (TargetArea)
 	{
-		bUseSeamlessTravel = true;
-		World->ServerTravel(LevelUrl + "?listen");
+	case ECameraPosition::LobbyInterface:
+		break;
+	case ECameraPosition::Entrance:
+		if (bDoorsOpen && !bIsAnyActorInArea)
+		{
+			bDoorsOpen = false;
+			if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
+			{
+				LobbyGameState->MulticastOpenDoors(false);
+			}
+		}
+
+		if (IsHost(PlayerCharacter))
+		{
+			if (CurrentCameraPosition == ECameraPosition::Interior)
+			{
+				SwitchCameraForAllPlayers(ECameraPosition::Exterior);
+				TeleportPlayersToArea(ECameraPosition::Exterior);
+			}
+		}
+		else
+		{
+			if (!bIsPlayerInArea)
+			{
+				SwitchCameraForTarget(PlayerCharacter, ECameraPosition::Exterior);
+			}
+		}
+		break;
+	case ECameraPosition::Interior:
+		break;
 	}
 }

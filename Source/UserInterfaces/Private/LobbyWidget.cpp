@@ -1,14 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Lobby.h"
+#include "LobbyWidget.h"
 #include "LobbyPlayer.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerState.h"
 
 #include "Components/HorizontalBox.h"
 
-void ULobby::NativeConstruct()
+void ULobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	
@@ -26,14 +26,14 @@ void ULobby::NativeConstruct()
 
 	if (ALobbyGameState* GameState = GetWorld()->GetGameState<ALobbyGameState>())
 	{
-		GameState->OnPlayerAdded.AddDynamic(this, &ULobby::HandlePlayerAdded);
-		GameState->OnPlayerRemoved.AddDynamic(this, &ULobby::HandlePlayerRemoved);
+		GameState->OnPlayerAdded.AddDynamic(this, &ULobbyWidget::HandlePlayerAdded);
+		GameState->OnPlayerRemoved.AddDynamic(this, &ULobbyWidget::HandlePlayerRemoved);
 
 		for (int32 i = 0; i < GameState->PlayerArray.Num(); ++i)
 		{
 			if (ALobbyPlayerState* LobbyPlayerState = Cast<ALobbyPlayerState>(GameState->PlayerArray[i]))
 			{
-				LobbyPlayerState->OnPlayerInfoChanged.AddDynamic(this, &ULobby::UpdatePlayerWidgets);
+				LobbyPlayerState->OnPlayerInfoChanged.AddDynamic(this, &ULobbyWidget::UpdatePlayerWidgets);
 			}
 		}
 	}
@@ -41,7 +41,7 @@ void ULobby::NativeConstruct()
 	UpdatePlayerWidgets();
 }
 
-void ULobby::UpdatePlayerWidgets()
+void ULobbyWidget::UpdatePlayerWidgets()
 {
 	if (!HBox_Players) return;
 
@@ -75,20 +75,20 @@ void ULobby::UpdatePlayerWidgets()
 		}
 	}
 }
-void ULobby::HandlePlayerAdded(APlayerState* PlayerState)
+void ULobbyWidget::HandlePlayerAdded(APlayerState* PlayerState)
 {
 	if (ALobbyPlayerState* LobbyPlayerState = Cast<ALobbyPlayerState>(PlayerState))
 	{
-		LobbyPlayerState->OnPlayerInfoChanged.AddDynamic(this, &ULobby::UpdatePlayerWidgets);
+		LobbyPlayerState->OnPlayerInfoChanged.AddDynamic(this, &ULobbyWidget::UpdatePlayerWidgets);
 		UpdatePlayerWidgets();
 	}
 }
 
-void ULobby::HandlePlayerRemoved(APlayerState* PlayerState)
+void ULobbyWidget::HandlePlayerRemoved(APlayerState* PlayerState)
 {
 	if (ALobbyPlayerState* LobbyPlayerState = Cast<ALobbyPlayerState>(PlayerState))
 	{
-		LobbyPlayerState->OnPlayerInfoChanged.RemoveDynamic(this, &ULobby::UpdatePlayerWidgets);
+		LobbyPlayerState->OnPlayerInfoChanged.RemoveDynamic(this, &ULobbyWidget::UpdatePlayerWidgets);
 		UpdatePlayerWidgets();
 	}
 }

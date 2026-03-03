@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "LobbyPlayerState.h"
-#include "Lobby.generated.h"
+#include "LobbyWidget.generated.h"
 
 class UHorizontalBox;
 class ULobbyPlayer;
@@ -15,7 +15,7 @@ class ULobbyPlayer;
  * 
  */
 UCLASS()
-class USERINTERFACES_API ULobby : public UUserWidget
+class USERINTERFACES_API ULobbyWidget : public UUserWidget
 {
 	GENERATED_BODY()
 
