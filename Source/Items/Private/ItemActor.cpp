@@ -12,13 +12,14 @@ DEFINE_LOG_CATEGORY_STATIC(MS_ItemActor, Log, All);
 AItemActor::AItemActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	SetReplicates(true);
+	bReplicates = true;
 	SetReplicateMovement(true);
 
 	Carriable = CreateDefaultSubobject<UCarriableComponent>(TEXT("Carriable"));
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
 	SetRootComponent(StaticMesh);
+	StaticMesh->SetNotifyRigidBodyCollision(true);
 	StaticMesh->BodyInstance.bLockXRotation = true;
 	StaticMesh->BodyInstance.bLockYRotation = true;
 
