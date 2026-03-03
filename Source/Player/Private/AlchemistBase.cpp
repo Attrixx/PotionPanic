@@ -129,12 +129,10 @@ void AAlchemistBase::UpdateBestComponents()
 		LocalBestInteractable = std::exchange(BestInteractable, LocalBestInteractable);
 		if (BestInteractable)
 		{
-			UE_LOGFMT(MS_AlchemistBase, Log, "Enable: {0}", BestInteractable.GetObject()->GetName());
 			// TODO: Enable effects on BestInteractable
 		}
 		if (LocalBestInteractable)
 		{
-			UE_LOGFMT(MS_AlchemistBase, Log, "Disable: {0}", LocalBestInteractable.GetObject()->GetName());
 			// TODO: Disable effects on LocalBestInteractable
 		}
 	}
@@ -149,12 +147,10 @@ void AAlchemistBase::UpdateBestComponents()
 
 		if (BestCarriable.IsValid())
 		{
-			UE_LOGFMT(MS_AlchemistBase, Log, "Enable: {0}", BestCarriable->GetOwner()->GetName());
 			// TODO: Enable effects on BestCarriable
 		}
 		if (LocalBestCarriable)
 		{
-			UE_LOGFMT(MS_AlchemistBase, Log, "Disable: {0}", LocalBestCarriable->GetOwner()->GetName());
 			// TODO: Disable effects on LocalBestCarriable
 		}
 	}
@@ -215,6 +211,7 @@ void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 		}
 	}
 
+	// Movement is based on camera forward and right vectors
 	FVector RotatedInput = CamRotation.RotateVector({Axis2D.Y, Axis2D.X, 0});
 	FVector MovementInput = FVector::VectorPlaneProject(RotatedInput, GetActorUpVector()).GetSafeNormal();
 	AddMovementInput(MovementInput);
@@ -241,7 +238,7 @@ void AAlchemistBase::Input_PickupOrDrop()
 
 	if (HolderComponent->GetCarriable())
 		Server_Drop();
-	else
+	else if (BestCarriable.IsValid())
 		Server_Pickup();
 }
 
@@ -279,17 +276,14 @@ void AAlchemistBase::Server_Drop_Implementation()
 
 void AAlchemistBase::Server_Throw_Implementation()
 {
-	// Drop
 	auto* Carriable = HolderComponent->Replace(nullptr);
-
-	// Try to throw
 	if (Carriable)
 	{
 		if (Carriable->CanBeThrown())
 		{
 			Carriable->Throw(GetActorForwardVector() * ThrowForce);
 		}
-		else
+		else // Drop if can't throw
 		{
 			Carriable->SnapToGround();
 		}

@@ -7,7 +7,6 @@
 #include "CarriableComponent.generated.h"
 
 class UHolderComponent;
-class UProjectileMovementComponent;
 
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UCarriableComponent : public UActorComponent
