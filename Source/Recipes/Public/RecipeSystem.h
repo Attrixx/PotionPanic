@@ -6,6 +6,23 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "RecipeSystem.generated.h"
 
+class UInteractionBase;
+class UItemAsset;
+class UActivityAsset;
+class UHolderComponent;
+class RecipeAsset;
+
+USTRUCT()
+struct RECIPES_API FGetRecipeStepResponse
+{	
+	GENERATED_BODY()
+public:
+	UPROPERTY()
+	TArray<UInteractionBase*> Interactions;
+	UPROPERTY()
+	TObjectPtr<UItemAsset> OutputItem = nullptr;
+};
+
 /**
  * 
  */
@@ -15,7 +32,13 @@ class RECIPES_API URecipeSystem : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
-
+	void OnWorldBeginPlay(UWorld& InWorld) override;
+	
+	FGetRecipeStepResponse GetRecipeStep(const TObjectPtr<UHolderComponent> StationHolder, const TArray<TObjectPtr<UActivityAsset>>& StationActivities);
+	
 	UFUNCTION(BlueprintCallable, Category = "Recipes|Shuffling")
 	TArray<URecipeAsset*> GetShuffledRecipes(const TArray<URecipeAsset*>& InRecipes);
+	
+private:
+	TObjectPtr<URecipeAsset> RecipeAsset;
 };

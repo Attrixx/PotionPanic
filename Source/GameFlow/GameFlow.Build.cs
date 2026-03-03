@@ -10,7 +10,8 @@ public class GameFlow : ModuleRules
         {
             "Core",
             "CoreUObject",
-            "Engine"
+            "Engine",
+            "Recipes"
         });
     }
 }
