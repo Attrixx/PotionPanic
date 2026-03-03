@@ -25,7 +25,8 @@ class STATIONS_API AStationActorBase : public AActor, public IInteractable
 public:
 	AStationActorBase();
 
-	void Interact(APlayerController& InInstigator) override;
+	UFUNCTION()
+	void Interact(APlayerController* InInstigator) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Station")
 	void SetInstruction(const FInstruction& InInstruction) { CurrentInstruction = InInstruction; }

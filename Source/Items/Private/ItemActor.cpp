@@ -12,11 +12,15 @@ DEFINE_LOG_CATEGORY_STATIC(MS_ItemActor, Log, All);
 AItemActor::AItemActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	SetReplicates(true);
+	SetReplicateMovement(true);
 
 	Carriable = CreateDefaultSubobject<UCarriableComponent>(TEXT("Carriable"));
 
 	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
 	SetRootComponent(StaticMesh);
+	StaticMesh->BodyInstance.bLockXRotation = true;
+	StaticMesh->BodyInstance.bLockYRotation = true;
 
 	Niagara = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Niagara"));
 	Niagara->SetupAttachment(StaticMesh);
@@ -29,6 +33,8 @@ AItemActor::AItemActor()
 
 void AItemActor::OnConstruction(const FTransform& Transform)
 {
+	Super::OnConstruction(Transform);
+
 	if (ItemAsset)
 	{
 		SetItemAsset(*ItemAsset);
@@ -40,7 +46,7 @@ void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
 	ItemAsset = &NewItemAsset;
 
 	StaticMesh->SetStaticMesh(NewItemAsset.StaticMesh);
-	
+
 	Niagara->SetAsset(NewItemAsset.NiagaraSystem);
 	Niagara->Activate(true);
 

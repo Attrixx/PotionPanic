@@ -15,7 +15,7 @@ void AStationActorBase::BeginPlay()
 	Super::BeginPlay();
 }
 
-void AStationActorBase::Interact(APlayerController& InInstigator)
+void AStationActorBase::Interact(APlayerController* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface

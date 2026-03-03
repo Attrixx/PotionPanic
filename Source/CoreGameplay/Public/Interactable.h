@@ -7,7 +7,7 @@
 #include "Interactable.generated.h"
 
 // This class does not need to be modified.
-UINTERFACE(MinimalAPI)
+UINTERFACE(MinimalAPI, NotBlueprintable)
 class UInteractable : public UInterface
 {
 	GENERATED_BODY()
@@ -22,5 +22,6 @@ class COREGAMEPLAY_API IInteractable
 
 public:
 
-	virtual void Interact(APlayerController& Instigator) PURE_VIRTUAL(,)
+	UFUNCTION(BlueprintCallable)
+	virtual void Interact(APlayerController* Instigator) PURE_VIRTUAL(,);
 };

@@ -26,6 +26,11 @@ UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable
 		return Carriable;
 	}
 
+	if (Carriable == NewCarriable)
+	{
+		return NewCarriable;
+	}
+
 	if (Carriable)
 	{
 		Carriable->SetHolder(nullptr);
@@ -64,7 +69,14 @@ void UHolderComponent::OnCarriableChanged_Implementation(UCarriableComponent* Ol
 	{
 		if (AActor* NewActor = NewCarriable->GetOwner())
 		{
-			NewActor->AttachToComponent(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			NewActor->AttachToComponent(this,
+				FAttachmentTransformRules
+				{
+					EAttachmentRule::SnapToTarget,
+					EAttachmentRule::KeepWorld,
+					EAttachmentRule::KeepWorld,
+					false
+				});
 		}
 		else
 		{
