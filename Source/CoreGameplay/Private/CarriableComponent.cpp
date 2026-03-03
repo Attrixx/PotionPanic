@@ -83,7 +83,7 @@ void UCarriableComponent::SnapToGround()
 
 	FHitResult HitResult;
 	FVector Start = RootPrimitive->GetComponentLocation();
-	FVector End = Start + FVector::DownVector * 1000.f; // 10 meters down
+	FVector End = Start + FVector::DownVector * SnapToGroundMaxDistance;
 	FQuat Rot = RootPrimitive->GetComponentQuat();
 	auto ProfileName = RootPrimitive->GetCollisionProfileName();
 	auto CollisionShape = RootPrimitive->GetCollisionShape();
@@ -132,7 +132,7 @@ void UCarriableComponent::OnRootPrimitiveHit(UPrimitiveComponent* HitComp, AActo
 		return;
 
 	// collision with ground
-	if (Hit.Normal.Dot(FVector::UpVector) > 0.8f)
+	if (Hit.Normal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{
 		RootPrimitive->SetSimulatePhysics(false);
 		SnapToGround();

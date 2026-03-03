@@ -61,4 +61,11 @@ private:
 	TObjectPtr<UHolderComponent> Holder;
 
 	TWeakObjectPtr<UPrimitiveComponent> RootPrimitive;
+	
+private:
+	
+	static constexpr float SnapToGroundMaxDistance = 1000.0f; // 10 meters 
+	
+	// 1 = perfect flat ground, 0 = grand and wall at 90°, -1 = any angle
+	static constexpr float GroundCollisionThreshold = 0.8f;
 };
