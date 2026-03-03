@@ -43,9 +43,32 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
 	UE_LOG(LogTemp, Log, TEXT("Station '%s' interacted by player"), *GetName());
+
+	if (!StationAsset)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no StationAsset. Interaction ignored."), *GetName());
+		return;
+	}
+
+	if (!ItemHolder)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no ItemHolder. Interaction ignored."), *GetName());
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no valid World. Interaction ignored."), *GetName());
+		return;
+	}
 	
-	URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
-	check(RecipeSystem);
+	URecipeSystem* RecipeSystem = World->GetSubsystem<URecipeSystem>();
+	if (!RecipeSystem)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Station '%s' could not find RecipeSystem. Interaction ignored."), *GetName());
+		return;
+	}
 	
 	auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
 	
@@ -97,7 +120,15 @@ void AStationActorBase::ExecuteNextInteraction()
 		FInteractionContext InteractionContext;
 		InteractionContext.Instigator = CachedInstigator;
 		InteractionContext.OnInteractionFinished.AddDynamic(this, &AStationActorBase::OnInteractionFinished);
+
+		UInteractionBase* CurrentInteraction = CachedInteractions[InteractionIndex];
+		if (!CurrentInteraction)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
+			ResetCurrentInteractions();
+			return;
+		}
 		
-		CachedInteractions[InteractionIndex]->StartInteraction(InteractionContext);
+		CurrentInteraction->StartInteraction(InteractionContext);
 	}
 }

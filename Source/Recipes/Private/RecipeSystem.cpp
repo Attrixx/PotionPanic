@@ -18,7 +18,12 @@ void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
 	Super::OnWorldBeginPlay(InWorld);
 	
 	auto Settings = Cast<APotionPanicWorldSettings>(InWorld.GetWorldSettings());
-	check(Settings);
+	if (!Settings)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RecipeSystem: world settings is not APotionPanicWorldSettings."));
+		RecipeAsset = nullptr;
+		return;
+	}
 	
 	if (Settings->RecipeAsset)
 		RecipeAsset = Settings->RecipeAsset;
@@ -28,6 +33,16 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
                                                     const TArray<TObjectPtr<UActivityAsset>>& StationActivities)
 {
 	FGetRecipeStepResponse Output;
+
+	if (!StationHolder)
+	{
+		return Output;
+	}
+
+	if (!RecipeAsset)
+	{
+		return Output;
+	}
 	
 	TObjectPtr<UItemAsset> StationItem = nullptr;
 	if (UCarriableComponent* Carriable = StationHolder->GetCarriable())
@@ -40,13 +55,21 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 	}
 	
 	for (auto Step : RecipeAsset->Steps)
-	{		
+	{
+		if (!Step)
+		{
+			continue;
+		}
+
 		// Suppose there is only one possible InputItem + Activity association in RecipeAsset
 		if (StationItem == Step->InputItem && StationActivities.Contains(Step->Activity))
 		{
 			for (auto Setting : Step->InteractionSettings)
 			{
-				Output.Interactions.Add(UInteractionBase::CreateInteraction(this, Setting));
+				if (UInteractionBase* Interaction = UInteractionBase::CreateInteraction(this, Setting))
+				{
+					Output.Interactions.Add(Interaction);
+				}
 			}
 			
 			Output.OutputItem = Step->OutputItem;
