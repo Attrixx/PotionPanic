@@ -7,6 +7,7 @@
 
 void UPotionPanicGameInstance::StartGameInstance()
 {
+	Super::StartGameInstance();
 	MultiplayerSessionsSubsystem = GetSubsystem<UMultiplayerSessionsSubsystem>();
 
 	if (MultiplayerSessionsSubsystem)
@@ -26,7 +27,6 @@ void UPotionPanicGameInstance::OnJoinSessions(EOnJoinSessionCompleteResult::Type
 		{
 			FString Address;
 			SessionInterface->GetResolvedConnectString(NAME_GameSession, Address);
-
 			APlayerController* PlayerController = GetFirstLocalPlayerController();
 			if (PlayerController)
 			{
