@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "Interfaces/OnlineSessionInterface.h"
+#include "OnlineSessionSettings.h"
 #include "Misc/Variant.h"
 #include "MultiplayerSessionsSubsystem.generated.h"
 
@@ -62,4 +63,7 @@ private:
 
     bool bCreateSessionOnDestroy{false};
     TMap<FName, FVariant> LastSessionSettingsMap;
+
+    bool bJoinSessionOnDestroy{false};
+    FOnlineSessionSearchResult LastSessionSearchResult;
 };

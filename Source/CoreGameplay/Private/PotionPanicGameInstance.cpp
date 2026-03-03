@@ -19,18 +19,23 @@ void UPotionPanicGameInstance::StartGameInstance()
 
 void UPotionPanicGameInstance::OnJoinSessions(EOnJoinSessionCompleteResult::Type Result)
 {
-	IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
-	if (Subsystem)
+	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
-		IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
-		if (SessionInterface.IsValid())
+		IOnlineSubsystem* Subsystem = IOnlineSubsystem::Get();
+		if (Subsystem)
 		{
-			FString Address;
-			SessionInterface->GetResolvedConnectString(NAME_GameSession, Address);
-			APlayerController* PlayerController = GetFirstLocalPlayerController();
-			if (PlayerController)
+			IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
+			if (SessionInterface.IsValid())
 			{
-				PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+				FString Address;
+				if (SessionInterface->GetResolvedConnectString(NAME_GameSession, Address))
+				{
+					APlayerController* PlayerController = GetFirstLocalPlayerController();
+					if (PlayerController)
+					{
+						PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+					}
+				}
 			}
 		}
 	}
@@ -38,7 +43,7 @@ void UPotionPanicGameInstance::OnJoinSessions(EOnJoinSessionCompleteResult::Type
 
 void UPotionPanicGameInstance::OnAcceptInvite(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult& InviteResult)
 {
-	if (!MultiplayerSessionsSubsystem) return;
+	if (!MultiplayerSessionsSubsystem || !bWasSuccessful) return;
 
 	MultiplayerSessionsSubsystem->JoinSession(InviteResult);
 }
