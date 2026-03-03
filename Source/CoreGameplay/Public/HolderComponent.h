@@ -6,7 +6,7 @@
 #include "Components/SceneComponent.h"
 #include "HolderComponent.generated.h"
 
-class UCarriableComponent;	
+class UCarriableComponent;
 
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UHolderComponent : public USceneComponent
@@ -20,7 +20,7 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	UCarriableComponent* GetCarriable() const { return Carriable; }
-	
+
 	/**
 	 * Replace the CarriableComponent currently held by this component.
 	 * @param NewCarriable Can be nullptr.
@@ -28,12 +28,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	UCarriableComponent* Replace(UCarriableComponent* NewCarriable);
-	
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
-	void Throw();
 
 protected:
-	
+
 	UFUNCTION()
 	void OnRep_Carriable(UCarriableComponent* OldCarriable);
 
@@ -42,7 +39,7 @@ protected:
 	 */
 	UFUNCTION(BlueprintNativeEvent, meta=(ForceAsFunction))
 	void OnCarriableChanged(UCarriableComponent* OldCarriable, UCarriableComponent* NewCarriable);
-	
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_Carriable)

@@ -46,16 +46,6 @@ UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable
 	return OldCarriable;
 }
 
-void UHolderComponent::Throw()
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "Throw must execute on authority. Call ignored.");
-		return;
-	}
-
-}
-
 void UHolderComponent::OnRep_Carriable(UCarriableComponent* OldCarriable)
 {
 	OnCarriableChanged(OldCarriable, Carriable);
@@ -79,7 +69,14 @@ void UHolderComponent::OnCarriableChanged_Implementation(UCarriableComponent* Ol
 	{
 		if (AActor* NewActor = NewCarriable->GetOwner())
 		{
-			NewActor->AttachToComponent(this, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+			NewActor->AttachToComponent(this,
+				FAttachmentTransformRules
+				{
+					EAttachmentRule::SnapToTarget,
+					EAttachmentRule::KeepWorld,
+					EAttachmentRule::KeepWorld,
+					false
+				});
 		}
 		else
 		{

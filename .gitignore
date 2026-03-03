@@ -77,5 +77,6 @@ DerivedDataCache/*
 # Visual studio debugger temporary folder
 enc_temp_folder/*
 
-# Rider temp files
+# Rider files
 .idea/
+**.DotSettings.user

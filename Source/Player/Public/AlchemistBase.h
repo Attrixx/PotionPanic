@@ -58,13 +58,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> ThrowAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
+	float ThrowForce;
+
 private:
 
 	void UpdateBestComponents();
 
 	UFUNCTION()
 	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	                           bool bFromSweep, const FHitResult& SweepResult);
+	                            bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION()
 	void Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
@@ -75,6 +78,18 @@ private:
 	void Input_PickupOrDrop();
 	void Input_Throw();
 
+	UFUNCTION(Server, Reliable)
+	void Server_Interact();
+
+	UFUNCTION(Server, Reliable)
+	void Server_Pickup();
+
+	UFUNCTION(Server, Reliable)
+	void Server_Drop();
+
+	UFUNCTION(Server, Reliable)
+	void Server_Throw();
+
 private:
 
 	struct FOverlappedActor
@@ -82,6 +97,7 @@ private:
 		AActor* Actor;
 		uint64 NbOccurrences;
 	};
+
 	TArray<FOverlappedActor> OverlappedActors;
 
 	TScriptInterface<IInteractable> BestInteractable = nullptr;

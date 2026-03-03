@@ -226,10 +226,7 @@ void AAlchemistBase::Input_Dash()
 void AAlchemistBase::Input_Interact()
 {
 	if (BestInteractable)
-	{
-		// TODO: Check if this works (not using IInteractable::Execute_Interact??)
-		BestInteractable->Interact(Cast<APlayerController>(Controller));
-	}
+		Server_Interact();
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
@@ -238,18 +235,58 @@ void AAlchemistBase::Input_PickupOrDrop()
 		return;
 
 	if (HolderComponent->GetCarriable())
-	{
-		// Drop
-		HolderComponent->Replace(nullptr);
-	}
+		Server_Drop();
 	else
-	{
-		// Pickup
-		HolderComponent->Replace(BestCarriable);
-	}
+		Server_Pickup();
 }
 
 void AAlchemistBase::Input_Throw()
 {
-	HolderComponent->Throw();
+	if (HolderComponent && HolderComponent->GetCarriable())
+		Server_Throw();
+}
+
+void AAlchemistBase::Server_Interact_Implementation()
+{
+	if (BestInteractable)
+	{
+		// TODO: Check if this works (not using IInteractable::Execute_Interact??)
+		BestInteractable->Interact(Cast<APlayerController>(Controller));
+	}
+}
+
+void AAlchemistBase::Server_Pickup_Implementation()
+{
+	if (HolderComponent && !HolderComponent->GetCarriable())
+	{
+		HolderComponent->Replace(BestCarriable);
+	}
+}
+
+void AAlchemistBase::Server_Drop_Implementation()
+{
+	if (HolderComponent && HolderComponent->GetCarriable())
+	{
+		auto* Carriable = HolderComponent->Replace(nullptr);
+		if (Carriable) Carriable->SnapToGround();
+	}
+}
+
+void AAlchemistBase::Server_Throw_Implementation()
+{
+	// Drop
+	auto* Carriable = HolderComponent->Replace(nullptr);
+
+	// Try to throw
+	if (Carriable)
+	{
+		if (Carriable->CanBeThrown())
+		{
+			Carriable->Throw(GetActorForwardVector() * ThrowForce);
+		}
+		else
+		{
+			Carriable->SnapToGround();
+		}
+	}
 }
