@@ -267,25 +267,22 @@ void AAlchemistBase::Server_Pickup_Implementation()
 
 void AAlchemistBase::Server_Drop_Implementation()
 {
-	if (HolderComponent && HolderComponent->GetCarriable())
+	if (HolderComponent)
 	{
-		auto* Carriable = HolderComponent->Replace(nullptr);
-		if (Carriable) Carriable->SnapToGround();
+		if (auto* Carriable = HolderComponent->Replace(nullptr))
+		{
+			Carriable->SnapToGround();
+		}
 	}
 }
 
 void AAlchemistBase::Server_Throw_Implementation()
 {
-	auto* Carriable = HolderComponent->Replace(nullptr);
-	if (Carriable)
+	if (HolderComponent)
 	{
-		if (Carriable->CanBeThrown())
+		if (auto* Carriable = HolderComponent->Replace(nullptr))
 		{
 			Carriable->Throw(GetActorForwardVector() * ThrowForce);
-		}
-		else // Drop if can't throw
-		{
-			Carriable->SnapToGround();
 		}
 	}
 }

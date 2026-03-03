@@ -8,6 +8,9 @@
 
 class UHolderComponent;
 
+/**
+ * Carriable component should be used on an actor with a PrimitiveComponent as its root.
+ */
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UCarriableComponent : public UActorComponent
 {
@@ -23,9 +26,6 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	UHolderComponent* GetHolder() const { return Holder; }
-
-	UFUNCTION(BlueprintPure)
-	bool CanBeThrown() const { return RootPrimitive.IsValid(); }
 
 	UFUNCTION(BlueprintCallable)
 	void Throw(const FVector& Impulse);

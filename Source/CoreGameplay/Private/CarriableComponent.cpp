@@ -24,7 +24,16 @@ void UCarriableComponent::BeginPlay()
 	if (AActor* Owner = GetOwner())
 	{
 		RootPrimitive = Cast<UPrimitiveComponent>(Owner->GetRootComponent());
+	}
+
+	if (RootPrimitive.IsValid())
+	{
 		RootPrimitive->OnComponentHit.AddDynamic(this, &UCarriableComponent::OnRootPrimitiveHit);
+	}
+	else
+	{
+		UE_LOGFMT(MS_CarriableComponent, Warning, "Object {0} does not have a primitive root. Carriable Component will not work as expected.",
+			GetOwner() ? GetOwner()->GetName() : "NULL");
 	}
 }
 
