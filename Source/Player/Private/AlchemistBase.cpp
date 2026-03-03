@@ -141,8 +141,13 @@ void AAlchemistBase::UpdateBestComponents()
 
 	if (BestCarriable != LocalBestCarriable)
 	{
-		LocalBestCarriable = std::exchange(BestCarriable, LocalBestCarriable);
-		if (BestCarriable)
+		{
+			auto Temp = BestCarriable.Get();
+			BestCarriable = LocalBestCarriable;
+			LocalBestInteractable = Temp;
+		}
+
+		if (BestCarriable.IsValid())
 		{
 			UE_LOGFMT(MS_AlchemistBase, Log, "Enable: {0}", BestCarriable->GetOwner()->GetName());
 			// TODO: Enable effects on BestCarriable
@@ -259,7 +264,7 @@ void AAlchemistBase::Server_Pickup_Implementation()
 {
 	if (HolderComponent && !HolderComponent->GetCarriable())
 	{
-		HolderComponent->Replace(BestCarriable);
+		HolderComponent->Replace(BestCarriable.Get());
 	}
 }
 

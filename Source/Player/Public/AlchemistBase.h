@@ -100,6 +100,6 @@ private:
 
 	TArray<FOverlappedActor> OverlappedActors;
 
-	TScriptInterface<IInteractable> BestInteractable = nullptr;
-	UCarriableComponent* BestCarriable = nullptr;
+	TScriptInterface<IInteractable> BestInteractable;
+	TWeakObjectPtr<UCarriableComponent> BestCarriable;
 };
