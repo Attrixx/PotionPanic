@@ -52,14 +52,6 @@
 			]
 		},
 		{
-			"Name": "Orders",
-			"Type": "Runtime",
-			"LoadingPhase": "Default",
-			"AdditionalDependencies": [
-				"Engine"
-			]
-		},
-		{
 			"Name": "Recipes",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",

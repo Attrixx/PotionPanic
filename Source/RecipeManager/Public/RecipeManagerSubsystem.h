@@ -60,7 +60,7 @@ struct RECIPEMANAGER_API FRecipeManagerResult
 
 /**
  * Contract:
- * - Single runtime orchestrator between RecipeSystem and stations/orders.
+ * - Single runtime orchestrator between RecipeSystem and stations.
  * - Recipes define/validate/score only (what to do), never where/how to execute.
  * - Stations execute queued instructions only, and never resolve recipes.
  */
