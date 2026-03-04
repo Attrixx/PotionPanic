@@ -24,8 +24,13 @@ class COREGAMEPLAY_API ICarriable
 
 public:
 	
+	// Pickup is manually called by some user input
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	bool TryPickup(USceneComponent* AttachComponent);
+	
+	// Catch is automatically called from a specific world state
+	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
+	bool TryCatch(USceneComponent* AttachComponent);
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void Drop();

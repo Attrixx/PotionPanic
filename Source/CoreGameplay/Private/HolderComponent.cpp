@@ -18,6 +18,13 @@ void UHolderComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UHolderComponent, HeldActor);
 }
 
+void UHolderComponent::BeginPlay()
+{
+	Super::BeginPlay();
+
+	OnComponentBeginOverlap.AddDynamic(this, &UHolderComponent::Sphere_OnBeginOverlap);
+}
+
 AActor* UHolderComponent::GetHeldActor() const
 {
 	if (HeldActor.IsValid() && HeldActor->GetRootComponent()->GetAttachParent() != this)
@@ -53,6 +60,17 @@ AActor* UHolderComponent::Throw(FVector Velocity)
 
 	ICarriable::Execute_Throw(Actor, Velocity);
 	return Actor;
+}
+
+void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+                                             int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	check(OverlappedComponent == this);
+	
+	if (bIsCatchAllowed && !GetHeldActor() && ICarriable::Execute_TryCatch(OtherActor, this))
+	{
+		HeldActor = OtherActor;
+	}
 }
 
 void UHolderComponent::OnRep_HeldCarriable(TWeakObjectPtr<AActor> OldCarriable)

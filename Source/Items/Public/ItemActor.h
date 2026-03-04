@@ -31,6 +31,7 @@ public:
 protected: // ICarriable
 
 	bool TryPickup_Implementation(USceneComponent* AttachComponent) override;
+	bool TryCatch_Implementation(USceneComponent* AttachComponent) override;
 	void Drop_Implementation() override;
 	void Throw_Implementation(FVector Velocity) override;
 

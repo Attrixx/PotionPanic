@@ -3,16 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SceneComponent.h"
+#include "Components/SphereComponent.h"
 #include "HolderComponent.generated.h"
 
 UCLASS(meta=(BlueprintSpawnableComponent))
-class COREGAMEPLAY_API UHolderComponent : public USceneComponent
+class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 {
 	GENERATED_BODY()
 
 	UHolderComponent();
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void BeginPlay() override;
 
 public:
 
@@ -31,6 +32,10 @@ public:
 protected:
 
 	UFUNCTION()
+	void Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	                           int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
 	void OnRep_HeldCarriable(TWeakObjectPtr<AActor> OldCarriable);
 
 	/**
@@ -39,6 +44,11 @@ protected:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnCarriableChanged(AActor* OldCarriable, AActor* NewCarriable);
 
+public:
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsCatchAllowed = true;
+	
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_HeldCarriable)

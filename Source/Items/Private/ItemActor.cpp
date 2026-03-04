@@ -51,10 +51,7 @@ void AItemActor::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		StaticMesh->OnComponentHit.AddDynamic(this, &AItemActor::Mesh_OnHit);
-	}
+	StaticMesh->OnComponentHit.AddDynamic(this, &AItemActor::Mesh_OnHit);
 }
 
 void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
@@ -92,6 +89,17 @@ bool AItemActor::TryPickup_Implementation(USceneComponent* AttachComponent)
 	return true;
 }
 
+bool AItemActor::TryCatch_Implementation(USceneComponent* AttachComponent)
+{
+	// Items can only be caught when dropped or thrown
+	// Simulating physics is only done in those two cases
+	if (!StaticMesh->IsSimulatingPhysics())
+		return false;
+	
+	// After first condition passed, the rest is same as pickup
+	return Execute_TryPickup(this, AttachComponent);
+}
+
 void AItemActor::Drop_Implementation()
 {
 	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
@@ -115,7 +123,6 @@ void AItemActor::Throw_Implementation(FVector Velocity)
 void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	check(StaticMesh == HitComponent);
-	check(GetLocalRole() == ROLE_Authority);
 
 	AttachComp.Reset();
 
@@ -150,6 +157,7 @@ void AItemActor::OnRep_AttachComp()
 {
 	if (AttachComp.IsValid())
 	{
+		StaticMesh->SetSimulatePhysics(false);
 		StaticMesh->AttachToComponent(AttachComp.Get(),
 			FAttachmentTransformRules
 			{
