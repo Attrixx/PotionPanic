@@ -315,7 +315,7 @@ void ALobbyGameMode::RequestLeaveInviteArea(APlayerController* PlayerController)
 		{
 			if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(Iterator->Get()))
 			{
-				PC->ClientSwitchMappingContext_Implementation(false);
+				PC->ClientSwitchMappingContext(false);
 			}
 		}
 	}
@@ -334,7 +334,7 @@ void ALobbyGameMode::OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosit
 		{
 			if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(Iterator->Get()))
 			{
-				PC->ClientSwitchMappingContext_Implementation(true);
+				PC->ClientSwitchMappingContext(true);
 			}
 		}
 		break;

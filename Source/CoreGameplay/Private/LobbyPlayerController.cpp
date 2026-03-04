@@ -63,6 +63,8 @@ void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
 
 void ALobbyPlayerController::ClientSwitchMappingContext_Implementation(bool bInLobby)
 {
+	bIsUsingLobbyMappingContext = bInLobby;
+
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
 		if (bInLobby)
@@ -71,7 +73,6 @@ void ALobbyPlayerController::ClientSwitchMappingContext_Implementation(bool bInL
 			{
 				Subsystem->RemoveMappingContext(BaseInputMappingContext);
 			}
-			bIsUsingLobbyMappingContext = true;
 			Subsystem->AddMappingContext(LobbyInputMappingContext, 0);
 		}
 		else
@@ -80,7 +81,6 @@ void ALobbyPlayerController::ClientSwitchMappingContext_Implementation(bool bInL
 			{
 				Subsystem->RemoveMappingContext(LobbyInputMappingContext);
 			}
-			bIsUsingLobbyMappingContext = false;
 			Subsystem->AddMappingContext(BaseInputMappingContext, 0);
 		}
 	}
