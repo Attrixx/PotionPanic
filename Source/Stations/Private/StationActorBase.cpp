@@ -62,14 +62,10 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no valid World. Interaction ignored."), *GetName());
 		return;
 	}
-	
-	URecipeSystem* RecipeSystem = World->GetSubsystem<URecipeSystem>();
-	if (!RecipeSystem)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Station '%s' could not find RecipeSystem. Interaction ignored."), *GetName());
-		return;
-	}
-	
+
+	URecipeSystem *RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
+	check(RecipeSystem);
+
 	auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
 	
 	if (Response.Interactions.IsEmpty() || CachedInstigator != nullptr)

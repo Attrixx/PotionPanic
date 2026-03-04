@@ -18,13 +18,8 @@ void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
 	Super::OnWorldBeginPlay(InWorld);
 	
 	auto Settings = Cast<APotionPanicWorldSettings>(InWorld.GetWorldSettings());
-	if (!Settings)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("RecipeSystem: world settings is not APotionPanicWorldSettings."));
-		RecipeAsset = nullptr;
-		return;
-	}
-	
+	check(Settings);
+
 	if (Settings->RecipeAsset)
 		RecipeAsset = Settings->RecipeAsset;
 }
