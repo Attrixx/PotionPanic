@@ -3,11 +3,13 @@
 
 #include "LobbyPlayerState.h"
 #include "LobbyPlayerController.h"
+#include "LobbyGameMode.h"
 
 #include "Net/UnrealNetwork.h"
 #include "LevelSequenceActor.h"
 #include "LevelSequencePlayer.h"
 #include "Blueprint/UserWidget.h"
+#include "GameFramework/Character.h"
 
 ALobbyPlayerState::ALobbyPlayerState()
 {
@@ -191,6 +193,14 @@ ULevelSequencePlayer* ALobbyPlayerState::PlaySequence(ELevelSequenceType Sequenc
 		SequencePlayer->PlayReverse();
 	}
 	return SequencePlayer;
+}
+
+void ALobbyPlayerState::ServerOnStartupSequenceFinished_Implementation()
+{
+	if (ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
+	{
+		LobbyGameMode->OnPlayerEndedStartupSequence(Cast<ACharacter>(GetPawn()));
+	}
 }
 
 void ALobbyPlayerState::OnLobbyInterfaceSequenceFinished()

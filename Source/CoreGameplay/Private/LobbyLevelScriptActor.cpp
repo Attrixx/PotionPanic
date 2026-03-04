@@ -3,11 +3,20 @@
 
 #include "LobbyLevelScriptActor.h"
 #include "LobbyGameMode.h"
-#include "LobbyGameState.h"
+#include "LobbyPlayerState.h"
+#include "LobbyPlayerController.h"
+#include "LobbyCharacter.h"
 
 #include "Engine/TriggerBox.h"
 #include "Components/ShapeComponent.h"
 #include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
+
+void ALobbyLevelScriptActor::BeginPlay()
+{
+	Super::BeginPlay();
+	ToggleShowPlayerPreviews(false);
+}
 
 void ALobbyLevelScriptActor::RegisterTriggerBoxes(const TMap<ETriggerBoxType, ATriggerBox*>& TriggerBoxes)
 {
@@ -21,6 +30,33 @@ void ALobbyLevelScriptActor::RegisterTriggerBoxes(const TMap<ETriggerBoxType, AT
 			Pair.Value->OnActorEndOverlap.AddDynamic(this, &ThisClass::OnTriggerBoxEndOverlap);
 		}
 	}
+}
+
+void ALobbyLevelScriptActor::ToggleShowPlayerPreviews(bool bShow)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		ALobbyPlayerController* PlayerController = Cast<ALobbyPlayerController>(Iterator->Get());
+		if (!IsValid(PlayerController)) continue;
+
+		if (ACharacter* PlayerCharacter = PlayerController->GetCharacter())
+		{
+			PlayerCharacter->SetActorHiddenInGame(bShow);
+		}
+		if (ACharacter* PreviewCharacter = PlayerController->GetPreviewActor())
+		{
+			PreviewCharacter->SetActorHiddenInGame(!bShow);
+		}
+	}
+}
+
+void ALobbyLevelScriptActor::OnStartupSequenceFinished()
+{
+	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(this, 0);
+	if (!IsValid(LocalPC)) return;
+	ALobbyPlayerState* PlayerState = LocalPC->GetPlayerState<ALobbyPlayerState>();
+	if (!IsValid(PlayerState)) return;
+	PlayerState->ServerOnStartupSequenceFinished();
 }
 
 void ALobbyLevelScriptActor::OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor* OtherActor)

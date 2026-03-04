@@ -8,8 +8,7 @@
 #include "LobbyGameState.h"
 #include "LobbyGameMode.generated.h"
 
-class ALobbyPlayerPreview;
-class ALobbySpawnPoint;
+class ALobbyCharacter;
 class ALobbyPlayerState;
 
 USTRUCT(BlueprintType)
@@ -41,15 +40,12 @@ protected:
 
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Lobby")
-	TSubclassOf<ALobbyPlayerPreview> LobbyPlayerPreviewClass;
-
 public:
 	
 	bool CanHandleNewPlayer() const;
 
 	UFUNCTION(BlueprintCallable)
-	void RegisterLobbySpawnPoints(const TArray<ALobbySpawnPoint*>& SpawnPoints);
+	void RegisterLobbySpawnPoints(const TArray<AActor*>& SpawnPoints);
 	UFUNCTION(BlueprintCallable)
 	void RegisterAreaTeleportPoints(const TArray<FTeleportPointsForArea>& TeleportPoints);
 
@@ -58,6 +54,7 @@ public:
 
 	void OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea);
 	void OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea, bool bIsAnyActorInArea = false, bool bIsPlayerInArea = false);
+	void OnPlayerEndedStartupSequence(ACharacter* PlayerCharacter);
 
 private:
 
@@ -80,7 +77,7 @@ private:
 	int32 HostPlayerId;
 
 	UPROPERTY()
-	TArray<ALobbySpawnPoint*> CachedSpawnPoints;
+	TArray<AActor*> CachedSpawnPoints;
 
 	ECameraPosition CurrentCameraPosition = ECameraPosition::Exterior;
 	bool bDoorsOpen = false;

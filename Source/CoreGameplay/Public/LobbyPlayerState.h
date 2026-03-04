@@ -64,6 +64,9 @@ public:
 	void ClientPlayLevelSequence(ECameraPosition TargetCameraPosition);
 	ULevelSequencePlayer* PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward = true);
 
+	UFUNCTION(Server, Reliable)
+	void ServerOnStartupSequenceFinished();
+
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Lobby|UI")

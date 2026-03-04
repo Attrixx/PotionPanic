@@ -4,7 +4,7 @@
 #include "LobbyPlayerController.h"
 #include "LobbyGameMode.h"
 #include "LobbyPlayerState.h"
-#include "LobbyPlayerPreview.h"
+#include "LobbyCharacter.h"
 #include "CustomGameViewportClient.h"
 #include "LocalPlayerRegistrationComponent.h"
 
@@ -25,7 +25,7 @@ ALobbyPlayerController::ALobbyPlayerController()
 void ALobbyPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ALobbyPlayerController, MyPreviewActor);
+	DOREPLIFETIME(ALobbyPlayerController, PreviewActor);
 }
 void ALobbyPlayerController::BeginPlay()
 {

@@ -3,8 +3,7 @@
 #include "LobbyGameMode.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerState.h"
-#include "LobbySpawnPoint.h"
-#include "LobbyPlayerPreview.h"
+#include "LobbyCharacter.h"
 #include "LobbyPlayerController.h"
 
 #include "GameFramework/PlayerState.h"
@@ -27,11 +26,12 @@ void ALobbyGameMode::BeginPlay()
 
 void ALobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
-	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 	if (!CanHandleNewPlayer())
 	{
 		ErrorMessage = TEXT("The lobby is full");
+		return;
 	}
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
 void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
@@ -55,15 +55,6 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 			HostPlayerId = PlayerState->GetPlayerId();
 			PlayerState->Server_SetIsHost(true);
 		}
-
-		const FUniqueNetIdRepl& UniqueId = PlayerState->GetUniqueId();
-		if (UniqueId.IsValid())
-		{
-			UE_LOG(LogTemp, Log, TEXT("PostLogin Info: Name: %s, ID: %d, UniqueID: %s"),
-				*PlayerState->GetPlayerName(),
-				PlayerState->GetPlayerId(),
-				*UniqueId.GetV1()->ToDebugString());
-		}
 	}
 
 	if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(NewPlayer))
@@ -76,10 +67,10 @@ void ALobbyGameMode::Logout(AController* Exiting)
 {
 	if (ALobbyPlayerController* LeavingPC = Cast<ALobbyPlayerController>(Exiting))
 	{
-		if (LeavingPC->MyPreviewActor)
+		if (ALobbyCharacter* PreviewActor = LeavingPC->GetPreviewActor())
 		{
-			LeavingPC->MyPreviewActor->Destroy();
-			LeavingPC->MyPreviewActor = nullptr;
+			PreviewActor->Destroy();
+			PreviewActor = nullptr;
 		}
 	}
 
@@ -102,29 +93,30 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer)
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	int32 NumberOfPlayers = GetNumPlayers();
-	if (LobbyPlayerPreviewClass && CachedSpawnPoints.Num() >= NumberOfPlayers)
+	if (CachedSpawnPoints.Num() >= NumberOfPlayers)
 	{
-		ALobbySpawnPoint* ChosenPoint = CachedSpawnPoints[NumberOfPlayers - 1];
-		ALobbyPlayerPreview* NewPreview = GetWorld()->SpawnActor<ALobbyPlayerPreview>(
-			LobbyPlayerPreviewClass,
+		AActor* ChosenPoint = CachedSpawnPoints[NumberOfPlayers - 1];
+		ALobbyCharacter* NewPreview = GetWorld()->SpawnActor<ALobbyCharacter>(
+			DefaultPawnClass,
 			ChosenPoint->GetActorLocation(),
 			ChosenPoint->GetActorRotation(),
 			SpawnParams
 		);
 
-		if (ALobbyPlayerController* MyPc = Cast<ALobbyPlayerController>(NewPlayer))
+		if (ALobbyPlayerController* LobbyPlayerController = Cast<ALobbyPlayerController>(NewPlayer))
 		{
-			MyPc->MyPreviewActor = NewPreview;
-			if (ALobbyPlayerState* PS = MyPc->GetPlayerState<ALobbyPlayerState>())
+			LobbyPlayerController->SetPreviewActor(NewPreview);
+			if (ALobbyPlayerState* LobbyPlayerState = LobbyPlayerController->GetPlayerState<ALobbyPlayerState>())
 			{
-				PS->OnPlayerColorChanged.AddDynamic(NewPreview, &ALobbyPlayerPreview::SetPlayerColor);
-				NewPreview->SetPlayerColor(PS->GetPlayerColor());
-			} 
+				LobbyPlayerState->OnPlayerColorChanged.AddDynamic(NewPreview, &ALobbyCharacter::SetPlayerColor);
+				NewPreview->SetPlayerColor(LobbyPlayerState->GetPlayerColor());
+			}
+
+			if (CurrentCameraPosition != ECameraPosition::LobbyInterface)
+			{
+				NewPreview->SetActorHiddenInGame(true);
+			}
 		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("LobbyPlayerPreviewClass is not assigned in the GameMode!"));
 	}
 }
 
@@ -158,10 +150,10 @@ void ALobbyGameMode::RearrangePlayers()
 		{
 			if (CachedSpawnPoints.IsValidIndex(PlayerIndex))
 			{
-				ALobbySpawnPoint* NewPoint = CachedSpawnPoints[PlayerIndex];
-				if (PC->MyPreviewActor)
+				AActor* NewPoint = CachedSpawnPoints[PlayerIndex];
+				if (ALobbyCharacter* PreviewActor = PC->GetPreviewActor())
 				{
-					PC->MyPreviewActor->SetActorLocation(NewPoint->GetActorLocation());
+					PreviewActor->SetActorLocation(NewPoint->GetActorLocation());
 				}
 			}
 		}
@@ -292,7 +284,7 @@ bool ALobbyGameMode::CanHandleNewPlayer() const
 	return true;
 }
 
-void ALobbyGameMode::RegisterLobbySpawnPoints(const TArray<ALobbySpawnPoint*>& SpawnPoints)
+void ALobbyGameMode::RegisterLobbySpawnPoints(const TArray<AActor*>& SpawnPoints)
 {
 	CachedSpawnPoints = SpawnPoints;
 
@@ -300,7 +292,7 @@ void ALobbyGameMode::RegisterLobbySpawnPoints(const TArray<ALobbySpawnPoint*>& S
 	{
 		if (ALobbyPlayerController* PC = Cast<ALobbyPlayerController>(It->Get()))
 		{
-			if (!PC->MyPreviewActor)
+			if (!PC->GetPreviewActor())
 			{
 				SpawnLobbyCharacter(PC);
 			}
@@ -403,5 +395,13 @@ void ALobbyGameMode::OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosit
 		break;
 	case ECameraPosition::Interior:
 		break;
+	}
+}
+
+void ALobbyGameMode::OnPlayerEndedStartupSequence(ACharacter* PlayerCharacter)
+{
+	if (CurrentCameraPosition == ECameraPosition::LobbyInterface)
+	{
+		SwitchCameraForTarget(PlayerCharacter, ECameraPosition::LobbyInterface);
 	}
 }

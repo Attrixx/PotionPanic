@@ -11,9 +11,8 @@ class ULobby;
 class ULocalPlayerRegistrationComponent;
 class UInputMappingContext;
 class UInputAction;
-class ALobbySpawnPoint;
 struct FInputActionValue;
-class ALobbyPlayerPreview;
+class ALobbyCharacter;
 
 /**
  * 
@@ -28,10 +27,6 @@ public:
 	ALobbyPlayerController();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	UPROPERTY(Replicated, BlueprintReadOnly)
-	ALobbyPlayerPreview* MyPreviewActor;
-	ALobbySpawnPoint* SpawnPoint;
-
 protected:
 
 	void BeginPlay() override;
@@ -45,6 +40,9 @@ public:
 
 	UFUNCTION(Client, Reliable, BlueprintCallable, Category = "Lobby")
 	void ClientSwitchMappingContext(bool bInLobby);
+
+	ALobbyCharacter* GetPreviewActor() const { return PreviewActor; }
+	void SetPreviewActor(ALobbyCharacter* NewPreviewActor) { PreviewActor = NewPreviewActor; };
 
 private:
 
@@ -68,6 +66,9 @@ protected:
 	TObjectPtr<UInputAction> InviteAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	TObjectPtr<UInputAction> MenuAction;
+
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	TObjectPtr<ALobbyCharacter> PreviewActor;
 
 protected:
 

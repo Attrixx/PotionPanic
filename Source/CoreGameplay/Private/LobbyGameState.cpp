@@ -12,8 +12,6 @@
 void ALobbyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(ALobbyGameState, LobbyCamera);
 }
 
 void ALobbyGameState::ServerRegisterLevelSequences_Implementation(const TArray<FLevelSequenceInfo>& LevelSequences)
@@ -98,15 +96,21 @@ void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 {
 	Super::AddPlayerState(PlayerState);
 	OnPlayerAdded.Broadcast(PlayerState);
-	if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
+	
+	if (HasAuthority())
 	{
-		if (AvailableDefaultColors.Num() > 0)
+		if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
 		{
-			LobbyPS->SetPlayerColor(AvailableDefaultColors[0]);
-			AvailableDefaultColors.RemoveAt(0);
-		}
-		else
-		{
+			for (int32 i = 0; i < AvailableColors.Num(); i++)
+			{
+				if (AvailableColors[i])
+				{
+					LobbyPS->SetPlayerColor(DefaultColors[i]);
+					AvailableColors[i] = false;
+					return;
+				}
+			}
+
 			LobbyPS->SetPlayerColor(FColor::MakeRandomColor());
 		}
 	}
@@ -116,8 +120,16 @@ void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 {
 	Super::RemovePlayerState(PlayerState);
 	OnPlayerRemoved.Broadcast(PlayerState);
-	if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
+	
+	if (HasAuthority())
 	{
-		AvailableDefaultColors.Add(LobbyPS->GetPlayerColor());
+		if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
+		{
+			int32 Index = DefaultColors.Find(LobbyPS->GetPlayerColor());
+			if (Index != INDEX_NONE)
+			{
+				AvailableColors[Index] = true;
+			}
+		}
 	}
 }

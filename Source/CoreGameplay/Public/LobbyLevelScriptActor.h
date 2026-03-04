@@ -18,8 +18,16 @@ class COREGAMEPLAY_API ALobbyLevelScriptActor : public ALevelScriptActor
 
 public:
 
+	void BeginPlay() override;
+
 	UFUNCTION(BlueprintCallable)
 	void RegisterTriggerBoxes(const TMap<ETriggerBoxType, ATriggerBox*>& TriggerBoxes);
+
+	UFUNCTION(BlueprintCallable)
+	void ToggleShowPlayerPreviews(bool bShow = true);
+
+	UFUNCTION(BlueprintCallable)
+	void OnStartupSequenceFinished();
 
 private:
 

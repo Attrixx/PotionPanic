@@ -68,12 +68,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Lobby")
 	bool AreAllPlayersReady() const;
 
-	UFUNCTION(BlueprintCallable)
-	void SetLobbyCamera(ACameraActor* Camera) { LobbyCamera = Camera; }
-
-	UFUNCTION(BlueprintPure)
-	ACameraActor* GetLobbyCamera() const { return LobbyCamera; }
-
 	UFUNCTION(NetMulticast, Reliable)
 	void MulticastPlayLevelSequence(ECameraPosition TargetCameraPosition);
 	UFUNCTION(NetMulticast, Reliable)
@@ -95,15 +89,13 @@ public:
 
 private:
 
-	TArray<FColor> AvailableDefaultColors = {
+	TArray<FColor> DefaultColors = {
+		FColor::Yellow,
 		FColor::Red,
 		FColor::Green,
-		FColor::Blue,
-		FColor::Yellow
+		FColor::Blue
 	};
-
-	UPROPERTY(Replicated)
-	TObjectPtr<class ACameraActor> LobbyCamera;
+	TArray<bool> AvailableColors = { true, true, true, true };
 
 	UPROPERTY(Replicated)
 	TArray<FLevelSequenceInfo> RegisteredLevelSequences;
