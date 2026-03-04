@@ -10,7 +10,6 @@ void UTimeInteraction::Init(UInteractionSetting* Settings)
 
 void UTimeInteraction::StartInteraction(const FInteractionContext& Context)
 {
-	
 	if (UWorld* World = GetOuter()->GetWorld())
 	{
 		FTimerHandle Handle;

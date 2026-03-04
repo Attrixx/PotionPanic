@@ -52,4 +52,6 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	virtual void StartInteraction(const FInteractionContext& Context) PURE_VIRTUAL(UInteractionBase::StartInteraction, );
+	
+	virtual void InteractWhileProcess() {}
 };

@@ -2,6 +2,8 @@
 #include "HolderComponent.h"
 #include "Recipes/Public/RecipeSystem.h"
 
+DEFINE_LOG_CATEGORY_STATIC(MS_StationActorBase, Log, All);
+
 AStationActorBase::AStationActorBase()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -42,17 +44,17 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
-	UE_LOG(LogTemp, Log, TEXT("Station '%s' interacted by player"), *GetName());
+	UE_LOG(MS_StationActorBase, Log, TEXT("Station '%s' interacted by player"), *GetName());
 
 	if (!StationAsset)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no StationAsset. Interaction ignored."), *GetName());
+		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no StationAsset. Interaction ignored."), *GetName());
 		return;
 	}
 
 	if (!ItemHolder)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no ItemHolder. Interaction ignored."), *GetName());
+		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no ItemHolder. Interaction ignored."), *GetName());
 		return;
 	}
 	
@@ -72,15 +74,19 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 		bHasInteractions = true;
 	}
 	
-	if (!bIsBusy)
+	if (bIsBusy)
 	{
-		ExecuteNextInteraction(InInstigator);		
+		CachedInteractionInfos[InteractionIndex].Interaction->InteractWhileProcess();
+	}
+	else
+	{
+		ExecuteNextInteraction(InInstigator);	
 	}
 }
 
 void AStationActorBase::OnInteractionFinished(FInteractionOutput InteractionOutput)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Interaction Complete"));
+	UE_LOG(MS_StationActorBase, Warning, TEXT("Interaction Complete"));
 	
 	bIsBusy = false;
 	if (InteractionOutput.InteractionResult == EInteractionResult::Success)
@@ -107,7 +113,7 @@ void AStationActorBase::ExecuteNextInteraction(APlayerController* InInstigator)
 	
 	if (InteractionIndex == CachedInteractionInfos.Num())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Transformation success"));
+		UE_LOG(MS_StationActorBase, Warning, TEXT("Transformation success"));
 		ResetCurrentInteractions();
 		// TODO Instantiate Output item in socket and get rid of previous
 	}
@@ -120,7 +126,7 @@ void AStationActorBase::ExecuteNextInteraction(APlayerController* InInstigator)
 		UInteractionBase* CurrentInteraction = CachedInteractionInfos[InteractionIndex].Interaction;
 		if (!CurrentInteraction)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
+			UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
 			ResetCurrentInteractions();
 			return;
 		}
