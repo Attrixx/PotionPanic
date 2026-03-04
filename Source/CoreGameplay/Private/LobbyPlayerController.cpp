@@ -37,8 +37,6 @@ void ALobbyPlayerController::BeginPlay()
 void ALobbyPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
-
-	ClientSwitchMappingContext(false);
 }
 
 void ALobbyPlayerController::SetupInputComponent()
@@ -51,6 +49,8 @@ void ALobbyPlayerController::SetupInputComponent()
 		EnhancedInputComponent->BindAction(InviteAction, ETriggerEvent::Started, this, &ThisClass::Invite);
 		EnhancedInputComponent->BindAction(MenuAction, ETriggerEvent::Started, this, &ThisClass::HandleMenuAction);
 	}
+
+	ClientSwitchMappingContext(false);
 }
 
 void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
