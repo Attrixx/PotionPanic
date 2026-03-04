@@ -5,6 +5,7 @@
 #include "Interactable.h"
 #include "StationAsset.h"
 #include "Interactions/Public/InteractionBase.h"
+#include "Recipes/Public/RecipeSystem.h"
 #include "StationActorBase.generated.h"
 
 class AItemActor;
@@ -39,7 +40,7 @@ private:
 	void OnInteractionFinished(FInteractionOutput InteractionOutput);
 	
 	void ResetCurrentInteractions();
-	void ExecuteNextInteraction();
+	void ExecuteNextInteraction(APlayerController* Instigator);
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Station|Data")
@@ -51,11 +52,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Station|Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
-	
-	UPROPERTY()
-	APlayerController* CachedInstigator;
-	UPROPERTY()
-	TArray<UInteractionBase*> CachedInteractions;
+	bool bHasInteractions = false;
+	bool bIsBusy = false;
+	TArray<FInteractionInfo> CachedInteractionInfos;
 	int32 InteractionIndex = -1;
 	
 	UPROPERTY()

@@ -13,12 +13,22 @@ class UHolderComponent;
 class RecipeAsset;
 
 USTRUCT()
+struct RECIPES_API FInteractionInfo
+{
+	GENERATED_BODY()
+	
+	UPROPERTY()
+	UInteractionBase* Interaction = nullptr;
+	bool bRequiresPlayerInteraction = false;
+};
+
+USTRUCT()
 struct RECIPES_API FGetRecipeStepResponse
 {	
 	GENERATED_BODY()
 public:
 	UPROPERTY()
-	TArray<UInteractionBase*> Interactions;
+	TArray<FInteractionInfo> InteractionInfos;
 	UPROPERTY()
 	TObjectPtr<UItemAsset> OutputItem = nullptr;
 };
@@ -40,5 +50,6 @@ public:
 	TArray<URecipeAsset*> GetShuffledRecipes(const TArray<URecipeAsset*>& InRecipes);
 	
 private:
-	TObjectPtr<URecipeAsset> RecipeAsset;
+	UPROPERTY()
+	TObjectPtr<URecipeAsset> RecipeAsset = nullptr;
 };

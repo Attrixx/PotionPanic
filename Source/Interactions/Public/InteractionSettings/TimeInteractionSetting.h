@@ -3,20 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
-#include "IteractionSetting.generated.h"
-
-class UInteractionBase;
+#include "InteractionSetting.h"
+#include "TimeInteractionSetting.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class INTERACTIONS_API UIteractionSetting : public UPrimaryDataAsset
+class INTERACTIONS_API UTimeInteractionSetting : public UInteractionSetting
 {
 	GENERATED_BODY()
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSubclassOf<UInteractionBase> InteractionClass;
+	float SecondsToWait = 0.f;
 };

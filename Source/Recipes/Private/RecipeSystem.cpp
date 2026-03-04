@@ -11,6 +11,7 @@
 #include "CarriableComponent.h"
 #include "InteractionBase.h"
 #include "ItemTransformation.h"
+#include "InteractionSetting.h"
 #include "Items/Public/ItemActor.h"
 
 void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
@@ -49,6 +50,7 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 		StationItem = ItemActor->GetItemAsset();
 	}
 	
+	// When StationItem == nullptr, we still want to go through this loop (Spawner case)
 	for (auto Step : RecipeAsset->Steps)
 	{
 		if (!Step)
@@ -56,18 +58,23 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 			continue;
 		}
 
-		// Suppose there is only one possible InputItem + Activity association in RecipeAsset
 		if (StationItem == Step->InputItem && StationActivities.Contains(Step->Activity))
 		{
 			for (auto Setting : Step->InteractionSettings)
 			{
 				if (UInteractionBase* Interaction = UInteractionBase::CreateInteraction(this, Setting))
 				{
-					Output.Interactions.Add(Interaction);
+					Interaction->Init(Setting);
+					
+					FInteractionInfo& Info = Output.InteractionInfos.Emplace_GetRef();
+					Info.Interaction = Interaction;
+					Info.bRequiresPlayerInteraction = Setting->bRequiresPlayerInteraction;
 				}
 			}
 			
 			Output.OutputItem = Step->OutputItem;
+			// Suppose there is only one possible InputItem + Activity association in RecipeAsset
+			break;
 		}
 	}
 	
@@ -76,6 +83,7 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 
 TArray<URecipeAsset*> URecipeSystem::GetShuffledRecipes(const TArray<URecipeAsset*>& InRecipes)
 {
+	// TODO Ref this, kept in code for now cause might be useful
 	TArray<URecipeAsset*> ShuffledRecipes = InRecipes;
 
 	if (ShuffledRecipes.Num() <= 1)

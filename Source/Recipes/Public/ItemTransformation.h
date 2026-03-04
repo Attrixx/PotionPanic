@@ -8,7 +8,7 @@
 
 class UItemAsset;
 class UActivityAsset;
-class UIteractionSetting;
+class UInteractionSetting;
 
 UCLASS()
 class RECIPES_API UItemTransformation : public UPrimaryDataAsset
@@ -27,7 +27,7 @@ public:
 	TObjectPtr<UActivityAsset> Activity;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<UIteractionSetting>> InteractionSettings;
+	TArray<TObjectPtr<UInteractionSetting>> InteractionSettings;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UItemAsset> OutputItem;

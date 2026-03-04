@@ -55,38 +55,37 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no ItemHolder. Interaction ignored."), *GetName());
 		return;
 	}
+	
+	if (!bHasInteractions)
+	{		
+		URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
+		check(RecipeSystem);
 
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Station '%s' has no valid World. Interaction ignored."), *GetName());
-		return;
+		auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
+		if (Response.InteractionInfos.IsEmpty())
+		{
+			return;
+		}
+		
+		ResetCurrentInteractions();
+		CachedInteractionInfos = Response.InteractionInfos;
+		bHasInteractions = true;
 	}
-
-	URecipeSystem *RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
-	check(RecipeSystem);
-
-	auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
 	
-	if (Response.Interactions.IsEmpty() || CachedInstigator != nullptr)
+	if (!bIsBusy)
 	{
-		return;
+		ExecuteNextInteraction(InInstigator);		
 	}
-	
-	ResetCurrentInteractions();
-	CachedInstigator = InInstigator;
-	CachedInteractions = Response.Interactions;
-	
-	ExecuteNextInteraction();
 }
 
 void AStationActorBase::OnInteractionFinished(FInteractionOutput InteractionOutput)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Interaction Complete"));
 	
+	bIsBusy = false;
 	if (InteractionOutput.InteractionResult == EInteractionResult::Success)
 	{
-		ExecuteNextInteraction();
+		ExecuteNextInteraction(nullptr);
 	}
 	else
 	{
@@ -96,28 +95,29 @@ void AStationActorBase::OnInteractionFinished(FInteractionOutput InteractionOutp
 
 void AStationActorBase::ResetCurrentInteractions()
 {
-	CachedInstigator = nullptr;
-	CachedInteractions.Reset();
+	CachedInteractionInfos.Reset();
 	InteractionIndex = -1;
+	bHasInteractions = false;
+	bIsBusy = false;
 }
 
-void AStationActorBase::ExecuteNextInteraction()
+void AStationActorBase::ExecuteNextInteraction(APlayerController* InInstigator)
 {
 	++InteractionIndex;
 	
-	if (InteractionIndex == CachedInteractions.Num())
+	if (InteractionIndex == CachedInteractionInfos.Num())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Transformation success"));
 		ResetCurrentInteractions();
 		// TODO Instantiate Output item in socket and get rid of previous
 	}
-	else
+	else if (InInstigator || !CachedInteractionInfos[InteractionIndex].bRequiresPlayerInteraction)
 	{
 		FInteractionContext InteractionContext;
-		InteractionContext.Instigator = CachedInstigator;
+		InteractionContext.Instigator = InInstigator;
 		InteractionContext.OnInteractionFinished.AddDynamic(this, &AStationActorBase::OnInteractionFinished);
 
-		UInteractionBase* CurrentInteraction = CachedInteractions[InteractionIndex];
+		UInteractionBase* CurrentInteraction = CachedInteractionInfos[InteractionIndex].Interaction;
 		if (!CurrentInteraction)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
@@ -125,6 +125,11 @@ void AStationActorBase::ExecuteNextInteraction()
 			return;
 		}
 		
+		bIsBusy = true;
 		CurrentInteraction->StartInteraction(InteractionContext);
+	}
+	else
+	{
+		--InteractionIndex;
 	}
 }
