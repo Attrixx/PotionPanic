@@ -17,17 +17,17 @@ class COREGAMEPLAY_API UHolderComponent : public USceneComponent
 public:
 
 	UFUNCTION(BlueprintPure)
-	AActor* GetHeldActor() const { return HeldActor.Get(); }
+	AActor* GetHeldActor() const;
 
 	UFUNCTION(BlueprintCallable)
 	bool TryPickup(AActor* Actor);
-	
+
 	UFUNCTION(BlueprintCallable)
 	AActor* Drop();
-	
+
 	UFUNCTION(BlueprintCallable)
 	AActor* Throw(FVector Velocity);
-	
+
 protected:
 
 	UFUNCTION()
@@ -42,5 +42,5 @@ protected:
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_HeldCarriable)
-	TWeakObjectPtr<AActor> HeldActor;
+	mutable TWeakObjectPtr<AActor> HeldActor;
 };

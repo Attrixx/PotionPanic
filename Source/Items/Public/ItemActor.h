@@ -11,6 +11,7 @@ class UItemAsset;
 class UStaticMeshComponent;
 class UNiagaraComponent;
 class UAudioComponent;
+class UHolderComponent;
 
 UCLASS()
 class ITEMS_API AItemActor : public AActor, public ICarriable
@@ -18,6 +19,7 @@ class ITEMS_API AItemActor : public AActor, public ICarriable
 	GENERATED_BODY()
 
 	AItemActor();
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 
@@ -28,7 +30,7 @@ public:
 
 protected: // ICarriable
 
-	void Pickup_Implementation(USceneComponent* AttachComponent) override;
+	bool TryPickup_Implementation(USceneComponent* AttachComponent) override;
 	void Drop_Implementation() override;
 	void Throw_Implementation(FVector Velocity) override;
 
@@ -37,14 +39,24 @@ private:
 	UFUNCTION()
 	void Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 	static constexpr float GroundCollisionThreshold = 0.8f;
-	
-	void SnapToGround();
-	static constexpr float SnapToGroundMaxDistance = 1000.0f; // 10 meters 
-	
+
+	bool TrySnapToGround();
+	static constexpr float SnapToGroundMaxDistance = 200.0f;
+
+	UFUNCTION()
+	void OnRep_AttachComp();
+
+	UFUNCTION()
+	void ApplyItemAsset();
+
 private:
 
-	// TODO: OnRep apply asset
-	UPROPERTY(EditInstanceOnly)
+	// Cleared after hitting something, avoid being pickup up by
+	// the comp that just dropped us
+	UPROPERTY(ReplicatedUsing=OnRep_AttachComp)
+	TWeakObjectPtr<USceneComponent> AttachComp;
+
+	UPROPERTY(EditInstanceOnly, ReplicatedUsing=ApplyItemAsset)
 	TObjectPtr<UItemAsset> ItemAsset;
 
 protected:

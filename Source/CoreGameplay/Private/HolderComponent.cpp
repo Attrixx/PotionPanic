@@ -18,36 +18,39 @@ void UHolderComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UHolderComponent, HeldActor);
 }
 
+AActor* UHolderComponent::GetHeldActor() const
+{
+	if (HeldActor.IsValid() && HeldActor->GetRootComponent()->GetAttachParent() != this)
+		HeldActor.Reset();
+	return HeldActor.Get();
+}
+
 bool UHolderComponent::TryPickup(AActor* Actor)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "TryPickup must execute on authority. Call ignored.");
+	if (!Actor || !Actor->Implements<UCarriable>() || GetHeldActor())
 		return false;
-	}
 
-	if (!Actor || !Actor->Implements<UCarriable>() || HeldActor.IsValid())
+	if (!ICarriable::Execute_TryPickup(Actor, this))
 		return false;
-	
-	ICarriable::Execute_Pickup(Actor, this);
+
 	HeldActor = Actor;
 	return true;
 }
 
 AActor* UHolderComponent::Drop()
 {
-	AActor* Actor = HeldActor.Get();
+	AActor* Actor = GetHeldActor();
 	HeldActor.Reset();
-	
+
 	ICarriable::Execute_Drop(Actor);
 	return Actor;
 }
 
 AActor* UHolderComponent::Throw(FVector Velocity)
 {
-	AActor* Actor = HeldActor.Get();
+	AActor* Actor = GetHeldActor();
 	HeldActor.Reset();
-	
+
 	ICarriable::Execute_Throw(Actor, Velocity);
 	return Actor;
 }

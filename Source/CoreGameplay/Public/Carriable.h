@@ -25,7 +25,7 @@ class COREGAMEPLAY_API ICarriable
 public:
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	void Pickup(USceneComponent* AttachComponent);
+	bool TryPickup(USceneComponent* AttachComponent);
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void Drop();

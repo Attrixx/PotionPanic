@@ -2,6 +2,7 @@
 
 #include "ItemActor.h"
 #include "ItemAsset.h"
+#include <Net/UnrealNetwork.h>
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
 #include <NiagaraComponent.h>
@@ -29,6 +30,13 @@ AItemActor::AItemActor()
 	Audio->bAutoActivate = false;
 }
 
+void AItemActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AItemActor, AttachComp)
+	DOREPLIFETIME(AItemActor, ItemAsset)
+}
+
 void AItemActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
@@ -52,18 +60,20 @@ void AItemActor::BeginPlay()
 void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
 {
 	ItemAsset = &NewItemAsset;
-
-	StaticMesh->SetStaticMesh(NewItemAsset.StaticMesh);
-
-	Niagara->SetAsset(NewItemAsset.NiagaraSystem);
-	Niagara->Activate(true);
-
-	Audio->SetSound(NewItemAsset.Sound);
-	Audio->Activate(true);
+	ApplyItemAsset();
 }
 
-void AItemActor::Pickup_Implementation(USceneComponent* AttachComponent)
+bool AItemActor::TryPickup_Implementation(USceneComponent* AttachComponent)
 {
+	if (AttachComponent == AttachComp)
+		return false;
+
+	if (StaticMesh->GetAttachParent())
+		return false; // Already picked up by something
+
+	StaticMesh->SetSimulatePhysics(false);
+	AttachComp = AttachComponent;
+
 	bool bSuccess = StaticMesh->AttachToComponent(AttachComponent,
 		FAttachmentTransformRules
 		{
@@ -76,15 +86,23 @@ void AItemActor::Pickup_Implementation(USceneComponent* AttachComponent)
 	if (!bSuccess)
 	{
 		UE_LOGFMT(MS_ItemActor, Error, "Item failed to attach in Pickup.");
+		return false;
 	}
 
-	StaticMesh->SetSimulatePhysics(false);
+	return true;
 }
 
 void AItemActor::Drop_Implementation()
 {
 	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	StaticMesh->SetSimulatePhysics(true);
+	if (TrySnapToGround())
+	{
+		AttachComp.Reset();
+	}
+	else
+	{
+		StaticMesh->SetSimulatePhysics(true);
+	}
 }
 
 void AItemActor::Throw_Implementation(FVector Velocity)
@@ -98,15 +116,19 @@ void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 {
 	check(StaticMesh == HitComponent);
 	check(GetLocalRole() == ROLE_Authority);
-	
+
+	AttachComp.Reset();
+
 	if (Hit.Normal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{
-		StaticMesh->SetSimulatePhysics(false);
-		SnapToGround();
+		if (TrySnapToGround())
+		{
+			StaticMesh->SetSimulatePhysics(false);
+		}
 	}
 }
 
-void AItemActor::SnapToGround()
+bool AItemActor::TrySnapToGround()
 {
 	FHitResult HitResult;
 	FVector Start = StaticMesh->GetComponentLocation();
@@ -115,12 +137,44 @@ void AItemActor::SnapToGround()
 	auto ProfileName = StaticMesh->GetCollisionProfileName();
 	auto CollisionShape = StaticMesh->GetCollisionShape();
 	FCollisionQueryParams QueryParams = FCollisionQueryParams::DefaultQueryParam;
-	QueryParams.AddIgnoredActor(GetOwner());
-	if (!GetWorld()->SweepSingleByProfile(HitResult, Start, End, Rot, ProfileName, CollisionShape, QueryParams))
+	QueryParams.AddIgnoredActor(this);
+	if (GetWorld()->SweepSingleByProfile(HitResult, Start, End, Rot, ProfileName, CollisionShape, QueryParams))
 	{
-		UE_LOGFMT(MS_ItemActor, Error, "Impossible to snap: ground not found.");
-		return;
+		StaticMesh->SetWorldLocation(HitResult.Location);
+		return true;
 	}
+	return false;
+}
 
-	StaticMesh->SetWorldLocation(HitResult.Location);
+void AItemActor::OnRep_AttachComp()
+{
+	if (AttachComp.IsValid())
+	{
+		StaticMesh->AttachToComponent(AttachComp.Get(),
+			FAttachmentTransformRules
+			{
+				EAttachmentRule::SnapToTarget,
+				EAttachmentRule::KeepWorld,
+				EAttachmentRule::KeepWorld,
+				false
+			});
+	}
+	else
+	{
+		StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	}
+}
+
+void AItemActor::ApplyItemAsset()
+{
+	if (!IsValid(ItemAsset))
+		return;
+
+	StaticMesh->SetStaticMesh(ItemAsset->StaticMesh);
+
+	Niagara->SetAsset(ItemAsset->NiagaraSystem);
+	Niagara->Activate(true);
+
+	Audio->SetSound(ItemAsset->Sound);
+	Audio->Activate(true);
 }
