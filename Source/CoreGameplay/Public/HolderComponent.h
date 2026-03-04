@@ -6,8 +6,6 @@
 #include "Components/SceneComponent.h"
 #include "HolderComponent.generated.h"
 
-class UCarriableComponent;
-
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UHolderComponent : public USceneComponent
 {
@@ -19,29 +17,30 @@ class COREGAMEPLAY_API UHolderComponent : public USceneComponent
 public:
 
 	UFUNCTION(BlueprintPure)
-	UCarriableComponent* GetCarriable() const { return Carriable; }
+	AActor* GetHeldActor() const { return HeldActor.Get(); }
 
-	/**
-	 * Replace the CarriableComponent currently held by this component.
-	 * @param NewCarriable Can be nullptr.
-	 * @return Old Carriable (or nullptr is there was none) 
-	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
-	UCarriableComponent* Replace(UCarriableComponent* NewCarriable);
-
+	UFUNCTION(BlueprintCallable)
+	bool TryPickup(AActor* Actor);
+	
+	UFUNCTION(BlueprintCallable)
+	AActor* Drop();
+	
+	UFUNCTION(BlueprintCallable)
+	AActor* Throw(FVector Velocity);
+	
 protected:
 
 	UFUNCTION()
-	void OnRep_Carriable(UCarriableComponent* OldCarriable);
+	void OnRep_HeldCarriable(TWeakObjectPtr<AActor> OldCarriable);
 
 	/**
-	 * Override this in blueprint for cosmetic events.
+	 * Override this for cosmetic events.
 	 */
-	UFUNCTION(BlueprintNativeEvent, meta=(ForceAsFunction))
-	void OnCarriableChanged(UCarriableComponent* OldCarriable, UCarriableComponent* NewCarriable);
+	UFUNCTION(BlueprintNativeEvent)
+	void OnCarriableChanged(AActor* OldCarriable, AActor* NewCarriable);
 
 private:
 
-	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
-	TObjectPtr<UCarriableComponent> Carriable;
+	UPROPERTY(ReplicatedUsing=OnRep_HeldCarriable)
+	TWeakObjectPtr<AActor> HeldActor;
 };

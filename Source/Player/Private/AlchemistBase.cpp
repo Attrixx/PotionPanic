@@ -3,8 +3,8 @@
 #include "AlchemistBase.h"
 #include "AlchemistMovementComponent.h"
 #include "HolderComponent.h"
-#include "CarriableComponent.h"
 #include "Interactable.h"
+#include "Carriable.h"
 #include <Components/CapsuleComponent.h>
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
@@ -95,8 +95,8 @@ void AAlchemistBase::UpdateBestComponents()
 	float BestInteractableScore = std::numeric_limits<float>::lowest();
 	float BestCarriableScore = std::numeric_limits<float>::lowest();
 
-	TScriptInterface<IInteractable> LocalBestInteractable = nullptr;
-	UCarriableComponent* LocalBestCarriable = nullptr;
+	AActor* LocalBestInteractable = nullptr;
+	AActor* LocalBestCarriable = nullptr;
 
 	for (auto [Actor, _] : OverlappedActors)
 	{
@@ -104,15 +104,6 @@ void AAlchemistBase::UpdateBestComponents()
 		float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor.GetSafeNormal());
 		float DistToActor = ToActor.Length();
 		float Score = Dot - DistToActor / CapsuleOverlapComponent->GetScaledCapsuleRadius();
-
-		if (auto* Carriable = Actor->GetComponentByClass<UCarriableComponent>())
-		{
-			if (Score > BestCarriableScore)
-			{
-				BestCarriableScore = Score;
-				LocalBestCarriable = Carriable;
-			}
-		}
 
 		if (Actor->Implements<UInteractable>())
 		{
@@ -122,12 +113,26 @@ void AAlchemistBase::UpdateBestComponents()
 				LocalBestInteractable = Actor;
 			}
 		}
+
+		if (Actor->Implements<UCarriable>())
+		{
+			if (Score > BestCarriableScore)
+			{
+				BestCarriableScore = Score;
+				LocalBestCarriable = Actor;
+			}
+		}
 	}
 
 	if (BestInteractable != LocalBestInteractable)
 	{
-		LocalBestInteractable = std::exchange(BestInteractable, LocalBestInteractable);
-		if (BestInteractable)
+		{
+			auto* Temp = BestInteractable.Get();
+			BestInteractable = LocalBestInteractable;
+			LocalBestInteractable = Temp;
+		}
+
+		if (BestInteractable.IsValid())
 		{
 			// TODO: Enable effects on BestInteractable
 		}
@@ -137,12 +142,16 @@ void AAlchemistBase::UpdateBestComponents()
 		}
 	}
 
-	if (BestCarriable != LocalBestCarriable)
+	if (HolderComponent->GetHeldActor())
+	{
+		BestCarriable = nullptr;
+	}
+	else if (BestCarriable != LocalBestCarriable)
 	{
 		{
-			auto Temp = BestCarriable.Get();
+			auto* Temp = BestCarriable.Get();
 			BestCarriable = LocalBestCarriable;
-			LocalBestInteractable = Temp;
+			LocalBestCarriable = Temp;
 		}
 
 		if (BestCarriable.IsValid())
@@ -227,7 +236,7 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	if (BestInteractable)
+	if (BestInteractable.IsValid())
 		Server_Interact();
 }
 
@@ -236,7 +245,7 @@ void AAlchemistBase::Input_PickupOrDrop()
 	if (!HolderComponent)
 		return;
 
-	if (HolderComponent->GetCarriable())
+	if (HolderComponent->GetHeldActor())
 		Server_Drop();
 	else if (BestCarriable.IsValid())
 		Server_Pickup();
@@ -244,24 +253,23 @@ void AAlchemistBase::Input_PickupOrDrop()
 
 void AAlchemistBase::Input_Throw()
 {
-	if (HolderComponent && HolderComponent->GetCarriable())
+	if (HolderComponent && HolderComponent->GetHeldActor())
 		Server_Throw();
 }
 
 void AAlchemistBase::Server_Interact_Implementation()
 {
-	if (BestInteractable)
+	if (auto* Interactable = CastChecked<IInteractable>(BestInteractable.Get()))
 	{
-		// TODO: Check if this works (not using IInteractable::Execute_Interact??)
-		BestInteractable->Interact(Cast<APlayerController>(Controller));
+		Interactable->Interact(Cast<APlayerController>(Controller));
 	}
 }
 
 void AAlchemistBase::Server_Pickup_Implementation()
 {
-	if (HolderComponent && !HolderComponent->GetCarriable())
+	if (HolderComponent && !HolderComponent->GetHeldActor())
 	{
-		HolderComponent->Replace(BestCarriable.Get());
+		HolderComponent->TryPickup(BestCarriable.Get());
 	}
 }
 
@@ -269,10 +277,7 @@ void AAlchemistBase::Server_Drop_Implementation()
 {
 	if (HolderComponent)
 	{
-		if (auto* Carriable = HolderComponent->Replace(nullptr))
-		{
-			Carriable->SnapToGround();
-		}
+		HolderComponent->Drop();
 	}
 }
 
@@ -280,9 +285,6 @@ void AAlchemistBase::Server_Throw_Implementation()
 {
 	if (HolderComponent)
 	{
-		if (auto* Carriable = HolderComponent->Replace(nullptr))
-		{
-			Carriable->Throw(GetActorForwardVector() * ThrowForce);
-		}
+		HolderComponent->Throw(GetActorForwardVector() * ThrowForce);
 	}
 }

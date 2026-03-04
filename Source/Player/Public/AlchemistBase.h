@@ -13,7 +13,7 @@ class UInputAction;
 struct FInputActionValue;
 
 class IInteractable;
-class UCarriableComponent;
+class ICarriable;
 
 UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
@@ -100,6 +100,6 @@ private:
 
 	TArray<FOverlappedActor> OverlappedActors;
 
-	TScriptInterface<IInteractable> BestInteractable;
-	TWeakObjectPtr<UCarriableComponent> BestCarriable;
+	TWeakObjectPtr<AActor> BestInteractable;
+	TWeakObjectPtr<AActor> BestCarriable;
 };

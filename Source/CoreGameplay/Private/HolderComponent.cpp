@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "HolderComponent.h"
-#include "CarriableComponent.h"
+#include "Carriable.h"
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_HolderComponent, Log, All);
@@ -15,72 +15,52 @@ UHolderComponent::UHolderComponent()
 void UHolderComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UHolderComponent, Carriable);
+	DOREPLIFETIME(UHolderComponent, HeldActor);
 }
 
-UCarriableComponent* UHolderComponent::Replace(UCarriableComponent* NewCarriable)
+bool UHolderComponent::TryPickup(AActor* Actor)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "Replace must execute on authority. Call ignored.");
-		return Carriable;
+		UE_LOGFMT(MS_HolderComponent, Warning, "TryPickup must execute on authority. Call ignored.");
+		return false;
 	}
 
-	if (Carriable == NewCarriable)
-	{
-		return NewCarriable;
-	}
-
-	if (Carriable)
-	{
-		Carriable->SetHolder(nullptr);
-	}
-
-	if (NewCarriable)
-	{
-		NewCarriable->SetHolder(this);
-	}
-
-	UCarriableComponent* OldCarriable = std::exchange(Carriable, NewCarriable);
-	OnCarriableChanged(OldCarriable, NewCarriable);
-	return OldCarriable;
+	if (!Actor || !Actor->Implements<UCarriable>() || HeldActor.IsValid())
+		return false;
+	
+	ICarriable::Execute_Pickup(Actor, this);
+	HeldActor = Actor;
+	return true;
 }
 
-void UHolderComponent::OnRep_Carriable(UCarriableComponent* OldCarriable)
+AActor* UHolderComponent::Drop()
 {
-	OnCarriableChanged(OldCarriable, Carriable);
+	AActor* Actor = HeldActor.Get();
+	HeldActor.Reset();
+	
+	ICarriable::Execute_Drop(Actor);
+	return Actor;
 }
 
-void UHolderComponent::OnCarriableChanged_Implementation(UCarriableComponent* OldCarriable, UCarriableComponent* NewCarriable)
+AActor* UHolderComponent::Throw(FVector Velocity)
 {
-	if (OldCarriable)
-	{
-		if (AActor* OldActor = OldCarriable->GetOwner())
-		{
-			OldActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-		}
-		else
-		{
-			UE_LOGFMT(MS_HolderComponent, Warning, "Could not detach Old Carriable from null owner.");
-		}
-	}
+	AActor* Actor = HeldActor.Get();
+	HeldActor.Reset();
+	
+	ICarriable::Execute_Throw(Actor, Velocity);
+	return Actor;
+}
 
-	if (NewCarriable)
+void UHolderComponent::OnRep_HeldCarriable(TWeakObjectPtr<AActor> OldCarriable)
+{
+	if (OldCarriable.Get() != HeldActor.Get())
 	{
-		if (AActor* NewActor = NewCarriable->GetOwner())
-		{
-			NewActor->AttachToComponent(this,
-				FAttachmentTransformRules
-				{
-					EAttachmentRule::SnapToTarget,
-					EAttachmentRule::KeepWorld,
-					EAttachmentRule::KeepWorld,
-					false
-				});
-		}
-		else
-		{
-			UE_LOGFMT(MS_HolderComponent, Warning, "Could not attach New Carriable to null owner.");
-		}
+		OnCarriableChanged(OldCarriable.Get(), HeldActor.Get());
 	}
+}
+
+void UHolderComponent::OnCarriableChanged_Implementation(AActor* OldCarriable, AActor* NewCarriable)
+{
+	// Nothing to do by default
 }
