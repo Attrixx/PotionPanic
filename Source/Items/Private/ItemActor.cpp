@@ -60,14 +60,64 @@ void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
 	ApplyItemAsset();
 }
 
+USceneComponent* AItemActor::GetAttachComponent_Implementation()
+{
+	return StaticMesh->GetAttachParent();
+}
+
 bool AItemActor::TryPickup_Implementation(USceneComponent* AttachComponent)
 {
+	// Already attached to something
+	if (StaticMesh->GetAttachParent())
+		return false;
+	
+	return TryAttachTo(AttachComponent);
+}
+
+bool AItemActor::TryCatch_Implementation(USceneComponent* AttachComponent)
+{
+	// Items can only be caught when dropped or thrown
+	// Simulating physics is only done in those two cases
+	if (!StaticMesh->IsSimulatingPhysics())
+		return false;
+
+	// Do not catch something we just dropped/thrown
 	if (AttachComponent == AttachComp)
 		return false;
 
-	if (StaticMesh->GetAttachParent())
-		return false; // Already picked up by something
+	return TryAttachTo(AttachComponent);
+}
 
+bool AItemActor::TryTransfer_Implementation(USceneComponent* AttachComponent)
+{
+	return TryAttachTo(AttachComponent);
+}
+
+void AItemActor::Drop_Implementation()
+{
+	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	if (TrySnapToGround())
+	{
+		AttachComp.Reset();
+		// Allow other to catch item
+		StaticMesh->ClearSkipUpdateOverlaps();
+	}
+	else
+	{
+		StaticMesh->SetSimulatePhysics(true);
+	}
+	
+}
+
+void AItemActor::Throw_Implementation(FVector Velocity)
+{
+	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	StaticMesh->SetSimulatePhysics(true);
+	StaticMesh->SetPhysicsLinearVelocity(Velocity);
+}
+
+bool AItemActor::TryAttachTo(USceneComponent* AttachComponent)
+{
 	StaticMesh->SetSimulatePhysics(false);
 	AttachComp = AttachComponent;
 
@@ -87,37 +137,6 @@ bool AItemActor::TryPickup_Implementation(USceneComponent* AttachComponent)
 	}
 
 	return true;
-}
-
-bool AItemActor::TryCatch_Implementation(USceneComponent* AttachComponent)
-{
-	// Items can only be caught when dropped or thrown
-	// Simulating physics is only done in those two cases
-	if (!StaticMesh->IsSimulatingPhysics())
-		return false;
-	
-	// After first condition passed, the rest is same as pickup
-	return Execute_TryPickup(this, AttachComponent);
-}
-
-void AItemActor::Drop_Implementation()
-{
-	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	if (TrySnapToGround())
-	{
-		AttachComp.Reset();
-	}
-	else
-	{
-		StaticMesh->SetSimulatePhysics(true);
-	}
-}
-
-void AItemActor::Throw_Implementation(FVector Velocity)
-{
-	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	StaticMesh->SetSimulatePhysics(true);
-	StaticMesh->SetPhysicsLinearVelocity(Velocity);
 }
 
 void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)

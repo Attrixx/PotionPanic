@@ -18,10 +18,13 @@ class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 public:
 
 	UFUNCTION(BlueprintPure)
-	AActor* GetHeldActor() const;
+	AActor* GetHeldActor() const { return HeldActor.Get(); }
 
 	UFUNCTION(BlueprintCallable)
 	bool TryPickup(AActor* Actor);
+	
+	UFUNCTION(BlueprintCallable)
+	bool TryTransfer(UHolderComponent* Other);
 
 	UFUNCTION(BlueprintCallable)
 	AActor* Drop();
@@ -47,10 +50,13 @@ protected:
 public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	bool bIsCatchAllowed = true;
+	uint8 bIsCatchAllowed : 1;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	uint8 bIsTransferAllowed : 1;
 	
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_HeldCarriable)
-	mutable TWeakObjectPtr<AActor> HeldActor;
+	TWeakObjectPtr<AActor> HeldActor;
 };

@@ -30,10 +30,14 @@ public:
 
 protected: // ICarriable
 
+	USceneComponent* GetAttachComponent_Implementation() override;
 	bool TryPickup_Implementation(USceneComponent* AttachComponent) override;
 	bool TryCatch_Implementation(USceneComponent* AttachComponent) override;
+	bool TryTransfer_Implementation(USceneComponent* AttachComponent) override;
 	void Drop_Implementation() override;
 	void Throw_Implementation(FVector Velocity) override;
+	
+	bool TryAttachTo(USceneComponent* AttachComponent);
 
 private:
 

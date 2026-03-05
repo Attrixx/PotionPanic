@@ -7,6 +7,8 @@
 DEFINE_LOG_CATEGORY_STATIC(MS_HolderComponent, Log, All);
 
 UHolderComponent::UHolderComponent()
+	: bIsCatchAllowed(true)
+	, bIsTransferAllowed(true)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
@@ -25,40 +27,56 @@ void UHolderComponent::BeginPlay()
 	OnComponentBeginOverlap.AddDynamic(this, &UHolderComponent::Sphere_OnBeginOverlap);
 }
 
-AActor* UHolderComponent::GetHeldActor() const
-{
-	if (HeldActor.IsValid() && HeldActor->GetRootComponent()->GetAttachParent() != this)
-		HeldActor.Reset();
-	return HeldActor.Get();
-}
-
 bool UHolderComponent::TryPickup(AActor* Actor)
 {
 	if (!Actor || !Actor->Implements<UCarriable>() || GetHeldActor())
 		return false;
 
-	if (!ICarriable::Execute_TryPickup(Actor, this))
-		return false;
+	if (ICarriable::Execute_TryPickup(Actor, this))
+	{
+		HeldActor = Actor;
+		return true;
+	}
+	
+	if (auto* OtherHolder = Cast<UHolderComponent>(ICarriable::Execute_GetAttachComponent(Actor)))
+	{
+		return OtherHolder->TryTransfer(this);	
+	}
+	
+	return false;
+}
 
-	HeldActor = Actor;
-	return true;
+bool UHolderComponent::TryTransfer(UHolderComponent* Other)
+{
+	if (bIsTransferAllowed && HeldActor.IsValid() && !Other->HeldActor.IsValid())
+	{
+		if (ICarriable::Execute_TryTransfer(HeldActor.Get(), Other))
+		{
+			Other->HeldActor = HeldActor;
+			HeldActor.Reset();
+			return true;
+		}
+	}
+	return false;
 }
 
 AActor* UHolderComponent::Drop()
 {
-	AActor* Actor = GetHeldActor();
+	AActor* Actor = HeldActor.Get();
 	HeldActor.Reset();
-
-	ICarriable::Execute_Drop(Actor);
+	
+	if (Actor) 
+		ICarriable::Execute_Drop(Actor);
 	return Actor;
 }
 
 AActor* UHolderComponent::Throw(FVector Velocity)
 {
-	AActor* Actor = GetHeldActor();
+	AActor* Actor = HeldActor.Get();
 	HeldActor.Reset();
 
-	ICarriable::Execute_Throw(Actor, Velocity);
+	if (Actor) 
+		ICarriable::Execute_Throw(Actor, Velocity);
 	return Actor;
 }
 
@@ -66,8 +84,11 @@ void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComp
                                              int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	check(OverlappedComponent == this);
-	
-	if (bIsCatchAllowed && !GetHeldActor() && ICarriable::Execute_TryCatch(OtherActor, this))
+
+	if (!OtherActor->Implements<UCarriable>() || !bIsCatchAllowed || HeldActor.IsValid())
+		return;
+
+	if (ICarriable::Execute_TryCatch(OtherActor, this))
 	{
 		HeldActor = OtherActor;
 	}
