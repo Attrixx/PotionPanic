@@ -12,7 +12,8 @@ public class Recipes : ModuleRules
             "CoreUObject",
             "Engine",
             "CoreGameplay",
-            "Items"
+            "Items",
+            "Interactions"
         });
     }
 }

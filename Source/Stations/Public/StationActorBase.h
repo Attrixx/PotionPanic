@@ -3,13 +3,23 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interactable.h"
-#include "ActivityAsset.h"
-#include "Instruction.h"
+#include "Recipes/Public/RecipeSystem.h"
 #include "StationActorBase.generated.h"
 
 class AItemActor;
 class APlayerController;
 class UHolderComponent;
+class UInteractionBase;
+class UItemAsset;
+class UStationAsset;
+
+UENUM()
+enum class EStationStatus : uint8
+{
+	Idle = 0,
+	Ready,
+	Busy
+};
 
 /**
  * Base class for all station actors.
@@ -24,27 +34,36 @@ class STATIONS_API AStationActorBase : public AActor, public IInteractable
 	
 public:
 	AStationActorBase();
+	void OnConstruction(const FTransform& Transform) override;
 
 	UFUNCTION()
 	void Interact(APlayerController* InInstigator) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Station")
-	void SetInstruction(const FInstruction& InInstruction) { CurrentInstruction = InInstruction; }
-
-	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }
-
-protected:
+private:
 	virtual void BeginPlay() override;
+	
+	void SetStationAsset(UStationAsset* NewAsset);
+	UFUNCTION()
+	void OnInteractionFinished(const FInteractionOutput& InteractionOutput);
+	
+	void ResetCurrentInteractions();
+	void ExecuteNextInteraction(APlayerController* Instigator);
 
-protected:
-	// TODO(Nath): Configure socket for item placement
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+private:
+	UPROPERTY(EditAnywhere, Category = "Station|Data")
+	TObjectPtr<UStationAsset> StationAsset;
+	
+	UPROPERTY(EditAnywhere, Category = "Station|Components")
+	TObjectPtr<UStaticMeshComponent> StaticMesh;
+	
+	UPROPERTY(EditAnywhere, Category = "Station|Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
-	// Configure in Blueprint: which activities this station can perform
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Station")
-	TArray<UActivityAsset*> Activities;
-
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "State")
-	FInstruction CurrentInstruction;
+	EStationStatus Status = EStationStatus::Idle;
+	UPROPERTY()
+	TArray<FInteractionInfo> CachedInteractionInfos;
+	int32 InteractionIndex = -1;
+	
+	UPROPERTY()
+	TObjectPtr<UItemAsset> InteractionOutputItem;
 };
