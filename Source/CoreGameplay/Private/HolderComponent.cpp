@@ -8,6 +8,7 @@ DEFINE_LOG_CATEGORY_STATIC(MS_HolderComponent, Log, All);
 
 UHolderComponent::UHolderComponent()
 	: bIsCatchAllowed(true)
+	, bIsTransferAllowedOnCatchFailure(false)
 	, bIsTransferAllowed(true)
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -27,32 +28,37 @@ void UHolderComponent::BeginPlay()
 	OnComponentBeginOverlap.AddDynamic(this, &UHolderComponent::Sphere_OnBeginOverlap);
 }
 
-bool UHolderComponent::TryPickup(AActor* Actor)
+bool UHolderComponent::TryPickup(AActor* Actor, bool bIsTransferAllowedOnFailure)
 {
 	if (!Actor || !Actor->Implements<UCarriable>() || GetHeldActor())
 		return false;
 
+	// First try to pickup
 	if (ICarriable::Execute_TryPickup(Actor, this))
 	{
 		HeldActor = Actor;
 		return true;
 	}
-	
-	if (auto* OtherHolder = Cast<UHolderComponent>(ICarriable::Execute_GetAttachComponent(Actor)))
-	{
-		return OtherHolder->TryTransfer(this);	
-	}
-	
+
+	// If pickup failed, maybe we can transfer?
+	if (bIsTransferAllowedOnFailure)
+		if (auto* OtherHolder = Cast<UHolderComponent>(ICarriable::Execute_GetAttachComponent(Actor)))
+		{
+			return OtherHolder->TryTransfer(this);
+		}
+
 	return false;
 }
 
-bool UHolderComponent::TryTransfer(UHolderComponent* Other)
+bool UHolderComponent::TryTransfer(UHolderComponent* Dest)
 {
-	if (bIsTransferAllowed && HeldActor.IsValid() && !Other->HeldActor.IsValid())
+	// Is transfer valid?
+	if (bIsTransferAllowed && HeldActor.IsValid() && !Dest->HeldActor.IsValid())
 	{
-		if (ICarriable::Execute_TryTransfer(HeldActor.Get(), Other))
+		// Is transfer successful?
+		if (ICarriable::Execute_TryTransfer(HeldActor.Get(), Dest))
 		{
-			Other->HeldActor = HeldActor;
+			Dest->HeldActor = HeldActor;
 			HeldActor.Reset();
 			return true;
 		}
@@ -62,22 +68,23 @@ bool UHolderComponent::TryTransfer(UHolderComponent* Other)
 
 AActor* UHolderComponent::Drop()
 {
-	AActor* Actor = HeldActor.Get();
-	HeldActor.Reset();
-	
-	if (Actor) 
+	if (AActor* Actor = HeldActor.Get())
+	{
+		HeldActor.Reset();
 		ICarriable::Execute_Drop(Actor);
-	return Actor;
+		return Actor;
+	}
+	return nullptr;
 }
 
 AActor* UHolderComponent::Throw(FVector Velocity)
 {
-	AActor* Actor = HeldActor.Get();
-	HeldActor.Reset();
-
-	if (Actor) 
+	if (AActor* Actor = HeldActor.Get())
+	{
+		HeldActor.Reset();
 		ICarriable::Execute_Throw(Actor, Velocity);
-	return Actor;
+	}
+	return nullptr;
 }
 
 void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
@@ -85,24 +92,30 @@ void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComp
 {
 	check(OverlappedComponent == this);
 
-	if (!OtherActor->Implements<UCarriable>() || !bIsCatchAllowed || HeldActor.IsValid())
-		return;
-
-	if (ICarriable::Execute_TryCatch(OtherActor, this))
+	// Is catch valid?
+	if (bIsCatchAllowed && OtherActor->Implements<UCarriable>() && !HeldActor.IsValid())
 	{
-		HeldActor = OtherActor;
+		// Is catch successful?
+		if (ICarriable::Execute_TryCatch(OtherActor, this))
+		{
+			HeldActor = OtherActor;
+		}
+
+		// If pickup failed, maybe we can transfer?
+		else if (bIsTransferAllowedOnCatchFailure)
+			if (auto* OtherHolder = Cast<UHolderComponent>(ICarriable::Execute_GetAttachComponent(OtherActor)))
+			{
+				OtherHolder->TryTransfer(this);
+			}
 	}
 }
 
-void UHolderComponent::OnRep_HeldCarriable(TWeakObjectPtr<AActor> OldCarriable)
+void UHolderComponent::OnRep_HeldActor(TWeakObjectPtr<AActor> OldActor)
 {
-	if (OldCarriable.Get() != HeldActor.Get())
+	if (OldActor.Get() != HeldActor.Get())
 	{
-		OnCarriableChanged(OldCarriable.Get(), HeldActor.Get());
+		OnCarriableChanged.Broadcast(this, OldActor.Get(), HeldActor.Get());
 	}
-}
 
-void UHolderComponent::OnCarriableChanged_Implementation(AActor* OldCarriable, AActor* NewCarriable)
-{
-	// Nothing to do by default
+	// NOTE: The carriable is responsible for replicating the attachment
 }

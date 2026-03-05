@@ -267,7 +267,7 @@ void AAlchemistBase::Server_Interact_Implementation()
 
 void AAlchemistBase::Server_Pickup_Implementation()
 {
-	if (HolderComponent && !HolderComponent->GetHeldActor())
+	if (HolderComponent)
 	{
 		HolderComponent->TryPickup(BestCarriable.Get());
 	}
