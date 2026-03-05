@@ -77,7 +77,7 @@ void AStationActorBase::Interact(APlayerController* InInstigator)
 			ResetCurrentInteractions();
 			CachedInteractionInfos = Response.InteractionInfos;
 			Status = EStationStatus::Ready;
-			// fallthrough
+			[[fallthrough]];
 		}
 		case EStationStatus::Ready:
 		{
