@@ -8,7 +8,7 @@
 #include "PotionPanicWorldSettings.generated.h"
 
 /**
- * 
+ * TODO: Move into CoreGameplay module
  */
 UCLASS()
 class RECIPES_API APotionPanicWorldSettings : public AWorldSettings

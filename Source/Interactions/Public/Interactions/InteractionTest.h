@@ -15,6 +15,6 @@ class INTERACTIONS_API UInteractionTest : public UInteractionBase
 	GENERATED_BODY()
 	
 public:	
-	void Init(UInteractionSetting* Settings) override;
+	void Init(UInteractionSettingBase* Settings) override;
 	void StartInteraction(const FInteractionContext& Context) override;
 };

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
-#include "InteractionSetting.generated.h"
+#include "InteractionSettingBase.generated.h"
 
 class UInteractionBase;
 
@@ -12,7 +12,7 @@ class UInteractionBase;
  * 
  */
 UCLASS()
-class INTERACTIONS_API UInteractionSetting : public UPrimaryDataAsset
+class INTERACTIONS_API UInteractionSettingBase : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 	

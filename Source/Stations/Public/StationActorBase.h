@@ -3,8 +3,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interactable.h"
-#include "StationAsset.h"
-#include "Interactions/Public/InteractionBase.h"
 #include "Recipes/Public/RecipeSystem.h"
 #include "StationActorBase.generated.h"
 
@@ -13,6 +11,15 @@ class APlayerController;
 class UHolderComponent;
 class UInteractionBase;
 class UItemAsset;
+class UStationAsset;
+
+UENUM()
+enum class EStationStatus : uint8
+{
+	Idle = 0,
+	Ready,
+	Busy
+};
 
 /**
  * Base class for all station actors.
@@ -37,7 +44,7 @@ private:
 	
 	void SetStationAsset(UStationAsset* NewAsset);
 	UFUNCTION()
-	void OnInteractionFinished(FInteractionOutput InteractionOutput);
+	void OnInteractionFinished(const FInteractionOutput& InteractionOutput);
 	
 	void ResetCurrentInteractions();
 	void ExecuteNextInteraction(APlayerController* Instigator);
@@ -52,8 +59,8 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Station|Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
-	bool bHasInteractions = false;
-	bool bIsBusy = false;
+	EStationStatus Status = EStationStatus::Idle;
+	UPROPERTY()
 	TArray<FInteractionInfo> CachedInteractionInfos;
 	int32 InteractionIndex = -1;
 	

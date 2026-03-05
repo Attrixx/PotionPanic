@@ -11,13 +11,15 @@
 #include "CarriableComponent.h"
 #include "InteractionBase.h"
 #include "ItemTransformation.h"
-#include "InteractionSetting.h"
+#include "InteractionSettingBase.h"
 #include "Items/Public/ItemActor.h"
 
 void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
 	
+	// TODO: remove dependency to world settings (going to be moved into different module)
+	// Should probably expose Init(RecipeAsset) method instead to be called from game mode 
 	auto Settings = Cast<APotionPanicWorldSettings>(InWorld.GetWorldSettings());
 	check(Settings);
 
@@ -63,9 +65,7 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 			for (auto Setting : Step->InteractionSettings)
 			{
 				if (UInteractionBase* Interaction = UInteractionBase::CreateInteraction(this, Setting))
-				{
-					Interaction->Init(Setting);
-					
+				{					
 					FInteractionInfo& Info = Output.InteractionInfos.Emplace_GetRef();
 					Info.Interaction = Interaction;
 					Info.bRequiresPlayerInteraction = Setting->bRequiresPlayerInteraction;

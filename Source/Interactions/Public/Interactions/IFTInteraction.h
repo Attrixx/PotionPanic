@@ -9,9 +9,10 @@
 UENUM()
 enum class EIFTStatus : uint8
 {
-	Default,
+	None = 0,
 	WaitingForWindow,
 	DuringWindow,
+	PastWindow
 };
 
 /**
@@ -23,7 +24,7 @@ class INTERACTIONS_API UIFTInteraction : public UInteractionBase
 	GENERATED_BODY()
 	
 public:	
-	void Init(UInteractionSetting* Settings) override;
+	void Init(UInteractionSettingBase* Settings) override;
 	void StartInteraction(const FInteractionContext& Context) override;
 	void InteractWhileProcess() override;
 	
@@ -34,6 +35,6 @@ private:
 	FInteractionContext InteractionContext;
 	
 	FTimerHandle WindowHandle;
-	EIFTStatus Status = EIFTStatus::Default;
+	EIFTStatus Status = EIFTStatus::None;
 	FInteractionOutput InteractionOutput;
 };

@@ -8,7 +8,7 @@
 
 class UItemAsset;
 class UActivityAsset;
-class UInteractionSetting;
+class UInteractionSettingBase;
 
 UCLASS()
 class RECIPES_API UItemTransformation : public UPrimaryDataAsset
@@ -18,7 +18,7 @@ class RECIPES_API UItemTransformation : public UPrimaryDataAsset
 public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FText StepName;
+	FText TransformationName;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UItemAsset> InputItem;
@@ -27,7 +27,7 @@ public:
 	TObjectPtr<UActivityAsset> Activity;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<UInteractionSetting>> InteractionSettings;
+	TArray<TObjectPtr<UInteractionSettingBase>> InteractionSettings;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<UItemAsset> OutputItem;

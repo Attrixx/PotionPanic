@@ -25,7 +25,7 @@ struct INTERACTIONS_API FInteractionOutput
 	uint32 Score = 0;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInteractionOutputDelegate, FInteractionOutput, InteractionOutput);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInteractionOutputDelegate, const FInteractionOutput&, InteractionOutput);
 
 USTRUCT(BlueprintType)
 struct INTERACTIONS_API FInteractionContext
@@ -37,7 +37,7 @@ struct INTERACTIONS_API FInteractionContext
 	FInteractionOutputDelegate OnInteractionFinished;
 };
 
-class UInteractionSetting;
+class UInteractionSettingBase;
 
 UCLASS(Abstract, BlueprintType)
 class INTERACTIONS_API UInteractionBase : public UObject
@@ -45,10 +45,10 @@ class INTERACTIONS_API UInteractionBase : public UObject
 	GENERATED_BODY()
 	
 public:	
-	static UInteractionBase* CreateInteraction(UObject* Outer, UInteractionSetting* Settings);
+	static UInteractionBase* CreateInteraction(UObject* Outer, UInteractionSettingBase* Settings);
 	
 	UFUNCTION(BlueprintCallable)
-	virtual void Init(UInteractionSetting* Settings) PURE_VIRTUAL(UInteractionBase::Init, );
+	virtual void Init(UInteractionSettingBase* Settings) PURE_VIRTUAL(UInteractionBase::Init, );
 	
 	UFUNCTION(BlueprintCallable)
 	virtual void StartInteraction(const FInteractionContext& Context) PURE_VIRTUAL(UInteractionBase::StartInteraction, );

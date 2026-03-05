@@ -3,14 +3,16 @@
 #include "Interactions/IFTInteraction.h"
 #include "InteractionSettings/IFTInteractionSetting.h"
 
-DEFINE_LOG_CATEGORY_STATIC(MS_ITFInteraction, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_ITFInteraction, Verbose, All);
 
-void UIFTInteraction::Init(UInteractionSetting* Settings)
+void UIFTInteraction::Init(UInteractionSettingBase* Settings)
 {
-	UIFTInteractionSetting* TimeSettings = Cast<UIFTInteractionSetting>(Settings);
+	UIFTInteractionSetting* TimeSettings = CastChecked<UIFTInteractionSetting>(Settings);
 	
 	SecondsBeforeWindow = TimeSettings->SecondsBeforeWindow;
 	WindowLengthSeconds = TimeSettings->WindowLengthSeconds;
+	check(SecondsBeforeWindow >= 0.f);
+	check(WindowLengthSeconds >= 0.f);
 }
 
 void UIFTInteraction::StartInteraction(const FInteractionContext& Context)
@@ -20,17 +22,19 @@ void UIFTInteraction::StartInteraction(const FInteractionContext& Context)
 	{
 		FTimerHandle Handle;
 		Status = EIFTStatus::WaitingForWindow;
-		UE_LOGFMT(MS_ITFInteraction, Log, "Waiting for Window opening");
+		UE_LOGFMT(MS_ITFInteraction, Verbose, "Waiting for Window opening");
 		
 		World->GetTimerManager().SetTimer(Handle, [&, World]
 		{
 			Status = EIFTStatus::DuringWindow;
-			UE_LOGFMT(MS_ITFInteraction, Log, "Window opened, Waiting for User interaction");
+			UE_LOGFMT(MS_ITFInteraction, Verbose, "Window opened, Waiting for User interaction");
 			
 			World->GetTimerManager().SetTimer(WindowHandle, [&]
 			{
-				UE_LOGFMT(MS_ITFInteraction, Log, "Missed Window");				
+				Status = EIFTStatus::PastWindow;
+				UE_LOGFMT(MS_ITFInteraction, Verbose, "Missed Window");				
 				InteractionOutput.InteractionResult = EInteractionResult::Fail;
+				// TODO François Compute interaction score
 				InteractionContext.OnInteractionFinished.Broadcast(InteractionOutput);
 			}, WindowLengthSeconds, false);
 			
@@ -44,9 +48,9 @@ void UIFTInteraction::InteractWhileProcess()
 	
 	if (Status == EIFTStatus::DuringWindow)
 	{
-		UE_LOGFMT(MS_ITFInteraction, Log, "Window interaction triggered successfully");
-		InteractionOutput.InteractionResult = EInteractionResult::Success;
-		WindowHandle.Invalidate();
+		UE_LOGFMT(MS_ITFInteraction, Verbose, "Window interaction triggered successfully");
+		GetWorld()->GetTimerManager().ClearTimer(WindowHandle);
+		InteractionOutput.InteractionResult = EInteractionResult::Success;		
 		InteractionContext.OnInteractionFinished.Broadcast(InteractionOutput);
 	}
 }

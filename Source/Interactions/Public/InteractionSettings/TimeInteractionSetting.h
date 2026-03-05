@@ -3,14 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "InteractionSetting.h"
+#include "InteractionSettingBase.h"
 #include "TimeInteractionSetting.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class INTERACTIONS_API UTimeInteractionSetting : public UInteractionSetting
+class INTERACTIONS_API UTimeInteractionSetting : public UInteractionSettingBase
 {
 	GENERATED_BODY()
 	

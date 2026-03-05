@@ -1,11 +1,10 @@
 #include "InteractionBase.h"
 
-#include "InteractionSetting.h"
-#include "UObject/GarbageCollectionSchema.h"
+#include "InteractionSettingBase.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_InteractionBase, Log, All);
 
-UInteractionBase* UInteractionBase::CreateInteraction(UObject* Outer, UInteractionSetting* Settings)
+UInteractionBase* UInteractionBase::CreateInteraction(UObject* Outer, UInteractionSettingBase* Settings)
 {
 	if (!Settings)
 	{
@@ -20,5 +19,6 @@ UInteractionBase* UInteractionBase::CreateInteraction(UObject* Outer, UInteracti
 	}
 	
 	UInteractionBase* NewInteraction = NewObject<UInteractionBase>(Outer, Settings->InteractionClass);
+	NewInteraction->Init(Settings);
 	return NewInteraction;
 }
