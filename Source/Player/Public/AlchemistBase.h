@@ -27,7 +27,6 @@ protected:
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	void Tick(float DeltaSeconds) override;
 
 protected:
 
@@ -61,9 +60,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
+	float InRangeInfosSortInterval = 0.1f;
+
 private:
 
-	void UpdateBestComponents();
+	void SortInRangeInfos();
+	AActor* GetBestInteractable() const;
+	AActor* GetBestCarriable() const;
 
 	UFUNCTION()
 	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
@@ -71,6 +75,8 @@ private:
 
 	UFUNCTION()
 	void Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+private: // Input
 
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Dash();
@@ -92,14 +98,21 @@ private:
 
 private:
 
-	struct FOverlappedActor
+	struct FInRangeInfo
 	{
-		AActor* Actor;
-		uint64 NbOccurrences;
+		FInRangeInfo(AActor* Actor) : Actor(Actor)
+		{
+		}
+
+		TWeakObjectPtr<AActor> Actor;
+		uint32 NbOccurrences = 0;
+		float Score = std::numeric_limits<float>::min();
+
+		bool operator<(const FInRangeInfo& Right) const
+		{
+			return Score > Right.Score;
+		}
 	};
 
-	TArray<FOverlappedActor> OverlappedActors;
-
-	TWeakObjectPtr<AActor> BestInteractable;
-	TWeakObjectPtr<AActor> BestCarriable;
+	TArray<FInRangeInfo> InRangeInfos;
 };

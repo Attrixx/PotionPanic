@@ -6,8 +6,6 @@
 #include "UObject/Interface.h"
 #include "Carriable.generated.h"
 
-class UHolderComponent;
-
 // This class does not need to be modified.
 UINTERFACE()
 class UCarriable : public UInterface
@@ -16,7 +14,7 @@ class UCarriable : public UInterface
 };
 
 /**
- * Represent an object that can be carried by attaching/following to another component.
+ * Represent an object that can be carried by attaching to another component.
  */
 class COREGAMEPLAY_API ICarriable
 {
@@ -25,25 +23,26 @@ class COREGAMEPLAY_API ICarriable
 public:
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	USceneComponent* GetAttachComponent();
+	UPrimitiveComponent* GetPrimitive() const;
+	virtual UPrimitiveComponent* GetPrimitive_Implementation() const;
 	
-	// Pickup is manually called by some user input
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	bool TryPickup(USceneComponent* AttachComponent);
+	FName GetStandaloneCollisionProfileName() const;
+	virtual FName GetStandaloneCollisionProfileName_Implementation() const;
 	
-	// Catch is automatically called from a specific world state
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	bool TryCatch(USceneComponent* AttachComponent);
+	FName GetCarriedCollisionProfileName() const;
+	virtual FName GetCarriedCollisionProfileName_Implementation() const;
 	
-	// Reattach to another component, without going through an intermediate detached state
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	bool TryTransfer(USceneComponent* AttachComponent);
+	void OnPickup(USceneComponent* AttachComponent);
+	virtual void OnPickup_Implementation(USceneComponent* AttachComponent);
 	
-	// Detach and drops the object. Cannot fail.
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	void Drop();
+	void OnDrop();
+	virtual void OnDrop_Implementation();
 
-	// Detach and throw the object. Cannot fail.
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
-	void Throw(FVector Velocity);
+	void OnThrow(FVector Velocity);
+	virtual void OnThrow_Implementation(FVector Velocity);
 };

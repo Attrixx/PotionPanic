@@ -30,48 +30,38 @@ public:
 
 protected: // ICarriable
 
-	USceneComponent* GetAttachComponent_Implementation() override;
-	bool TryPickup_Implementation(USceneComponent* AttachComponent) override;
-	bool TryCatch_Implementation(USceneComponent* AttachComponent) override;
-	bool TryTransfer_Implementation(USceneComponent* AttachComponent) override;
-	void Drop_Implementation() override;
-	void Throw_Implementation(FVector Velocity) override;
+	UPrimitiveComponent* GetPrimitive_Implementation() const override;
+	FName GetStandaloneCollisionProfileName_Implementation() const override;
+	FName GetCarriedCollisionProfileName_Implementation() const override;
 	
-	bool TryAttachTo(USceneComponent* AttachComponent);
-
 private:
 
 	UFUNCTION()
 	void Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 	static constexpr float GroundCollisionThreshold = 0.8f;
 
-	bool TrySnapToGround();
-	static constexpr float SnapToGroundMaxDistance = 200.0f;
-
-	UFUNCTION()
-	void OnRep_AttachComp();
-
 	UFUNCTION()
 	void ApplyItemAsset();
 
-private:
+protected:
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	TObjectPtr<UStaticMeshComponent> StaticMesh;
 
-	// Cleared after hitting something, avoid being pickup up by
-	// the comp that just dropped us
-	UPROPERTY(ReplicatedUsing=OnRep_AttachComp)
-	TWeakObjectPtr<USceneComponent> AttachComp;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	TObjectPtr<UNiagaraComponent> Niagara;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+	TObjectPtr<UAudioComponent> Audio;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Carriable")
+	FName StandaloneCollisionProfileName;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Carriable")
+	FName CarriedCollisionProfileName;
+
+private:
 
 	UPROPERTY(EditInstanceOnly, ReplicatedUsing=ApplyItemAsset)
 	TObjectPtr<UItemAsset> ItemAsset;
-
-protected:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UStaticMeshComponent> StaticMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UNiagaraComponent> Niagara;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UAudioComponent> Audio;
 };

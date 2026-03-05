@@ -33,7 +33,6 @@ AItemActor::AItemActor()
 void AItemActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AItemActor, AttachComp)
 	DOREPLIFETIME(AItemActor, ItemAsset)
 }
 
@@ -60,135 +59,28 @@ void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
 	ApplyItemAsset();
 }
 
-USceneComponent* AItemActor::GetAttachComponent_Implementation()
+UPrimitiveComponent* AItemActor::GetPrimitive_Implementation() const
 {
-	return StaticMesh->GetAttachParent();
+	return StaticMesh;
 }
 
-bool AItemActor::TryPickup_Implementation(USceneComponent* AttachComponent)
+FName AItemActor::GetStandaloneCollisionProfileName_Implementation() const
 {
-	// Already attached to something
-	if (StaticMesh->GetAttachParent())
-		return false;
-	
-	return TryAttachTo(AttachComponent);
+	return StandaloneCollisionProfileName;
 }
 
-bool AItemActor::TryCatch_Implementation(USceneComponent* AttachComponent)
+FName AItemActor::GetCarriedCollisionProfileName_Implementation() const
 {
-	// Items can only be caught when dropped or thrown
-	// Simulating physics is only done in those two cases
-	if (!StaticMesh->IsSimulatingPhysics())
-		return false;
-
-	// Do not catch something we just dropped/thrown
-	if (AttachComponent == AttachComp)
-		return false;
-
-	return TryAttachTo(AttachComponent);
-}
-
-bool AItemActor::TryTransfer_Implementation(USceneComponent* AttachComponent)
-{
-	return TryAttachTo(AttachComponent);
-}
-
-void AItemActor::Drop_Implementation()
-{
-	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	if (TrySnapToGround())
-	{
-		AttachComp.Reset();
-		// Allow other to catch item
-		StaticMesh->ClearSkipUpdateOverlaps();
-	}
-	else
-	{
-		StaticMesh->SetSimulatePhysics(true);
-	}
-	
-}
-
-void AItemActor::Throw_Implementation(FVector Velocity)
-{
-	StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	StaticMesh->SetSimulatePhysics(true);
-	StaticMesh->SetPhysicsLinearVelocity(Velocity);
-}
-
-bool AItemActor::TryAttachTo(USceneComponent* AttachComponent)
-{
-	StaticMesh->SetSimulatePhysics(false);
-	AttachComp = AttachComponent;
-
-	bool bSuccess = StaticMesh->AttachToComponent(AttachComponent,
-		FAttachmentTransformRules
-		{
-			EAttachmentRule::SnapToTarget,
-			EAttachmentRule::KeepWorld,
-			EAttachmentRule::KeepWorld,
-			false
-		});
-
-	if (!bSuccess)
-	{
-		UE_LOGFMT(MS_ItemActor, Error, "Item failed to attach in Pickup.");
-		return false;
-	}
-
-	return true;
+	return CarriedCollisionProfileName;
 }
 
 void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	check(StaticMesh == HitComponent);
 
-	AttachComp.Reset();
-
 	if (Hit.Normal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{
-		if (TrySnapToGround())
-		{
-			StaticMesh->SetSimulatePhysics(false);
-		}
-	}
-}
-
-bool AItemActor::TrySnapToGround()
-{
-	FHitResult HitResult;
-	FVector Start = StaticMesh->GetComponentLocation();
-	FVector End = Start + FVector::DownVector * SnapToGroundMaxDistance;
-	FQuat Rot = StaticMesh->GetComponentQuat();
-	auto ProfileName = StaticMesh->GetCollisionProfileName();
-	auto CollisionShape = StaticMesh->GetCollisionShape();
-	FCollisionQueryParams QueryParams = FCollisionQueryParams::DefaultQueryParam;
-	QueryParams.AddIgnoredActor(this);
-	if (GetWorld()->SweepSingleByProfile(HitResult, Start, End, Rot, ProfileName, CollisionShape, QueryParams))
-	{
-		StaticMesh->SetWorldLocation(HitResult.Location);
-		return true;
-	}
-	return false;
-}
-
-void AItemActor::OnRep_AttachComp()
-{
-	if (AttachComp.IsValid())
-	{
 		StaticMesh->SetSimulatePhysics(false);
-		StaticMesh->AttachToComponent(AttachComp.Get(),
-			FAttachmentTransformRules
-			{
-				EAttachmentRule::SnapToTarget,
-				EAttachmentRule::KeepWorld,
-				EAttachmentRule::KeepWorld,
-				false
-			});
-	}
-	else
-	{
-		StaticMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 	}
 }
 

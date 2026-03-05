@@ -4,15 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/SphereComponent.h"
+#include "Engine/EngineTypes.h"
 #include "HolderComponent.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCarriableChangedDelegate, UHolderComponent*, Holder, AActor*, OldCarriable, AActor*, NewCarriable);
+class UCarriable;
 
-/**
- * Holder component is an attachment point for actors implementing the Carriable interface.
- * The attachment strategy is defined by the Carriable.
- * The replication of the attachment is also the Carriable responsibility.
- */
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 {
@@ -25,68 +21,61 @@ class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 public:
 
 	UFUNCTION(BlueprintPure)
-	AActor* GetHeldActor() const { return HeldActor.Get(); }
-
-	/**
-	 * Try to pick up an actor.
-	 * This can fail if this Holder already holds something, if the actor doesn't
-	 * implement the Carriable interface, or for any reason the Carriable itself
-	 * refuses to be picked up.
-	 * 
-	 * @param Actor Actor to try and pickup.
-	 * @param bIsTransferAllowedOnFailure TryTransfer from the actor's Holder on failure?
-	 * @return Whether the pickup was successful.
-	 */
-	UFUNCTION(BlueprintCallable)
-	bool TryPickup(AActor* Actor, bool bIsTransferAllowedOnFailure = true);
-
-	/**
-	 * Try to transfer the held Carriable to the given Holder.
-	 * This can fail if transfer is disallowed on this Holder, if this Holder doesn't hold
-	 * something, if the given Holder already holds something, or any reason the Carriable
-	 * itself refuses to transfer.
-	 * 
-	 * @param Dest New Holder for our Carriable.
-	 * @return Whether the transfer was successful.
-	 */
-	UFUNCTION(BlueprintCallable)
-	bool TryTransfer(UHolderComponent* Dest);
+	UObject* GetCarriable() const { return Carriable.Get(); }
 
 	UFUNCTION(BlueprintCallable)
-	AActor* Drop();
-	
-	UFUNCTION(BlueprintCallable)
-	AActor* Throw(FVector Velocity);
+	bool TryPickup(UObject* NewCarriable);
 
-protected:
+	UFUNCTION(BlueprintCallable)
+	UObject* Release(FVector Velocity = FVector::ZeroVector);
+
+private:
 
 	UFUNCTION()
 	void Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	                           int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION()
-	void OnRep_HeldActor(TWeakObjectPtr<AActor> OldActor);
+	void OnRep_Carriable();
 
-public:
-	
-	// Try catch upon Carriable overlap?
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	static UPrimitiveComponent* ActorToComponent(AActor* Actor);
+
+protected:
+
+	// Can another Holder take from this one?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bAllowStealing : 1;
+
+	// Is ICarriable::GetStandaloneCollisionProfileName() applied on pick up?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSwitchCollisionProfileOnPickup : 1;
+
+	// Is ICarriable::GetStandaloneCollisionProfileName() applied on release?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSwitchCollisionProfileOnRelease : 1;
+
+	// If Velocity.IsNearlyZero() on release, should we try to snap on the groud and not activate physics?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSnapToGroundOnReleaseWithoutVelocity : 1;
+
+	// Should the holder try to pickup Carriables that begin overlapping with it?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
 	uint8 bIsCatchAllowed : 1;
-	
-	// TryTransfer from the actor's Holder on failed catch?
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	uint8 bIsTransferAllowedOnCatchFailure : 1;
-	
-	// Is transfer FROM this component allowed?
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	uint8 bIsTransferAllowed : 1;
-	
-	// Broadcasted on server and client for changes on the held Carriable
-	UPROPERTY(BlueprintAssignable)
-	FOnCarriableChangedDelegate OnCarriableChanged;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule LocationRule = EAttachmentRule::SnapToTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule RotationRule = EAttachmentRule::SnapToTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule ScaleRule = EAttachmentRule::KeepWorld;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ClampMin=0), Category="Holder Component")
+	float SnapToGroundMaxDistance = 200.f;
+
 private:
 
-	UPROPERTY(ReplicatedUsing=OnRep_HeldActor)
-	TWeakObjectPtr<AActor> HeldActor;
+	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
+	TWeakObjectPtr<UObject> Carriable;
 };
