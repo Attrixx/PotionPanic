@@ -33,7 +33,7 @@ struct INTERACTIONS_API FInteractionContext
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	AController* Instigator;
+	AActor* Instigator;
 	FInteractionOutputDelegate OnInteractionFinished;
 };
 

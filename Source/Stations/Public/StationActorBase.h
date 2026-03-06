@@ -37,7 +37,7 @@ public:
 	void OnConstruction(const FTransform& Transform) override;
 
 	UFUNCTION()
-	void Interact(APlayerController* InInstigator) override;
+	void Interact(AActor* InInstigator) override;
 
 private:
 	virtual void BeginPlay() override;
@@ -47,7 +47,7 @@ private:
 	void OnInteractionFinished(const FInteractionOutput& InteractionOutput);
 	
 	void ResetCurrentInteractions();
-	void ExecuteNextInteraction(APlayerController* Instigator);
+	void ExecuteNextInteraction(AActor* Instigator);
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Station|Data")

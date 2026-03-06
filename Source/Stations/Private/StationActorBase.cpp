@@ -42,7 +42,7 @@ void AStationActorBase::SetStationAsset(UStationAsset* NewAsset)
 	StaticMesh->SetStaticMesh(NewAsset->StaticMesh);
 }
 
-void AStationActorBase::Interact(APlayerController* InInstigator)
+void AStationActorBase::Interact(AActor* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
@@ -114,7 +114,7 @@ void AStationActorBase::ResetCurrentInteractions()
 	Status = EStationStatus::Idle;
 }
 
-void AStationActorBase::ExecuteNextInteraction(APlayerController* InInstigator)
+void AStationActorBase::ExecuteNextInteraction(AActor* InInstigator)
 {
 	++InteractionIndex;
 
