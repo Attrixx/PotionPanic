@@ -46,7 +46,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
 	uint8 bAllowStealing : 1;
 
-	// Is ICarriable::GetStandaloneCollisionProfileName() applied on pick up?
+	// Is ICarriable::GetCarriedCollisionProfileName() applied on pick up?
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
 	uint8 bShouldSwitchCollisionProfileOnPickup : 1;
 

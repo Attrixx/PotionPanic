@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <random>
 
-#include "CarriableComponent.h"
 #include "InteractionBase.h"
 #include "ItemTransformation.h"
 #include "InteractionSettingBase.h"
@@ -43,9 +42,9 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 	}
 	
 	TObjectPtr<UItemAsset> StationItem = nullptr;
-	if (UCarriableComponent* Carriable = StationHolder->GetCarriable())
+	if (UObject* Carriable = StationHolder->GetCarriable())
 	{
-		AItemActor* ItemActor = Cast<AItemActor>(Carriable->GetOwner());
+		AItemActor* ItemActor = Cast<AItemActor>(Carriable);
 		if (!ItemActor) // Carriable inside Holder is not of type Item
 			return Output;
 		
