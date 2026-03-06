@@ -1,7 +1,7 @@
 #include "StationActorBase.h"
 #include "HolderComponent.h"
 #include "StationAsset.h"
-#include "Interactions/Public/InteractionBase.h"
+#include "Activities/Public/ActivityStep.h"
 #include "Recipes/Public/RecipeSystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActorBase, Verbose, All);
@@ -50,14 +50,14 @@ void AStationActorBase::Interact(AActor* InInstigator)
 
 	if (!StationAsset)
 	{
-		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no StationAsset. Interaction ignored."),
+		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no StationAsset. Activity ignored."),
 		       *GetName());
 		return;
 	}
 
 	if (!ItemHolder)
 	{
-		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no ItemHolder. Interaction ignored."), *GetName());
+		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no ItemHolder. Activity ignored."), *GetName());
 		return;
 	}
 
@@ -69,81 +69,81 @@ void AStationActorBase::Interact(AActor* InInstigator)
 			check(RecipeSystem);
 
 			auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
-			if (Response.InteractionInfos.IsEmpty())
+			if (Response.ActivitySteps.IsEmpty())
 			{
 				return;
 			}
 
-			ResetCurrentInteractions();
-			CachedInteractionInfos = Response.InteractionInfos;
+			ResetCurrentActivities();
+			CachedActivitySteps = Response.ActivitySteps;
 			Status = EStationStatus::Ready;
 			[[fallthrough]];
 		}
 		case EStationStatus::Ready:
 		{
-			ExecuteNextInteraction(InInstigator);
+			ExecuteNextActivity(InInstigator);
 			break;
 		}
 		case EStationStatus::Busy:
 		{
-			CachedInteractionInfos[InteractionIndex].Interaction->InteractWhileProcess();
+			CachedActivitySteps[ActivityIndex]->InteractWhileProcess();
 			break;
 		}
 	}
 }
 
-void AStationActorBase::OnInteractionFinished(const FInteractionOutput& InteractionOutput)
+void AStationActorBase::OnActivityFinished(const FActivityOutput& ActivityOutput)
 {
-	UE_LOG(MS_StationActorBase, Verbose, TEXT("Interaction Complete"));
+	UE_LOG(MS_StationActorBase, Verbose, TEXT("Activity Complete"));
 
 	Status = EStationStatus::Ready;
-	if (InteractionOutput.InteractionResult == EInteractionResult::Success)
+	if (ActivityOutput.ActivityResult == EActivityResult::Success)
 	{
-		ExecuteNextInteraction(nullptr);
+		ExecuteNextActivity(nullptr);
 	}
 	else
 	{
-		ResetCurrentInteractions();
+		ResetCurrentActivities();
 	}
 }
 
-void AStationActorBase::ResetCurrentInteractions()
+void AStationActorBase::ResetCurrentActivities()
 {
-	CachedInteractionInfos.Reset();
-	InteractionIndex = -1;
+	CachedActivitySteps.Reset();
+	ActivityIndex = -1;
 	Status = EStationStatus::Idle;
 }
 
-void AStationActorBase::ExecuteNextInteraction(AActor* InInstigator)
+void AStationActorBase::ExecuteNextActivity(AActor* InInstigator)
 {
-	++InteractionIndex;
+	++ActivityIndex;
 
-	if (InteractionIndex == CachedInteractionInfos.Num())
+	if (ActivityIndex == CachedActivitySteps.Num())
 	{
 		UE_LOG(MS_StationActorBase, Error, TEXT("Not implemented"));
-		ResetCurrentInteractions();
+		ResetCurrentActivities();
 		// TODO Change item asset or delete it
 	}
-	else if (InInstigator || !CachedInteractionInfos[InteractionIndex].bRequiresPlayerInteraction)
+	else if (InInstigator || !CachedActivitySteps[ActivityIndex]->RequiresPlayerInteraction())
 	{
-		FInteractionContext InteractionContext;
-		InteractionContext.Instigator = InInstigator;
-		InteractionContext.OnInteractionFinished.AddDynamic(this, &AStationActorBase::OnInteractionFinished);
+		FActivityContext ActivityContext;
+		ActivityContext.Instigator = InInstigator;
+		ActivityContext.OnActivityFinished.AddDynamic(this, &AStationActorBase::OnActivityFinished);
 
-		UInteractionBase* CurrentInteraction = CachedInteractionInfos[InteractionIndex].Interaction;
-		if (!CurrentInteraction)
+		UActivityStep* CurrentActivityStep = CachedActivitySteps[ActivityIndex];
+		if (!CurrentActivityStep)
 		{
 			UE_LOG(MS_StationActorBase, Warning,
 			       TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
-			ResetCurrentInteractions();
+			ResetCurrentActivities();
 			return;
 		}
 
 		Status = EStationStatus::Busy;
-		CurrentInteraction->StartInteraction(InteractionContext);
+		CurrentActivityStep->StartActivity(ActivityContext);
 	}
 	else
 	{
-		--InteractionIndex;
+		--ActivityIndex;
 	}
 }

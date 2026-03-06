@@ -2,9 +2,10 @@
 
 #include "Modules/ModuleManager.h"
 
-class FInteractionsModule : public IModuleInterface
+class FActivitiesModule : public IModuleInterface
 {
 public:
     void StartupModule() override;
     void ShutdownModule() override;
 };
+

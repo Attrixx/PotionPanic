@@ -16,7 +16,7 @@ public class Stations : ModuleRules
 
         PrivateDependencyModuleNames.AddRange(new string[] 
         {
-            "Interactions",
+            "Activities",
             "Items",
             "Recipes"
         });

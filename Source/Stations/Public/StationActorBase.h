@@ -9,7 +9,7 @@
 class AItemActor;
 class APlayerController;
 class UHolderComponent;
-class UInteractionBase;
+class UActivityStep;
 class UItemAsset;
 class UStationAsset;
 
@@ -40,14 +40,14 @@ public:
 	void Interact(AActor* InInstigator) override;
 
 private:
-	virtual void BeginPlay() override;
+	void BeginPlay() override;
 	
 	void SetStationAsset(UStationAsset* NewAsset);
 	UFUNCTION()
-	void OnInteractionFinished(const FInteractionOutput& InteractionOutput);
+	void OnActivityFinished(const FActivityOutput& ActivityOutput);
 	
-	void ResetCurrentInteractions();
-	void ExecuteNextInteraction(AActor* Instigator);
+	void ResetCurrentActivities();
+	void ExecuteNextActivity(AActor* Instigator);
 
 private:
 	UPROPERTY(EditAnywhere, Category = "Station|Data")
@@ -61,9 +61,9 @@ private:
 
 	EStationStatus Status = EStationStatus::Idle;
 	UPROPERTY()
-	TArray<FInteractionInfo> CachedInteractionInfos;
-	int32 InteractionIndex = -1;
+	TArray<UActivityStep*> CachedActivitySteps;
+	int32 ActivityIndex = -1;
 	
 	UPROPERTY()
-	TObjectPtr<UItemAsset> InteractionOutputItem;
+	TObjectPtr<UItemAsset> ActivityOutputItem;
 };

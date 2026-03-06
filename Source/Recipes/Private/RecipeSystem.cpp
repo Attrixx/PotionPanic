@@ -8,10 +8,12 @@
 #include <algorithm>
 #include <random>
 
-#include "InteractionBase.h"
+#include "ActivityStep.h"
 #include "ItemTransformation.h"
-#include "InteractionSettingBase.h"
+#include "ActivityStepSettings.h"
 #include "Items/Public/ItemActor.h"
+
+DEFINE_LOG_CATEGORY_STATIC(MS_RecipeSystem, Log, All);
 
 void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
 {
@@ -61,13 +63,22 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 
 		if (StationItem == Step->InputItem && StationActivities.Contains(Step->Activity))
 		{
-			for (auto Setting : Step->InteractionSettings)
+			Output.ActivitySteps.Reserve(Step->ActivitySteps.Num());
+			for (UActivityStepSettings* Setting : Step->ActivitySteps)
 			{
-				if (UInteractionBase* Interaction = UInteractionBase::CreateInteraction(this, Setting))
+				if (!Setting)
+				{
+					UE_LOGFMT(MS_RecipeSystem, Warning, "Encountered null StepSettings while creating steps.");
+					continue;
+				}
+				
+				if (UActivityStep* ActivityStep = Setting->CreateStep(this))
 				{					
-					FInteractionInfo& Info = Output.InteractionInfos.Emplace_GetRef();
-					Info.Interaction = Interaction;
-					Info.bRequiresPlayerInteraction = Setting->bRequiresPlayerInteraction;
+					Output.ActivitySteps.Emplace(ActivityStep);
+				}
+				else
+				{
+					UE_LOGFMT(MS_RecipeSystem, Warning, "{0} created a null step.", Setting->GetName());
 				}
 			}
 			

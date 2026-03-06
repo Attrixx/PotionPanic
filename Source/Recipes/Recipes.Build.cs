@@ -13,7 +13,7 @@ public class Recipes : ModuleRules
             "Engine",
             "CoreGameplay",
             "Items",
-            "Interactions"
+            "Activities"
         });
     }
 }

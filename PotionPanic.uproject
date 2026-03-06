@@ -10,6 +10,11 @@
 			"LoadingPhase": "Default"
 		},
 		{
+			"Name": "Activities",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
 			"Name": "CoreGameplay",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",
@@ -29,11 +34,6 @@
 			"AdditionalDependencies": [
 				"Engine"
 			]
-		},
-		{
-			"Name": "Interactions",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
 		},
 		{
 			"Name": "Items",
