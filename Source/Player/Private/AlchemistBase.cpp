@@ -74,9 +74,9 @@ void AAlchemistBase::BeginPlay()
 
 			if (!bIsLocalPlayer)
 				return;
-			
+
 			// TODO: Replace this by actual effects
-			
+
 			AActor* BestInteractable = GetBestInteractable();
 			GEngine->AddOnScreenDebugMessage(
 				int32(GetActorGuid().A),
@@ -135,14 +135,18 @@ void AAlchemistBase::SortInRangeInfos()
 		return false;
 	});
 
-	InRangeInfos.Sort();
+	InRangeInfos.Sort([](const FInRangeInfo& Left, const FInRangeInfo& Right)
+	{
+		// The best (higher) score should be first in the array
+		return Left.Score > Right.Score;
+	});
 }
 
 AActor* AAlchemistBase::GetBestInteractable() const
 {
-	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& OverlappedActor)
+	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& Info)
 	{
-		return OverlappedActor.Actor->Implements<UInteractable>();
+		return Info.Actor->Implements<UInteractable>();
 	});
 
 	return InfoPtr ? InfoPtr->Actor.Get() : nullptr;
@@ -150,9 +154,9 @@ AActor* AAlchemistBase::GetBestInteractable() const
 
 AActor* AAlchemistBase::GetBestCarriable() const
 {
-	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& OverlappedActor)
+	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& Info)
 	{
-		return OverlappedActor.Actor->Implements<UCarriable>();
+		return Info.Actor->Implements<UCarriable>();
 	});
 
 	return InfoPtr ? InfoPtr->Actor.Get() : nullptr;
@@ -161,31 +165,31 @@ AActor* AAlchemistBase::GetBestCarriable() const
 void AAlchemistBase::Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
                                             bool bFromSweep, const FHitResult& SweepResult)
 {
-	FInRangeInfo* OverlappedActor = InRangeInfos.FindByPredicate([OtherActor](const FInRangeInfo& OverlappedActor)
+	FInRangeInfo* InRangeInfo = InRangeInfos.FindByPredicate([OtherActor](const FInRangeInfo& Info)
 	{
-		return OverlappedActor.Actor == OtherActor;
+		return Info.Actor == OtherActor;
 	});
 
-	if (!OverlappedActor)
-		OverlappedActor = &InRangeInfos.Emplace_GetRef(OtherActor);
+	if (!InRangeInfo)
+		InRangeInfo = &InRangeInfos.Emplace_GetRef(OtherActor);
 
-	++OverlappedActor->NbOccurrences;
+	++InRangeInfo->NbOccurrences;
 }
 
 void AAlchemistBase::Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	int32 OverlappedActorIndex = InRangeInfos.IndexOfByPredicate([OtherActor](const FInRangeInfo& OverlappedActor)
+	int32 InfoIndex = InRangeInfos.IndexOfByPredicate([OtherActor](const FInRangeInfo& Info)
 	{
-		return OverlappedActor.Actor == OtherActor;
+		return Info.Actor == OtherActor;
 	});
 
-	if (OverlappedActorIndex == INDEX_NONE)
+	if (InfoIndex == INDEX_NONE)
 		return;
 
-	auto& OverlappedActor = InRangeInfos[OverlappedActorIndex];
-	if (--OverlappedActor.NbOccurrences == 0)
+	auto& InRangeInfo = InRangeInfos[InfoIndex];
+	if (--InRangeInfo.NbOccurrences == 0)
 	{
-		InRangeInfos.RemoveAt(OverlappedActorIndex);
+		InRangeInfos.RemoveAt(InfoIndex);
 	}
 }
 
@@ -238,7 +242,7 @@ void AAlchemistBase::Input_Throw()
 
 void AAlchemistBase::Server_Interact_Implementation()
 {
-	if (auto* Interactable = CastChecked<IInteractable>(GetBestInteractable()))
+	if (auto* Interactable = Cast<IInteractable>(GetBestInteractable()))
 	{
 		Interactable->Interact(Cast<APlayerController>(Controller));
 	}
@@ -257,4 +261,11 @@ void AAlchemistBase::Server_Drop_Implementation()
 void AAlchemistBase::Server_Throw_Implementation()
 {
 	HolderComponent->Release(GetActorForwardVector() * ThrowForce);
+}
+
+AAlchemistBase::FInRangeInfo::FInRangeInfo(AActor* Actor)
+	: Actor(Actor)
+	, NbOccurrences(0)
+	, Score(std::numeric_limits<float>::min())
+{
 }

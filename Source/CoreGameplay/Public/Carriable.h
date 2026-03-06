@@ -24,25 +24,28 @@ public:
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	UPrimitiveComponent* GetPrimitive() const;
-	virtual UPrimitiveComponent* GetPrimitive_Implementation() const;
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	FName GetStandaloneCollisionProfileName() const;
-	virtual FName GetStandaloneCollisionProfileName_Implementation() const;
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	FName GetCarriedCollisionProfileName() const;
-	virtual FName GetCarriedCollisionProfileName_Implementation() const;
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void OnPickup(USceneComponent* AttachComponent);
-	virtual void OnPickup_Implementation(USceneComponent* AttachComponent);
 	
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void OnDrop();
-	virtual void OnDrop_Implementation();
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void OnThrow(FVector Velocity);
+	
+protected: // Default implementations
+	
+	virtual UPrimitiveComponent* GetPrimitive_Implementation() const;
+	virtual FName GetStandaloneCollisionProfileName_Implementation() const;
+	virtual FName GetCarriedCollisionProfileName_Implementation() const;
+	virtual void OnPickup_Implementation(USceneComponent* AttachComponent);
+	virtual void OnDrop_Implementation();
 	virtual void OnThrow_Implementation(FVector Velocity);
 };

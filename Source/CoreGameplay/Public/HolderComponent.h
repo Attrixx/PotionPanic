@@ -7,8 +7,6 @@
 #include "Engine/EngineTypes.h"
 #include "HolderComponent.generated.h"
 
-class UCarriable;
-
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 {
@@ -20,6 +18,9 @@ class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 
 public:
 
+	/**
+	 * @returns The held Carriable. If not null, you can assume Implements<UCarriable>() to be true.
+	 */
 	UFUNCTION(BlueprintPure)
 	UObject* GetCarriable() const { return Carriable.Get(); }
 
@@ -37,8 +38,6 @@ private:
 
 	UFUNCTION()
 	void OnRep_Carriable();
-
-	static UPrimitiveComponent* ActorToComponent(AActor* Actor);
 
 protected:
 

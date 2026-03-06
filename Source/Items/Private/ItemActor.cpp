@@ -84,11 +84,18 @@ void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 	}
 }
 
+void AItemActor::OnRep_ItemAsset()
+{
+	if (IsValid(ItemAsset))
+	{
+		ApplyItemAsset();
+	}
+}
+
 void AItemActor::ApplyItemAsset()
 {
-	if (!IsValid(ItemAsset))
-		return;
-
+	check(IsValid(ItemAsset));
+	
 	StaticMesh->SetStaticMesh(ItemAsset->StaticMesh);
 
 	Niagara->SetAsset(ItemAsset->NiagaraSystem);

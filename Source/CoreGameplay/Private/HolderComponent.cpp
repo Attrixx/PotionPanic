@@ -160,8 +160,3 @@ void UHolderComponent::OnRep_Carriable()
 	if (Carriable.IsValid())
 		TryPickup(Carriable.Get());
 }
-
-UPrimitiveComponent* UHolderComponent::ActorToComponent(AActor* Actor)
-{
-	return Actor ? Cast<UPrimitiveComponent>(Actor->GetRootComponent()) : nullptr;
-}

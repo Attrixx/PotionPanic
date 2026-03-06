@@ -11,7 +11,6 @@ class UItemAsset;
 class UStaticMeshComponent;
 class UNiagaraComponent;
 class UAudioComponent;
-class UHolderComponent;
 
 UCLASS()
 class ITEMS_API AItemActor : public AActor, public ICarriable
@@ -41,6 +40,9 @@ private:
 	static constexpr float GroundCollisionThreshold = 0.8f;
 
 	UFUNCTION()
+	void OnRep_ItemAsset();
+	
+	UFUNCTION()
 	void ApplyItemAsset();
 
 protected:
@@ -62,6 +64,6 @@ protected:
 
 private:
 
-	UPROPERTY(EditInstanceOnly, ReplicatedUsing=ApplyItemAsset)
+	UPROPERTY(EditInstanceOnly, ReplicatedUsing=OnRep_ItemAsset)
 	TObjectPtr<UItemAsset> ItemAsset;
 };

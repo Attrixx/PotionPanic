@@ -12,9 +12,6 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
-class IInteractable;
-class ICarriable;
-
 UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
 {
@@ -100,18 +97,11 @@ private:
 
 	struct FInRangeInfo
 	{
-		FInRangeInfo(AActor* Actor) : Actor(Actor)
-		{
-		}
+		FInRangeInfo(AActor* Actor);
 
 		TWeakObjectPtr<AActor> Actor;
-		uint32 NbOccurrences = 0;
-		float Score = std::numeric_limits<float>::min();
-
-		bool operator<(const FInRangeInfo& Right) const
-		{
-			return Score > Right.Score;
-		}
+		uint32 NbOccurrences;
+		float Score;
 	};
 
 	TArray<FInRangeInfo> InRangeInfos;
