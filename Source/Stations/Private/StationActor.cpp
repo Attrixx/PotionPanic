@@ -1,12 +1,13 @@
-#include "StationActorBase.h"
+#include "StationActor.h"
 #include "HolderComponent.h"
 #include "StationAsset.h"
 #include "Activities/Public/ActivityStep.h"
 #include "Recipes/Public/RecipeSystem.h"
+#include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActorBase, Verbose, All);
 
-AStationActorBase::AStationActorBase()
+AStationActor::AStationActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -17,32 +18,28 @@ AStationActorBase::AStationActorBase()
 	ItemHolder->SetupAttachment(StaticMesh);
 }
 
-void AStationActorBase::OnConstruction(const FTransform& Transform)
+void AStationActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AStationActor, StationAsset);
+}
+
+void AStationActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
 	if (StationAsset)
 	{
-		SetStationAsset(StationAsset);
+		ApplyStationAsset();
 	}
 }
 
-void AStationActorBase::BeginPlay()
+void AStationActor::BeginPlay()
 {
 	Super::BeginPlay();
 }
 
-void AStationActorBase::SetStationAsset(UStationAsset* NewAsset)
-{
-	if (!NewAsset)
-		return;
-
-	StationAsset = NewAsset;
-
-	StaticMesh->SetStaticMesh(NewAsset->StaticMesh);
-}
-
-void AStationActorBase::Interact(AActor* InInstigator)
+void AStationActor::Interact(AActor* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
@@ -50,8 +47,10 @@ void AStationActorBase::Interact(AActor* InInstigator)
 
 	if (!StationAsset)
 	{
-		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no StationAsset. Activity ignored."),
-		       *GetName());
+		UE_LOG(MS_StationActorBase,
+			Warning,
+			TEXT("Station '%s' has no StationAsset. Activity ignored."),
+			*GetName());
 		return;
 	}
 
@@ -75,7 +74,7 @@ void AStationActorBase::Interact(AActor* InInstigator)
 			}
 
 			ResetCurrentActivities();
-			CachedActivitySteps = Response.ActivitySteps;
+			CachedActivitySteps = MoveTemp(Response.ActivitySteps);
 			Status = EStationStatus::Ready;
 			[[fallthrough]];
 		}
@@ -92,7 +91,13 @@ void AStationActorBase::Interact(AActor* InInstigator)
 	}
 }
 
-void AStationActorBase::OnActivityFinished(const FActivityOutput& ActivityOutput)
+void AStationActor::SetStationAsset(UStationAsset& NewStationAsset)
+{
+	StationAsset = &NewStationAsset;
+	ApplyStationAsset();
+}
+
+void AStationActor::OnActivityFinished(const FActivityOutput& ActivityOutput)
 {
 	UE_LOG(MS_StationActorBase, Verbose, TEXT("Activity Complete"));
 
@@ -107,14 +112,14 @@ void AStationActorBase::OnActivityFinished(const FActivityOutput& ActivityOutput
 	}
 }
 
-void AStationActorBase::ResetCurrentActivities()
+void AStationActor::ResetCurrentActivities()
 {
 	CachedActivitySteps.Reset();
 	ActivityIndex = -1;
 	Status = EStationStatus::Idle;
 }
 
-void AStationActorBase::ExecuteNextActivity(AActor* InInstigator)
+void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 {
 	++ActivityIndex;
 
@@ -128,7 +133,7 @@ void AStationActorBase::ExecuteNextActivity(AActor* InInstigator)
 	{
 		FActivityContext ActivityContext;
 		ActivityContext.Instigator = InInstigator;
-		ActivityContext.OnActivityFinished.AddDynamic(this, &AStationActorBase::OnActivityFinished);
+		ActivityContext.OnActivityFinished.AddDynamic(this, &AStationActor::OnActivityFinished);
 
 		UActivityStep* CurrentActivityStep = CachedActivitySteps[ActivityIndex];
 		if (!CurrentActivityStep)
@@ -146,4 +151,18 @@ void AStationActorBase::ExecuteNextActivity(AActor* InInstigator)
 	{
 		--ActivityIndex;
 	}
+}
+
+void AStationActor::OnRep_StationAsset()
+{
+	ApplyStationAsset();
+}
+
+void AStationActor::ApplyStationAsset()
+{
+	check(IsValid(StationAsset));
+
+	StaticMesh->SetStaticMesh(StationAsset->StaticMesh);
+
+	ItemHolder->AttachToComponent(StaticMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, StationAsset->HolderSocket);
 }

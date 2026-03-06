@@ -3,15 +3,12 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Interactable.h"
-#include "Recipes/Public/RecipeSystem.h"
-#include "StationActorBase.generated.h"
+#include "StationActor.generated.h"
 
-class AItemActor;
-class APlayerController;
+class UStationAsset;
 class UHolderComponent;
 class UActivityStep;
 class UItemAsset;
-class UStationAsset;
 
 UENUM()
 enum class EStationStatus : uint8
@@ -28,42 +25,55 @@ enum class EStationStatus : uint8
  * All station logic is handled through the Interact() method and an external manager.
  */
 UCLASS()
-class STATIONS_API AStationActorBase : public AActor, public IInteractable
+class STATIONS_API AStationActor : public AActor, public IInteractable
 {
 	GENERATED_BODY()
-	
-public:
-	AStationActorBase();
+
+	AStationActor();
+	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
+	void BeginPlay() override;
 
 	UFUNCTION()
 	void Interact(AActor* InInstigator) override;
 
-private:
-	void BeginPlay() override;
-	
-	void SetStationAsset(UStationAsset* NewAsset);
+public:
+
+	void SetStationAsset(UStationAsset& NewStationAsset);
+	UStationAsset* GetStationAsset() const { return StationAsset; }
+
+private: // Activity logic
+
 	UFUNCTION()
 	void OnActivityFinished(const FActivityOutput& ActivityOutput);
-	
+
 	void ResetCurrentActivities();
 	void ExecuteNextActivity(AActor* Instigator);
 
 private:
-	UPROPERTY(EditAnywhere, Category = "Station|Data")
+
+	UFUNCTION()
+	void OnRep_StationAsset();
+
+	void ApplyStationAsset();
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Station|Data", ReplicatedUsing=OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
-	
-	UPROPERTY(EditAnywhere, Category = "Station|Components")
+
+	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
-	
-	UPROPERTY(EditAnywhere, Category = "Station|Components")
+
+	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
 	EStationStatus Status = EStationStatus::Idle;
+
 	UPROPERTY()
 	TArray<UActivityStep*> CachedActivitySteps;
 	int32 ActivityIndex = -1;
-	
+
 	UPROPERTY()
 	TObjectPtr<UItemAsset> ActivityOutputItem;
 };
