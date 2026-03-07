@@ -4,10 +4,10 @@
 #include "RecipeSystem.h"
 #include "CoreGameplay/Public/HolderComponent.h"
 #include "CoreGameplay/Public/ActivityAsset.h"
-#include "PotionPanicWorldSettings.h"
 #include <algorithm>
 #include <random>
 
+#include "RecipeAsset.h"
 #include "ActivityStep.h"
 #include "ItemTransformation.h"
 #include "ActivityStepSettings.h"
@@ -15,17 +15,9 @@
 
 DEFINE_LOG_CATEGORY_STATIC(MS_RecipeSystem, Log, All);
 
-void URecipeSystem::OnWorldBeginPlay(UWorld& InWorld)
+void URecipeSystem::SetRecipes(URecipeAsset* NewRecipeAsset)
 {
-	Super::OnWorldBeginPlay(InWorld);
-	
-	// TODO: remove dependency to world settings (going to be moved into different module)
-	// Should probably expose Init(RecipeAsset) method instead to be called from game mode 
-	auto Settings = Cast<APotionPanicWorldSettings>(InWorld.GetWorldSettings());
-	check(Settings);
-
-	if (Settings->RecipeAsset)
-		RecipeAsset = Settings->RecipeAsset;
+	RecipeAsset = NewRecipeAsset;
 }
 
 FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComponent> StationHolder,
@@ -54,7 +46,7 @@ FGetRecipeStepResponse URecipeSystem::GetRecipeStep(const TObjectPtr<UHolderComp
 	}
 	
 	// When StationItem == nullptr, we still want to go through this loop (Spawner case)
-	for (auto Step : RecipeAsset->Steps)
+	for (UItemTransformation* Step : RecipeAsset->Steps)
 	{
 		if (!Step)
 		{

@@ -5,13 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/WorldSettings.h"
 #include "RecipeAsset.h"
-#include "PotionPanicWorldSettings.generated.h"
+#include "AlchemyWorldSettings.generated.h"
 
 /**
  * TODO: Move into CoreGameplay module
  */
 UCLASS()
-class RECIPES_API APotionPanicWorldSettings : public AWorldSettings
+class GAMEFLOW_API AAlchemyWorldSettings : public AWorldSettings
 {
 	GENERATED_BODY()
 	

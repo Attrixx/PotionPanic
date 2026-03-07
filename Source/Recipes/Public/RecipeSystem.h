@@ -32,7 +32,8 @@ class RECIPES_API URecipeSystem : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
-	void OnWorldBeginPlay(UWorld& InWorld) override;
+
+	void SetRecipes(URecipeAsset* NewRecipeAsset);
 	
 	FGetRecipeStepResponse GetRecipeStep(const TObjectPtr<UHolderComponent> StationHolder, const TArray<TObjectPtr<UActivityAsset>>& StationActivities);
 	

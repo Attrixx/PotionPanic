@@ -4,27 +4,27 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "LevelGameMode.generated.h"
+#include "AlchemyGameMode.generated.h"
+
+class AAlchemyWorldSettings;
 
 /**
  * 
  */
-UCLASS()
-class COREGAMEPLAY_API ALevelGameMode : public AGameModeBase
+UCLASS(Abstract, BlueprintType, Blueprintable)
+class GAMEFLOW_API AAlchemyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
-protected:
-	
 	void OnPostLogin(AController* NewPlayer) override;
-	
+
 protected:
-	
+
 	UPROPERTY(EditAnywhere)
-	FName ViewTargetTag = FName("ViewTarget");
-	
+	FName ViewTargetTag;
+
 private:
-	
+
 	AActor* GetViewTarget();
 	TWeakObjectPtr<AActor> CachedViewTarget;
 };
