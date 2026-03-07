@@ -11,6 +11,8 @@ public class Recipes : ModuleRules
             "Core",
             "CoreUObject",
             "Engine",
+            "GameplayTags",
+            
             "CoreGameplay",
             "Items",
             "Activities"

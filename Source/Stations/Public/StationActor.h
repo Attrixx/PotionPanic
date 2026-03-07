@@ -32,15 +32,14 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 	AStationActor();
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
-	void BeginPlay() override;
 
 	UFUNCTION()
 	void Interact(AActor* InInstigator) override;
 
 public:
 
-	void SetStationAsset(UStationAsset& NewStationAsset);
-	UStationAsset* GetStationAsset() const { return StationAsset; }
+	UFUNCTION(BlueprintCallable)
+	void SetStationAsset(UStationAsset* NewStationAsset);
 
 private: // Activity logic
 

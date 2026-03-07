@@ -1,11 +1,12 @@
 #include "StationActor.h"
 #include "HolderComponent.h"
+#include "ItemActor.h"
 #include "StationAsset.h"
 #include "Activities/Public/ActivityStep.h"
 #include "Recipes/Public/RecipeSystem.h"
 #include <Net/UnrealNetwork.h>
 
-DEFINE_LOG_CATEGORY_STATIC(MS_StationActorBase, Verbose, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
 
 AStationActor::AStationActor()
 {
@@ -34,20 +35,15 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
-void AStationActor::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
 void AStationActor::Interact(AActor* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
-	UE_LOG(MS_StationActorBase, Verbose, TEXT("Station '%s' interacted by player"), *GetName());
+	UE_LOG(MS_StationActor, Verbose, TEXT("Station '%s' interacted by player"), *GetName());
 
 	if (!StationAsset)
 	{
-		UE_LOG(MS_StationActorBase,
+		UE_LOG(MS_StationActor,
 			Warning,
 			TEXT("Station '%s' has no StationAsset. Activity ignored."),
 			*GetName());
@@ -56,7 +52,7 @@ void AStationActor::Interact(AActor* InInstigator)
 
 	if (!ItemHolder)
 	{
-		UE_LOG(MS_StationActorBase, Warning, TEXT("Station '%s' has no ItemHolder. Activity ignored."), *GetName());
+		UE_LOG(MS_StationActor, Warning, TEXT("Station '%s' has no ItemHolder. Activity ignored."), *GetName());
 		return;
 	}
 
@@ -67,14 +63,22 @@ void AStationActor::Interact(AActor* InInstigator)
 			URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
 			check(RecipeSystem);
 
-			auto Response = RecipeSystem->GetRecipeStep(ItemHolder, StationAsset->Activities);
-			if (Response.ActivitySteps.IsEmpty())
+			FGameplayTagContainer InteractionTags = StationAsset->ImplementedActivities;
+			if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
 			{
+				InteractionTags.AppendTags(ItemActor->GetItemTags());
+			}
+			
+			TOptional<FInstruction> Instruction = RecipeSystem->CreateInstruction(InteractionTags);
+			if (!Instruction.IsSet())
+			{
+				UE_LOGFMT(MS_StationActor, Verbose, "No instruction.");
 				return;
 			}
 
 			ResetCurrentActivities();
-			CachedActivitySteps = MoveTemp(Response.ActivitySteps);
+			CachedActivitySteps = MoveTemp(Instruction->Steps);
+			ActivityOutputItem = Instruction->OutputItem;
 			Status = EStationStatus::Ready;
 			[[fallthrough]];
 		}
@@ -91,15 +95,18 @@ void AStationActor::Interact(AActor* InInstigator)
 	}
 }
 
-void AStationActor::SetStationAsset(UStationAsset& NewStationAsset)
+void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 {
-	StationAsset = &NewStationAsset;
-	ApplyStationAsset();
+	if (HasAuthority())
+	{
+		StationAsset = NewStationAsset;
+		OnRep_StationAsset();
+	}
 }
 
 void AStationActor::OnActivityFinished(const FActivityOutput& ActivityOutput)
 {
-	UE_LOG(MS_StationActorBase, Verbose, TEXT("Activity Complete"));
+	UE_LOG(MS_StationActor, Verbose, TEXT("Activity Complete"));
 
 	Status = EStationStatus::Ready;
 	if (ActivityOutput.ActivityResult == EActivityResult::Success)
@@ -125,7 +132,7 @@ void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 
 	if (ActivityIndex == CachedActivitySteps.Num())
 	{
-		UE_LOG(MS_StationActorBase, Error, TEXT("Not implemented"));
+		UE_LOG(MS_StationActor, Error, TEXT("Not implemented"));
 		ResetCurrentActivities();
 		// TODO Change item asset or delete it
 	}
@@ -138,7 +145,7 @@ void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 		UActivityStep* CurrentActivityStep = CachedActivitySteps[ActivityIndex];
 		if (!CurrentActivityStep)
 		{
-			UE_LOG(MS_StationActorBase, Warning,
+			UE_LOG(MS_StationActor, Warning,
 			       TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
 			ResetCurrentActivities();
 			return;

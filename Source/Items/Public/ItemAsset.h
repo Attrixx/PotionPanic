@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "GameplayTagContainer.h"
 #include "ItemAsset.generated.h"
 
 class UStaticMesh;
@@ -22,6 +23,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText ItemName;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item"))
+	FGameplayTagContainer ItemTags;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<UStaticMesh> StaticMesh = nullptr;

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Carriable.h"
+#include "GameplayTagContainer.h"
 #include "ItemActor.generated.h"
 
 class UItemAsset;
@@ -24,15 +25,22 @@ class ITEMS_API AItemActor : public AActor, public ICarriable
 
 public:
 
-	void SetItemAsset(UItemAsset& NewItemAsset);
-	UItemAsset* GetItemAsset() const { return ItemAsset; }
+	UFUNCTION(BlueprintCallable)
+	void SetItemAsset(UItemAsset* NewItemAsset);
+
+	UFUNCTION(BlueprintCallable)
+	const FGameplayTagContainer& GetItemTags() const { return ItemTags; }
+	
+	// If this item is a container, add tags to it
+	UFUNCTION(BlueprintCallable)
+	bool AppendItemTagsToContainer(const FGameplayTagContainer& ItemTags);
 
 protected: // ICarriable
 
 	UPrimitiveComponent* GetPrimitive_Implementation() const override;
 	FName GetStandaloneCollisionProfileName_Implementation() const override;
 	FName GetCarriedCollisionProfileName_Implementation() const override;
-	
+
 private:
 
 	UFUNCTION()
@@ -41,11 +49,11 @@ private:
 
 	UFUNCTION()
 	void OnRep_ItemAsset();
-	
+
 	void ApplyItemAsset();
 
 protected:
-	
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
 
@@ -54,10 +62,10 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
 	TObjectPtr<UAudioComponent> Audio;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Carriable")
 	FName StandaloneCollisionProfileName;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Carriable")
 	FName CarriedCollisionProfileName;
 
@@ -65,4 +73,6 @@ private:
 
 	UPROPERTY(EditInstanceOnly, ReplicatedUsing=OnRep_ItemAsset)
 	TObjectPtr<UItemAsset> ItemAsset;
+
+	FGameplayTagContainer ItemTags;
 };

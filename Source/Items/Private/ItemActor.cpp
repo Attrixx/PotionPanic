@@ -2,6 +2,7 @@
 
 #include "ItemActor.h"
 #include "ItemAsset.h"
+#include "ItemTags.h"
 #include <Net/UnrealNetwork.h>
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
@@ -42,7 +43,7 @@ void AItemActor::OnConstruction(const FTransform& Transform)
 
 	if (ItemAsset)
 	{
-		SetItemAsset(*ItemAsset);
+		ApplyItemAsset();
 	}
 }
 
@@ -53,10 +54,22 @@ void AItemActor::BeginPlay()
 	StaticMesh->OnComponentHit.AddDynamic(this, &AItemActor::Mesh_OnHit);
 }
 
-void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
+void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 {
-	ItemAsset = &NewItemAsset;
-	ApplyItemAsset();
+	if (HasAuthority())
+	{
+		ItemAsset = NewItemAsset;
+		OnRep_ItemAsset();
+	}
+}
+
+bool AItemActor::AppendItemTagsToContainer(const FGameplayTagContainer& NewItemTags)
+{
+	if (!ItemTags.HasTag(GameTags::Item_Utensil_Container))
+		return false;
+	
+	ItemTags.AppendTags(NewItemTags);
+	return true;
 }
 
 UPrimitiveComponent* AItemActor::GetPrimitive_Implementation() const
@@ -95,7 +108,9 @@ void AItemActor::OnRep_ItemAsset()
 void AItemActor::ApplyItemAsset()
 {
 	check(IsValid(ItemAsset));
-	
+
+	ItemTags = ItemAsset->ItemTags;
+
 	StaticMesh->SetStaticMesh(ItemAsset->StaticMesh);
 
 	Niagara->SetAsset(ItemAsset->NiagaraSystem);

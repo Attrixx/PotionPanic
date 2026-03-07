@@ -6,7 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "AlchemyGameState.generated.h"
 
-class AAlchemyWorldSettings;
+class UWorldData;
 
 /**
  * 
@@ -16,9 +16,24 @@ class GAMEFLOW_API AAlchemyGameState : public AGameStateBase
 {
 	GENERATED_BODY()
 	
-	void BeginPlay() override;
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+public:
+	
+	void SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData);
 	
 private:
 	
-	void InitializeSubsystems(AAlchemyWorldSettings& WorldSettings);
+	UFUNCTION()
+	void OnRep_SoftWorldData();
+	
+	void ConfigureRecipeSystem() const;
+
+private:
+
+	UPROPERTY(ReplicatedUsing=OnRep_SoftWorldData)
+	TSoftObjectPtr<UWorldData> SoftWorldData;
+	
+	UPROPERTY(Transient)
+	TObjectPtr<UWorldData> WorldData;
 };

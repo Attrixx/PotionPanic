@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "GameplayTagContainer.h"
 #include "ItemTransformation.generated.h"
 
-class UItemAsset;
-class UActivityAsset;
 class UActivityStepSettings;
+class UItemAsset;
 
 UCLASS()
 class RECIPES_API UItemTransformation : public UPrimaryDataAsset
@@ -20,11 +20,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText TransformationName;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UItemAsset> InputItem;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<UActivityAsset> Activity;
+	// Item tags and Activity tags needed on the Item and Station to perform this transformation
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item,Activity"))
+	FGameplayTagContainer InputTags;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Instanced);
 	TArray<TObjectPtr<UActivityStepSettings>> ActivitySteps;

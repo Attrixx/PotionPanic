@@ -1,8 +1,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "Engine/DataAsset.h"
-#include "CoreGameplay/Public/ActivityAsset.h"
 #include "StationAsset.generated.h"
 
 UCLASS()
@@ -20,6 +20,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	FName HolderSocket = NAME_None;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Station")
-	TArray<TObjectPtr<UActivityAsset>> Activities;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Station", meta=(Categories="Activity"))
+	FGameplayTagContainer ImplementedActivities;
 };

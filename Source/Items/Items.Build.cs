@@ -12,6 +12,8 @@ public class Items : ModuleRules
             "CoreUObject",
             "Engine",
             "Niagara",
+            "GameplayTags",
+            
             "CoreGameplay"
         });
     }
