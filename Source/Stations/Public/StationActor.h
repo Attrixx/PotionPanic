@@ -5,6 +5,7 @@
 #include "Interactable.h"
 #include "StationActor.generated.h"
 
+class AItemActor;
 class UStationAsset;
 class UHolderComponent;
 class UActivityStep;
@@ -57,14 +58,17 @@ private:
 	void ApplyStationAsset();
 
 private:
+	
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AItemActor> ItemClass;
 
 	UPROPERTY(EditAnywhere, Category = "Station|Data", ReplicatedUsing=OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
 
-	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
+	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
 
-	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
+	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
 	EStationStatus Status = EStationStatus::Idle;

@@ -19,7 +19,7 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	FName HolderSocket = NAME_None;
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Station", meta=(Categories="Activity"))
 	FGameplayTagContainer ImplementedActivities;
 };

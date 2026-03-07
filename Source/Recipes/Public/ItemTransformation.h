@@ -20,7 +20,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText TransformationName;
 	
-	// Item tags and Activity tags needed on the Item and Station to perform this transformation
+	// Tags that must be present on the item or the station's implemented activities
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item,Activity"))
 	FGameplayTagContainer InputTags;
 	

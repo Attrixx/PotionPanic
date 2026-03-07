@@ -68,7 +68,7 @@ void AStationActor::Interact(AActor* InInstigator)
 			{
 				InteractionTags.AppendTags(ItemActor->GetItemTags());
 			}
-			
+
 			TOptional<FInstruction> Instruction = RecipeSystem->CreateInstruction(InteractionTags);
 			if (!Instruction.IsSet())
 			{
@@ -132,9 +132,32 @@ void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 
 	if (ActivityIndex == CachedActivitySteps.Num())
 	{
-		UE_LOG(MS_StationActor, Error, TEXT("Not implemented"));
-		ResetCurrentActivities();
-		// TODO Change item asset or delete it
+		if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
+		{
+			if (ActivityOutputItem)
+			{
+				ItemActor->SetItemAsset(ActivityOutputItem);
+			}
+			else
+			{
+				ItemActor->Destroy();
+			}
+		}
+		else if (ActivityOutputItem)
+		{
+			auto* NewItemActor = GetWorld()->SpawnActor<AItemActor>(
+				ItemClass,
+				ItemHolder->GetComponentLocation(),
+				ItemHolder->GetComponentRotation());
+			
+			NewItemActor->SetItemAsset(ActivityOutputItem);
+			ItemHolder->TryPickup(NewItemActor);
+		}
+		
+		CachedActivitySteps.Empty();
+		ActivityIndex = -1;
+		ActivityOutputItem = nullptr;
+		Status = EStationStatus::Idle;
 	}
 	else if (InInstigator || !CachedActivitySteps[ActivityIndex]->RequiresPlayerInteraction())
 	{
