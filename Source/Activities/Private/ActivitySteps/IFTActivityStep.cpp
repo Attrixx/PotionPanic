@@ -18,7 +18,7 @@ EDataValidationResult UIFTActivitySetting::IsDataValid(FDataValidationContext& C
 
 	if (WindowLengthSeconds < 0.f)
 	{
-		Context.AddError(FText::Format(FTextFormat::FromString("Field 'WindowLengthSeconds' should be positive (Current value: {0})."), SecondsBeforeWindow));
+		Context.AddError(FText::Format(FTextFormat::FromString("Field 'WindowLengthSeconds' should be positive (Current value: {0})."), WindowLengthSeconds));
 		Result = EDataValidationResult::Invalid;
 	}
 

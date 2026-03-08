@@ -61,7 +61,7 @@ void AAlchemistBase::BeginPlay()
 			// TODO: Replace this by actual effects
 
 #if WITH_EDITOR // GetActorGuid is WITH_EDITOR only
-			
+
 			AActor* BestInteractable = GetBestInteractable();
 			GEngine->AddOnScreenDebugMessage(
 				int32(GetActorGuid().A),
@@ -254,9 +254,9 @@ void AAlchemistBase::Input_Throw()
 
 void AAlchemistBase::Server_Interact_Implementation()
 {
-	if (auto* Interactable = Cast<IInteractable>(GetBestInteractable()))
+	if (AActor* Interactable = GetBestInteractable())
 	{
-		Interactable->Interact(this);
+		IInteractable::Execute_Interact(Interactable, this);
 	}
 }
 

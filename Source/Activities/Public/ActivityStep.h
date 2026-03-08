@@ -28,7 +28,7 @@ struct ACTIVITIES_API FActivityOutput
 	int32 Score = 0;
 };
 
-DECLARE_DELEGATE_OneParam(FActivityFinished, const FActivityOutput&);
+DECLARE_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityOutput&);
 
 UCLASS(Abstract, Blueprintable)
 class ACTIVITIES_API UActivityStep : public UObject
@@ -37,7 +37,7 @@ class ACTIVITIES_API UActivityStep : public UObject
 
 public:
 	
-	FActivityFinished OnActivityFinished;
+	FActivityOutputDelegate OnActivityFinished;
 
 	UFUNCTION(BlueprintNativeEvent)
 	void StartActivity(AActor* Instigator);
