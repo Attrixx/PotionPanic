@@ -2,21 +2,23 @@
 
 public class Player : ModuleRules
 {
-    public Player(ReadOnlyTargetRules Target) : base(Target)
-    {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+	public Player(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(new string[]
-        {
-            "Core",
-            "CoreUObject",
-            "Engine",
-            "EnhancedInput",
-            "InputCore",
-            "AudioMixer",
-            "UMG",
-            
-            "CoreGameplay"
-        });
-    }
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core",
+			"CoreUObject",
+			"Engine"
+		});
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"EnhancedInput",
+			"InputCore",
+
+			"CoreGameplay"
+		});
+	}
 }
