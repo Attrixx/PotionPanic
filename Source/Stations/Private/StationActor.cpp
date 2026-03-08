@@ -35,7 +35,7 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
-void AStationActor::Interact(AActor* InInstigator)
+void AStationActor::Interact_Implementation(AActor* InInstigator)
 {
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface

@@ -35,7 +35,7 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
 
-	void Interact(AActor* InInstigator) override;
+	void Interact_Implementation(AActor* InInstigator) override;
 
 public:
 
