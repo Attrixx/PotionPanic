@@ -14,6 +14,10 @@ UCLASS()
 class RECIPES_API UItemTransformation : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
+
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
+#endif
 	
 public:
 	

@@ -21,36 +21,37 @@ struct ACTIVITIES_API FActivityOutput
 {
 	GENERATED_BODY()
 
+	UPROPERTY(BlueprintReadWrite)
 	EActivityResult ActivityResult = EActivityResult::Default;
-	uint32 Score = 0;
+	
+	UPROPERTY(BlueprintReadWrite)
+	int32 Score = 0;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityOutput&, ActivityOutput);
+DECLARE_DELEGATE_OneParam(FActivityFinished, const FActivityOutput&);
 
-USTRUCT(BlueprintType)
-struct ACTIVITIES_API FActivityContext
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	AActor* Instigator;
-	FActivityOutputDelegate OnActivityFinished;
-};
-
-class UActivityStepSettings;
-
-UCLASS(Abstract, BlueprintType)
+UCLASS(Abstract, Blueprintable)
 class ACTIVITIES_API UActivityStep : public UObject
 {
 	GENERATED_BODY()
-	
-public:	
-	
-	UFUNCTION(BlueprintCallable)
-	virtual void StartActivity(const FActivityContext& Context) PURE_VIRTUAL(UActivityBase::StartActivity, );
-	
-	virtual void InteractWhileProcess() {}
-	
-	virtual bool RequiresPlayerInteraction() const PURE_VIRTUAL(UActivityStepSettings::RequiresPlayerActivity, return false;);
-};
 
+public:
+	
+	FActivityFinished OnActivityFinished;
+
+	UFUNCTION(BlueprintNativeEvent)
+	void StartActivity(AActor* Instigator);
+
+	UFUNCTION(BlueprintNativeEvent)
+	void InteractWhileProcess();
+	
+protected:
+	
+	UFUNCTION(BlueprintPure=false)
+	void FinishActivity(const FActivityOutput& Output) const { OnActivityFinished.ExecuteIfBound(Output); }
+
+protected:
+
+	virtual void StartActivity_Implementation(AActor* Instigator) PURE_VIRTUAL(UActivityStep::RequiresPlayerInteraction,);
+	virtual void InteractWhileProcess_Implementation() { }
+};

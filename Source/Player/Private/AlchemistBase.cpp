@@ -60,6 +60,8 @@ void AAlchemistBase::BeginPlay()
 
 			// TODO: Replace this by actual effects
 
+#if WITH_EDITOR // GetActorGuid is WITH_EDITOR only
+			
 			AActor* BestInteractable = GetBestInteractable();
 			GEngine->AddOnScreenDebugMessage(
 				int32(GetActorGuid().A),
@@ -83,6 +85,7 @@ void AAlchemistBase::BeginPlay()
 						GetName(),
 						BestCarriable ? BestCarriable->GetName() : "None"
 					}));
+#endif
 		},
 		InRangeInfosSortInterval,
 		true);

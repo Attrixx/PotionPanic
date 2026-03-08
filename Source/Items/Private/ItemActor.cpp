@@ -90,6 +90,12 @@ FName AItemActor::GetCarriedCollisionProfileName_Implementation() const
 void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	check(StaticMesh == HitComponent);
+	
+	if (ItemTags.HasTag(GameTags::Item_Breakable))
+	{
+		// TODO: Implement breakable items
+		UE_LOGFMT(MS_ItemActor, Warning, "Breakable items are not implemented.");
+	}
 
 	if (Hit.ImpactNormal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{

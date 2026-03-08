@@ -10,6 +10,7 @@ class UStationAsset;
 class UHolderComponent;
 class UActivityStep;
 class UItemAsset;
+struct FActivityOutput;
 
 UENUM()
 enum class EStationStatus : uint8
@@ -34,7 +35,6 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
 
-	UFUNCTION()
 	void Interact(AActor* InInstigator) override;
 
 public:
@@ -44,11 +44,9 @@ public:
 
 private: // Activity logic
 
-	UFUNCTION()
 	void OnActivityFinished(const FActivityOutput& ActivityOutput);
-
 	void ResetCurrentActivities();
-	void ExecuteNextActivity(AActor* Instigator);
+	void ExecuteNextActivity();
 
 private:
 
@@ -58,7 +56,7 @@ private:
 	void ApplyStationAsset();
 
 private:
-	
+
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AItemActor> ItemClass;
 
@@ -73,6 +71,8 @@ private:
 
 	EStationStatus Status = EStationStatus::Idle;
 
+	TWeakObjectPtr<AActor> LastInstigator;
+	
 	UPROPERTY()
 	TArray<UActivityStep*> CachedActivitySteps;
 	int32 ActivityIndex = -1;

@@ -12,7 +12,11 @@ class ACTIVITIES_API UIFTActivitySetting : public UActivityStepSettings
 {
 	GENERATED_BODY()
 
-	UActivityStep* CreateStep(UObject* Outer) const override;
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
+	
+	UActivityStep* CreateStep_Implementation(UObject* Outer) const override;
 
 protected:
 
@@ -40,20 +44,13 @@ class ACTIVITIES_API UIFTActivityStep : public UActivityStep
 {
 	GENERATED_BODY()
 
-public:
-
-	void StartActivity(const FActivityContext& Context) override;
-	void InteractWhileProcess() override;
-	bool RequiresPlayerInteraction() const override { return false; }
-
-private:
+	void StartActivity_Implementation(AActor* Instigator) override;
+	void InteractWhileProcess_Implementation() override;
 
 	friend UIFTActivitySetting;
 
 	float SecondsBeforeWindow = 0.f;
 	float WindowLengthSeconds = 1.f;
-
-	FActivityContext ActivityContext;
 
 	FTimerHandle WindowHandle;
 	EIFTStatus Status = EIFTStatus::None;

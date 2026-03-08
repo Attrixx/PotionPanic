@@ -40,7 +40,8 @@ void AStationActor::Interact(AActor* InInstigator)
 	// Station interaction is handled by external manager
 	// This method satisfies the IInteractable interface
 	UE_LOG(MS_StationActor, Verbose, TEXT("Station '%s' interacted by player"), *GetName());
-
+	LastInstigator = InInstigator;
+	
 	if (!StationAsset)
 	{
 		UE_LOG(MS_StationActor,
@@ -84,7 +85,7 @@ void AStationActor::Interact(AActor* InInstigator)
 		}
 		case EStationStatus::Ready:
 		{
-			ExecuteNextActivity(InInstigator);
+			ExecuteNextActivity();
 			break;
 		}
 		case EStationStatus::Busy:
@@ -111,7 +112,7 @@ void AStationActor::OnActivityFinished(const FActivityOutput& ActivityOutput)
 	Status = EStationStatus::Ready;
 	if (ActivityOutput.ActivityResult == EActivityResult::Success)
 	{
-		ExecuteNextActivity(nullptr);
+		ExecuteNextActivity();
 	}
 	else
 	{
@@ -126,7 +127,7 @@ void AStationActor::ResetCurrentActivities()
 	Status = EStationStatus::Idle;
 }
 
-void AStationActor::ExecuteNextActivity(AActor* InInstigator)
+void AStationActor::ExecuteNextActivity()
 {
 	++ActivityIndex;
 
@@ -159,12 +160,8 @@ void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 		ActivityOutputItem = nullptr;
 		Status = EStationStatus::Idle;
 	}
-	else if (InInstigator || !CachedActivitySteps[ActivityIndex]->RequiresPlayerInteraction())
+	else
 	{
-		FActivityContext ActivityContext;
-		ActivityContext.Instigator = InInstigator;
-		ActivityContext.OnActivityFinished.AddDynamic(this, &AStationActor::OnActivityFinished);
-
 		UActivityStep* CurrentActivityStep = CachedActivitySteps[ActivityIndex];
 		if (!CurrentActivityStep)
 		{
@@ -175,11 +172,8 @@ void AStationActor::ExecuteNextActivity(AActor* InInstigator)
 		}
 
 		Status = EStationStatus::Busy;
-		CurrentActivityStep->StartActivity(ActivityContext);
-	}
-	else
-	{
-		--ActivityIndex;
+		CurrentActivityStep->OnActivityFinished.BindUObject(this, &AStationActor::OnActivityFinished);
+		CurrentActivityStep->StartActivity(LastInstigator.Get());
 	}
 }
 
