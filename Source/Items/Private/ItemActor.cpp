@@ -63,13 +63,14 @@ void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 	}
 }
 
-bool AItemActor::AppendItemTagsToContainer(const FGameplayTagContainer& NewItemTags)
+void AItemActor::AppendItemTags(const FGameplayTagContainer& NewItemTags)
 {
-	if (!ItemTags.HasTag(GameTags::Item_Utensil_Container))
-		return false;
-	
 	ItemTags.AppendTags(NewItemTags);
-	return true;
+}
+
+void AItemActor::RemoveItemTag(const FGameplayTagContainer& ItemTagsToRemove)
+{
+	check("Not Implemented" && false);
 }
 
 UPrimitiveComponent* AItemActor::GetPrimitive_Implementation() const

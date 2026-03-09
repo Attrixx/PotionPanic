@@ -31,9 +31,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	const FGameplayTagContainer& GetItemTags() const { return ItemTags; }
 	
-	// If this item is a container, add tags to it
 	UFUNCTION(BlueprintCallable)
-	bool AppendItemTagsToContainer(const FGameplayTagContainer& ItemTags);
+	void AppendItemTags(const FGameplayTagContainer& NewItemTags);
+	
+	UFUNCTION(BlueprintCallable)
+	void RemoveItemTag(const FGameplayTagContainer& ItemTagsToRemove);
 
 protected: // ICarriable
 
