@@ -7,9 +7,8 @@
 #include "ActivityStep.generated.h"
 
 UENUM(BlueprintType)
-enum class EActivityResult : uint8
+enum class EActivityStepStatus : uint8
 {
-	Default,
 	// CriticalSuccess, // TODO Maybe ?
 	Success,
 	Fail,
@@ -17,41 +16,45 @@ enum class EActivityResult : uint8
 };
 
 USTRUCT(BlueprintType)
-struct ACTIVITIES_API FActivityOutput
+struct ACTIVITIES_API FActivityStepResult
 {
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite)
-	EActivityResult ActivityResult = EActivityResult::Default;
+	EActivityStepStatus Status = EActivityStepStatus::Success;
 	
 	UPROPERTY(BlueprintReadWrite)
 	int32 Score = 0;
 };
 
-DECLARE_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityOutput&);
+DECLARE_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityStepResult&);
 
-UCLASS(Abstract, Blueprintable)
+UCLASS(Abstract, EditInlineNew, Blueprintable)
 class ACTIVITIES_API UActivityStep : public UObject
 {
 	GENERATED_BODY()
 
 public:
 	
-	FActivityOutputDelegate OnActivityFinished;
+	FActivityOutputDelegate ActivityFinishedCallback;
+	
+	UFUNCTION(BlueprintNativeEvent)
+	void StartStep(AActor* LastInstigator);
 
 	UFUNCTION(BlueprintNativeEvent)
-	void StartActivity(AActor* Instigator);
-
+	void OnInteract(AActor* Instigator);
+	
 	UFUNCTION(BlueprintNativeEvent)
-	void InteractWhileProcess();
+	void CancelStep();
 	
 protected:
 	
 	UFUNCTION(BlueprintPure=false)
-	void FinishActivity(const FActivityOutput& Output) const { OnActivityFinished.ExecuteIfBound(Output); }
+	void FinishStep(const FActivityStepResult& Output) const;
 
-protected:
+protected: // Default implementations
 
-	virtual void StartActivity_Implementation(AActor* Instigator) PURE_VIRTUAL(UActivityStep::RequiresPlayerInteraction,);
-	virtual void InteractWhileProcess_Implementation() { }
+	virtual void StartStep_Implementation(AActor* LastInstigator);
+	virtual void OnInteract_Implementation(AActor* Instigator);
+	virtual void CancelStep_Implementation();
 };

@@ -1,0 +1,52 @@
+﻿#include "ActivityAsset.h"
+#include "ActivityStepSettings.h"
+#include "ActivityEvaluator.h"
+#include "ActivityConclusion.h"
+#include "Misc/DataValidation.h"
+
+#if WITH_EDITOR
+EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Context) const
+{
+	EDataValidationResult Result = Super::IsDataValid(Context);
+
+	for (const UActivityStepSettings* Settings : ActivitySteps)
+	{
+		if (IsValid(Settings))
+		{
+			Result = CombineDataValidationResults(Settings->IsDataValid(Context), Result);
+		}
+		else
+		{
+			Context.AddError(FText::FromString("Invalid Activity Step."));
+			Result = EDataValidationResult::Invalid;
+		}
+	}
+
+	if (ActivitySteps.Num() > 0)
+	{
+		if (IsValid(Evaluator))
+		{
+			const auto* EvaluatorPtr = Evaluator.Get();
+			Result = CombineDataValidationResults(EvaluatorPtr->IsDataValid(Context), Result);
+		}
+		else
+		{
+			Context.AddError(FText::FromString("Invalid Activity Evaluator."));
+			Result = EDataValidationResult::Invalid;
+		}
+	}
+
+	if (IsValid(Conclusion))
+	{
+		const auto* ConclusionPtr = Conclusion.Get();
+		Result = CombineDataValidationResults(ConclusionPtr->IsDataValid(Context), Result);
+	}
+	else
+	{
+		Context.AddError(FText::FromString("Invalid Activity Conclusion."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	return Result;
+}
+#endif

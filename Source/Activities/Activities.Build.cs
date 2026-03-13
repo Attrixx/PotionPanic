@@ -16,6 +16,8 @@ public class Activities : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"CoreGameplay",
+			"Items"
 		});
 	}
 }

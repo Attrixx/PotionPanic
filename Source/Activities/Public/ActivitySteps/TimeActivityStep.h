@@ -7,7 +7,7 @@
 #include "ActivityStepSettings.h"
 #include "TimeActivityStep.generated.h"
 
-UCLASS()
+UCLASS(DisplayName = "Time")
 class ACTIVITIES_API UTimeActivitySettings : public UActivityStepSettings
 {
 	GENERATED_BODY()
@@ -20,7 +20,7 @@ class ACTIVITIES_API UTimeActivitySettings : public UActivityStepSettings
 
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="")
+	UPROPERTY(EditAnywhere, Category="")
 	float SecondsToWait = 0.f;
 };
 
@@ -29,7 +29,7 @@ class ACTIVITIES_API UTimeActivityStep : public UActivityStep
 {
 	GENERATED_BODY()
 
-	void StartActivity_Implementation(AActor* Instigator) override;
+	void StartStep_Implementation(AActor* Performer) override;
 
 	friend UTimeActivitySettings;
 

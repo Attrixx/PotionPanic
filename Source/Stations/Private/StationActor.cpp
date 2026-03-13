@@ -2,8 +2,8 @@
 #include "HolderComponent.h"
 #include "ItemActor.h"
 #include "StationAsset.h"
-#include "Activities/Public/ActivityStep.h"
-#include "Recipes/Public/RecipeSystem.h"
+#include "ActivityExecutor.h"
+#include "RecipeSystem.h"
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
@@ -17,6 +17,8 @@ AStationActor::AStationActor()
 
 	ItemHolder = CreateDefaultSubobject<UHolderComponent>(TEXT("Item Holder"));
 	ItemHolder->SetupAttachment(StaticMesh);
+
+	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
 }
 
 void AStationActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -35,65 +37,18 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
+void AStationActor::BeginPlay()
+{
+	Super::BeginPlay();
+
+	Executor->Initialize(ItemHolder);
+	ItemHolder->OnCarriableChanged.AddDynamic(this, &AStationActor::Holder_OnCarriableChanged);
+}
+
 void AStationActor::Interact_Implementation(AActor* InInstigator)
 {
-	// Station interaction is handled by external manager
-	// This method satisfies the IInteractable interface
-	UE_LOG(MS_StationActor, Verbose, TEXT("Station '%s' interacted by player"), *GetName());
-	LastInstigator = InInstigator;
-	
-	if (!StationAsset)
-	{
-		UE_LOG(MS_StationActor,
-			Warning,
-			TEXT("Station '%s' has no StationAsset. Activity ignored."),
-			*GetName());
-		return;
-	}
-
-	if (!ItemHolder)
-	{
-		UE_LOG(MS_StationActor, Warning, TEXT("Station '%s' has no ItemHolder. Activity ignored."), *GetName());
-		return;
-	}
-
-	switch (Status)
-	{
-		case EStationStatus::Idle:
-		{
-			URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
-			check(RecipeSystem);
-
-			FGameplayTagContainer InteractionTags = StationAsset->ImplementedActivities;
-			if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
-			{
-				InteractionTags.AppendTags(ItemActor->GetItemTags());
-			}
-
-			TOptional<FInstruction> Instruction = RecipeSystem->CreateInstruction(InteractionTags);
-			if (!Instruction.IsSet())
-			{
-				UE_LOGFMT(MS_StationActor, Verbose, "No instruction.");
-				return;
-			}
-
-			ResetCurrentActivities();
-			CachedActivitySteps = MoveTemp(Instruction->Steps);
-			ActivityOutputItem = Instruction->OutputItem;
-			Status = EStationStatus::Ready;
-			[[fallthrough]];
-		}
-		case EStationStatus::Ready:
-		{
-			ExecuteNextActivity();
-			break;
-		}
-		case EStationStatus::Busy:
-		{
-			CachedActivitySteps[ActivityIndex]->InteractWhileProcess();
-			break;
-		}
-	}
+	FetchInstructions(InInstigator);
+	Executor->Interact(InInstigator);
 }
 
 void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
@@ -105,75 +60,34 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 	}
 }
 
-void AStationActor::OnActivityFinished(const FActivityOutput& ActivityOutput)
+void AStationActor::FetchInstructions(AActor* InInstigator)
 {
-	UE_LOG(MS_StationActor, Verbose, TEXT("Activity Complete"));
+	if (Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing)
+		return;
+	
+	URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
+	check(RecipeSystem);
 
-	Status = EStationStatus::Ready;
-	if (ActivityOutput.ActivityResult == EActivityResult::Success)
+	FGameplayTagContainer InteractionTags = StationAsset->ImplementedActivities;
+	if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
-		ExecuteNextActivity();
+		InteractionTags.AppendTags(ItemActor->GetItemTags());
 	}
-	else
+
+	if (UActivityAsset* Activity = RecipeSystem->FindActivityByInputTags(InteractionTags))
 	{
-		ResetCurrentActivities();
+		Executor->StartActivity(Activity, InInstigator);
 	}
 }
 
-void AStationActor::ResetCurrentActivities()
+void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 {
-	CachedActivitySteps.Reset();
-	ActivityIndex = -1;
-	Status = EStationStatus::Idle;
-}
+	check(Holder == ItemHolder);
 
-void AStationActor::ExecuteNextActivity()
-{
-	++ActivityIndex;
-
-	if (ActivityIndex == CachedActivitySteps.Num())
+	// Only fetch if an item was put on the holder
+	if (Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
-		if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
-		{
-			if (ActivityOutputItem)
-			{
-				ItemActor->SetItemAsset(ActivityOutputItem);
-			}
-			else
-			{
-				ItemActor->Destroy();
-			}
-		}
-		else if (ActivityOutputItem)
-		{
-			auto* NewItemActor = GetWorld()->SpawnActor<AItemActor>(
-				ItemClass,
-				ItemHolder->GetComponentLocation(),
-				ItemHolder->GetComponentRotation());
-			
-			NewItemActor->SetItemAsset(ActivityOutputItem);
-			ItemHolder->TryPickup(NewItemActor);
-		}
-		
-		CachedActivitySteps.Empty();
-		ActivityIndex = -1;
-		ActivityOutputItem = nullptr;
-		Status = EStationStatus::Idle;
-	}
-	else
-	{
-		UActivityStep* CurrentActivityStep = CachedActivitySteps[ActivityIndex];
-		if (!CurrentActivityStep)
-		{
-			UE_LOG(MS_StationActor, Warning,
-			       TEXT("Station '%s' encountered a null interaction. Resetting sequence."), *GetName());
-			ResetCurrentActivities();
-			return;
-		}
-
-		Status = EStationStatus::Busy;
-		CurrentActivityStep->OnActivityFinished.BindUObject(this, &AStationActor::OnActivityFinished);
-		CurrentActivityStep->StartActivity(LastInstigator.Get());
+		FetchInstructions(nullptr);
 	}
 }
 

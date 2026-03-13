@@ -63,14 +63,22 @@ void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 	}
 }
 
+void AItemActor::SetItemTags(const FGameplayTagContainer& NewItemTags)
+{
+	check(NewItemTags == NewItemTags.Filter(FGameplayTagContainer(GameTags::Item)));
+	ItemTags = NewItemTags;
+}
+
 void AItemActor::AppendItemTags(const FGameplayTagContainer& NewItemTags)
 {
+	check(NewItemTags == NewItemTags.Filter(FGameplayTagContainer(GameTags::Item)));
 	ItemTags.AppendTags(NewItemTags);
 }
 
 void AItemActor::RemoveItemTag(const FGameplayTagContainer& ItemTagsToRemove)
 {
-	check("Not Implemented" && false);
+	check(ItemTagsToRemove == ItemTagsToRemove.Filter(FGameplayTagContainer(GameTags::Item)));
+	ItemTags.RemoveTags(ItemTagsToRemove);
 }
 
 UPrimitiveComponent* AItemActor::GetPrimitive_Implementation() const

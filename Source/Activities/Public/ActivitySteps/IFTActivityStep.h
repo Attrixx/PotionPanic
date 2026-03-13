@@ -7,23 +7,23 @@
 #include "ActivityStepSettings.h"
 #include "IFTActivityStep.generated.h"
 
-UCLASS()
+UCLASS(DisplayName = "IFT")
 class ACTIVITIES_API UIFTActivitySetting : public UActivityStepSettings
 {
 	GENERATED_BODY()
+	
+protected:
 
 #if WITH_EDITOR
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
-	
+
 	UActivityStep* CreateStep_Implementation(UObject* Outer) const override;
 
-protected:
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="")
+	UPROPERTY(EditAnywhere, Category="")
 	float SecondsBeforeWindow = 0.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="")
+	UPROPERTY(EditAnywhere, Category="")
 	float WindowLengthSeconds = 1.f;
 };
 
@@ -44,8 +44,8 @@ class ACTIVITIES_API UIFTActivityStep : public UActivityStep
 {
 	GENERATED_BODY()
 
-	void StartActivity_Implementation(AActor* Instigator) override;
-	void InteractWhileProcess_Implementation() override;
+	void StartStep_Implementation(AActor* LastInstigator) override;
+	void OnInteract_Implementation(AActor* Instigator) override;
 
 	friend UIFTActivitySetting;
 
@@ -54,5 +54,5 @@ class ACTIVITIES_API UIFTActivityStep : public UActivityStep
 
 	FTimerHandle WindowHandle;
 	EIFTStatus Status = EIFTStatus::None;
-	FActivityOutput ActivityOutput;
+	FActivityStepResult ActivityOutput;
 };

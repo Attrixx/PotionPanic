@@ -27,7 +27,7 @@ UActivityStep* UTimeActivitySettings::CreateStep_Implementation(UObject* Outer) 
 	return Step;
 }
 
-void UTimeActivityStep::StartActivity_Implementation(AActor* Instigator)
+void UTimeActivityStep::StartStep_Implementation(AActor* Performer)
 {
 	if (UWorld* World = GetOuter()->GetWorld())
 	{
@@ -36,10 +36,10 @@ void UTimeActivityStep::StartActivity_Implementation(AActor* Instigator)
 		World->GetTimerManager().SetTimer(Handle,
 			[this]
 			{
-				FActivityOutput Output;
+				FActivityStepResult Output;
 				UE_LOG(MS_TimeActivityStep, Verbose, TEXT("Stopped waiting on Time Activity"));
-				Output.ActivityResult = EActivityResult::Success;
-				FinishActivity(Output);
+				Output.Status = EActivityStepStatus::Success;
+				FinishStep(Output);
 			},
 			SecondsToWait,
 			false);

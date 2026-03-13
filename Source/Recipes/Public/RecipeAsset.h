@@ -6,7 +6,7 @@
 #include "Engine/DataAsset.h"
 #include "RecipeAsset.generated.h"
 
-class UItemTransformation;
+class UActivityAsset;
 
 /**
  * 
@@ -22,5 +22,5 @@ public:
 	FText RecipeName;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<UItemTransformation>> Steps;
+	TArray<TObjectPtr<UActivityAsset>> Steps;
 };

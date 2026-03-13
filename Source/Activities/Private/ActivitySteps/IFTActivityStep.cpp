@@ -37,7 +37,7 @@ UActivityStep* UIFTActivitySetting::CreateStep_Implementation(UObject* Outer) co
 	return Step;
 }
 
-void UIFTActivityStep::StartActivity_Implementation(AActor* Instigator)
+void UIFTActivityStep::StartStep_Implementation(AActor* LastInstigator)
 {
 	if (UWorld* World = GetOuter()->GetWorld())
 	{
@@ -56,9 +56,9 @@ void UIFTActivityStep::StartActivity_Implementation(AActor* Instigator)
 					{
 						Status = EIFTStatus::PastWindow;
 						UE_LOGFMT(MS_ITFActivityStep, Verbose, "Missed Window");
-						ActivityOutput.ActivityResult = EActivityResult::Fail;
+						ActivityOutput.Status = EActivityStepStatus::Fail;
 						// TODO François Compute Activity score
-						FinishActivity(ActivityOutput);
+						FinishStep(ActivityOutput);
 					},
 					WindowLengthSeconds,
 					false);
@@ -68,13 +68,13 @@ void UIFTActivityStep::StartActivity_Implementation(AActor* Instigator)
 	}
 }
 
-void UIFTActivityStep::InteractWhileProcess_Implementation()
+void UIFTActivityStep::OnInteract_Implementation(AActor* Instigator)
 {
 	if (Status == EIFTStatus::DuringWindow)
 	{
 		UE_LOGFMT(MS_ITFActivityStep, Verbose, "Window Activity triggered successfully");
 		GetWorld()->GetTimerManager().ClearTimer(WindowHandle);
-		ActivityOutput.ActivityResult = EActivityResult::Success;
-		FinishActivity(ActivityOutput);
+		ActivityOutput.Status = EActivityStepStatus::Success;
+		FinishStep(ActivityOutput);
 	}
 }

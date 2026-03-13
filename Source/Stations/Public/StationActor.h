@@ -8,17 +8,7 @@
 class AItemActor;
 class UStationAsset;
 class UHolderComponent;
-class UActivityStep;
-class UItemAsset;
-struct FActivityOutput;
-
-UENUM()
-enum class EStationStatus : uint8
-{
-	Idle = 0,
-	Ready,
-	Busy
-};
+class UActivityExecutor;
 
 /**
  * Base class for all station actors.
@@ -34,6 +24,7 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 	AStationActor();
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
+	void BeginPlay() override;
 
 	void Interact_Implementation(AActor* InInstigator) override;
 
@@ -42,13 +33,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetStationAsset(UStationAsset* NewStationAsset);
 
-private: // Activity logic
-
-	void OnActivityFinished(const FActivityOutput& ActivityOutput);
-	void ResetCurrentActivities();
-	void ExecuteNextActivity();
-
 private:
+
+	void FetchInstructions(AActor* InInstigator);
+
+	UFUNCTION()
+	void Holder_OnCarriableChanged(UHolderComponent* Holder);
 
 	UFUNCTION()
 	void OnRep_StationAsset();
@@ -60,7 +50,7 @@ private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AItemActor> ItemClass;
 
-	UPROPERTY(EditAnywhere, Category = "Station|Data", ReplicatedUsing=OnRep_StationAsset)
+	UPROPERTY(EditAnywhere, ReplicatedUsing=OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
 
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -69,14 +59,6 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
-	EStationStatus Status = EStationStatus::Idle;
-
-	TWeakObjectPtr<AActor> LastInstigator;
-	
-	UPROPERTY()
-	TArray<UActivityStep*> CachedActivitySteps;
-	int32 ActivityIndex = -1;
-
-	UPROPERTY()
-	TObjectPtr<UItemAsset> ActivityOutputItem;
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<UActivityExecutor> Executor;
 };

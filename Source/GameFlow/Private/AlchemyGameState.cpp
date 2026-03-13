@@ -49,7 +49,7 @@ void AAlchemyGameState::ConfigureRecipeSystem() const
 		UE_LOGFMT(MS_AlchemyGameState,
 			Log,
 			"Added {0} transformations to the Recipe System, using {1} recipes.",
-			RecipeSystem->GetTransformations().Num(),
+			RecipeSystem->GetActivities().Num(),
 			WorldData->Recipes.Num());
 	}
 }

@@ -43,7 +43,7 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 	}
 
 	if (USceneComponent* Parent = Primitive->GetAttachParent())
-	{		
+	{
 		if (auto* OtherHolder = Cast<UHolderComponent>(Parent))
 		{
 			if (OtherHolder->bAllowStealing)
@@ -79,6 +79,7 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 	}
 
 	Carriable = NewCarriable;
+	OnCarriableChanged.Broadcast(this);
 	return true;
 }
 
@@ -95,7 +96,7 @@ UObject* UHolderComponent::Release(FVector Velocity)
 		Carriable.Reset();
 		return OldCarriable;
 	}
-	
+
 	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
 	if (bShouldSwitchCollisionProfileOnRelease)
@@ -142,6 +143,8 @@ UObject* UHolderComponent::Release(FVector Velocity)
 
 	auto OldCarriable = Carriable.Get();
 	Carriable.Reset();
+
+	OnCarriableChanged.Broadcast(this);
 	return OldCarriable;
 }
 
@@ -158,5 +161,8 @@ void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComp
 void UHolderComponent::OnRep_Carriable()
 {
 	if (Carriable.IsValid())
-		TryPickup(Carriable.Get());
+		if (TryPickup(Carriable.Get()))
+			return; // TryPickup already broadcasts
+
+	OnCarriableChanged.Broadcast(this);
 }
