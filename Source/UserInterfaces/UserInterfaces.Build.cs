@@ -16,6 +16,9 @@ public class UserInterfaces : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"AudioMixer",
+            "EnhancedInput",
+			
 			"CoreGameplay",
 		});
 	}
