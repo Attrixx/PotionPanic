@@ -52,19 +52,13 @@ bool ALobbyGameState::AreAllPlayersReady() const
 void ALobbyGameState::SetCameraPosition(ECameraPosition NewCameraPosition)
 {
 	TargetCameraPosition = NewCameraPosition;
-	if (HasAuthority())
-	{
-		OnRep_TargetCameraPosition();
-	}
+	OnRep_TargetCameraPosition();
 }
 
 void ALobbyGameState::SetDoorsOpen(bool bOpen)
 {
 	bDoorsOpen = bOpen;
-	if (HasAuthority())
-	{
-		OnRep_DoorsOpen();
-	}
+	OnRep_DoorsOpen();
 }
 
 ALevelSequenceActor* ALobbyGameState::GetLevelSequenceActor(ELevelSequenceType SequenceType) const
