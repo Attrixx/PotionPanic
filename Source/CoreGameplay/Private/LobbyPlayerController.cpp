@@ -57,7 +57,7 @@ void ALobbyPlayerController::SetLobbyPlayerColor(FColor NewColor)
 {
 	if (ALobbyPlayerState* LobbyPS = GetPlayerState<ALobbyPlayerState>())
 	{
-		LobbyPS->SetPlayerColor(NewColor);
+		LobbyPS->Server_SetPlayerColor(NewColor);
 	}
 }
 

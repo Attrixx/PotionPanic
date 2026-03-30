@@ -30,22 +30,10 @@ void ALobbyPlayerState::OnRep_PlayerName()
 	OnPlayerInfoChanged.Broadcast();
 }
 
-void ALobbyPlayerState::SetPlayerColor(FColor NewColor)
-{
-	if (HasAuthority())
-	{
-		PlayerInfo.PlayerColor = NewColor;
-		OnRep_PlayerInfo();
-	}
-	else
-	{
-		Server_SetPlayerColor(NewColor);
-	}
-}
-
 void ALobbyPlayerState::Server_SetPlayerColor_Implementation(FColor NewColor)
 {
-	SetPlayerColor(NewColor);
+	PlayerInfo.PlayerColor = NewColor;
+	OnRep_PlayerInfo();
 }
 
 void ALobbyPlayerState::Server_SetIsHost_Implementation(bool bHost)
@@ -54,30 +42,18 @@ void ALobbyPlayerState::Server_SetIsHost_Implementation(bool bHost)
 	OnRep_PlayerInfo();
 }
 
-void ALobbyPlayerState::SetIsReady(bool bNewReady)
-{
-	if (HasAuthority())
-	{
-		PlayerInfo.bIsReady = bNewReady;
-		OnRep_PlayerInfo();
-	}
-	else
-	{
-		Server_SetIsReady(bNewReady);
-	}
-}
-
 void ALobbyPlayerState::Server_SetIsReady_Implementation(bool bNewReady)
 {
-	SetIsReady(bNewReady);
+	PlayerInfo.bIsReady = bNewReady;
+	OnRep_PlayerInfo();
 }
 
 void ALobbyPlayerState::PlayLevelSequence(ECameraPosition TargetCameraPosition)
 {
-	ClientPlayLevelSequence(TargetCameraPosition);
+	Client_PlayLevelSequence(TargetCameraPosition);
 }
 
-void ALobbyPlayerState::ClientPlayLevelSequence_Implementation(ECameraPosition TargetCameraPosition)
+void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition TargetCameraPosition)
 {
 	if (CurrentCameraPosition == TargetCameraPosition) return;
 
@@ -184,7 +160,7 @@ ULevelSequencePlayer* ALobbyPlayerState::PlaySequence(ELevelSequenceType Sequenc
 	return SequencePlayer;
 }
 
-void ALobbyPlayerState::ServerOnStartupSequenceFinished_Implementation()
+void ALobbyPlayerState::Server_OnStartupSequenceFinished_Implementation()
 {
 	if (ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>())
 	{

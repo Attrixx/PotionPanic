@@ -51,9 +51,6 @@ protected:
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	void SetPlayerColor(FColor NewColor);
-
 	UFUNCTION(Server, Reliable)
 	void Server_SetPlayerColor(FColor NewColor);
 
@@ -62,9 +59,6 @@ public:
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetIsHost(bool bHost);
-
-	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	void SetIsReady(bool bReady);
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetIsReady(bool bReady);
@@ -80,11 +74,11 @@ public:
 
 	void PlayLevelSequence(ECameraPosition TargetCameraPosition);
 	UFUNCTION(Client, Reliable)
-	void ClientPlayLevelSequence(ECameraPosition TargetCameraPosition);
+	void Client_PlayLevelSequence(ECameraPosition TargetCameraPosition);
 	ULevelSequencePlayer* PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward = true);
 
 	UFUNCTION(Server, Reliable)
-	void ServerOnStartupSequenceFinished();
+	void Server_OnStartupSequenceFinished();
 
 protected:
 

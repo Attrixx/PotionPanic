@@ -56,7 +56,7 @@ void ALobbyLevelScriptActor::OnStartupSequenceFinished()
 	if (!IsValid(LocalPC)) return;
 	ALobbyPlayerState* PlayerState = LocalPC->GetPlayerState<ALobbyPlayerState>();
 	if (!IsValid(PlayerState)) return;
-	PlayerState->ServerOnStartupSequenceFinished();
+	PlayerState->Server_OnStartupSequenceFinished();
 }
 
 void ALobbyLevelScriptActor::OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor* OtherActor)

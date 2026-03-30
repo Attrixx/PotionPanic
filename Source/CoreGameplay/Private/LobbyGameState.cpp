@@ -86,13 +86,13 @@ void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 			{
 				if (AvailableColors[i])
 				{
-					LobbyPS->SetPlayerColor(DefaultColors[i]);
+					LobbyPS->Server_SetPlayerColor(DefaultColors[i]);
 					AvailableColors[i] = false;
 					return;
 				}
 			}
 
-			LobbyPS->SetPlayerColor(FColor::MakeRandomColor());
+			LobbyPS->Server_SetPlayerColor(FColor::MakeRandomColor());
 		}
 	}
 }
