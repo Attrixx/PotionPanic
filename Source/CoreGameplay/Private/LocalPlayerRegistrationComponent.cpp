@@ -35,10 +35,18 @@ void ULocalPlayerRegistrationComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
-	TObjectPtr<UCustomGameViewportClient> ViewportClient = Cast<UCustomGameViewportClient>(GetWorld()->GetGameViewport());
-	if (ViewportClient)
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	if (PC && PC->IsLocalController())
 	{
-		ViewportClient->OnLocalPlayerJoinRequest.AddDynamic(this, &ThisClass::HandleJoinRequest);
+		ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+		if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
+		{
+			TObjectPtr<UCustomGameViewportClient> ViewportClient = Cast<UCustomGameViewportClient>(GetWorld()->GetGameViewport());
+			if (ViewportClient)
+			{
+				ViewportClient->OnLocalPlayerJoinRequest.AddDynamic(this, &ThisClass::HandleJoinRequest);
+			}
+		}
 	}
 }
 

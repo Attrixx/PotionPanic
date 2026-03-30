@@ -8,6 +8,8 @@
 #include "LobbyGameState.h"
 #include "LobbyGameMode.generated.h"
 
+DEFINE_LOG_CATEGORY_STATIC(MS_LobbyGameMode, Log, All);
+
 class ALobbyCharacter;
 class ALobbyPlayerState;
 
@@ -61,6 +63,8 @@ private:
 	void SpawnLobbyCharacter(APlayerController* NewPlayer);
 	bool HandlePlayerNaming(APlayerController* NewPlayer, ALobbyPlayerState* PlayerState);
 	bool ArePlayersOnSameConnection(APlayerController* A, APlayerController* B);
+	UFUNCTION()
+	void OnPreviewActorDestroyed(AActor* DestroyedActor);
 	void RearrangePlayers();
 
 	bool IsHost(AActor* Actor) const;

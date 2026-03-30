@@ -39,7 +39,7 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 	Super::PostLogin(NewPlayer);
 
 	PlayerCount++;
-	UE_LOG(LogTemp, Log, TEXT("PostLogin: New player connected. Total: %d"), PlayerCount);
+	UE_LOG(MS_LobbyGameMode, Log, TEXT("New player connected. Total: %d"), PlayerCount);
 
 	SpawnLobbyCharacter(NewPlayer);
 
@@ -69,19 +69,16 @@ void ALobbyGameMode::Logout(AController* Exiting)
 	{
 		if (ALobbyCharacter* PreviewActor = LeavingPC->GetPreviewActor())
 		{
+			PreviewActor->OnDestroyed.AddDynamic(this, &ALobbyGameMode::OnPreviewActorDestroyed);
 			PreviewActor->Destroy();
 			PreviewActor = nullptr;
 		}
 	}
 
 	PlayerCount = FMath::Max(0, PlayerCount - 1);
-	UE_LOG(LogTemp, Log, TEXT("Player left. Remaining players: %d"), PlayerCount);
+	UE_LOGFMT(MS_LobbyGameMode, Log, "Player left. Remaining players: {Count}", PlayerCount);
 
 	Super::Logout(Exiting);
-
-	// Add a delay before rearranging players to ensure the leaving player's preview is fully removed from the world
-	FTimerHandle TimerHandle;
-	GetWorldTimerManager().SetTimer(TimerHandle, this, &ALobbyGameMode::RearrangePlayers, 0.1f, false);
 }
 
 void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer)
@@ -141,6 +138,11 @@ bool ALobbyGameMode::ArePlayersOnSameConnection(APlayerController* A, APlayerCon
 	return false;
 }
 
+void ALobbyGameMode::OnPreviewActorDestroyed(AActor* DestroyedActor)
+{
+	RearrangePlayers();
+}
+
 void ALobbyGameMode::RearrangePlayers()
 {
 	int32 PlayerIndex = 0;
@@ -150,10 +152,12 @@ void ALobbyGameMode::RearrangePlayers()
 		{
 			if (CachedSpawnPoints.IsValidIndex(PlayerIndex))
 			{
-				AActor* NewPoint = CachedSpawnPoints[PlayerIndex];
-				if (ALobbyCharacter* PreviewActor = PC->GetPreviewActor())
+				ALobbyCharacter* PreviewActor = PC->GetPreviewActor();
+				if (!IsValid(PreviewActor) || PreviewActor->IsActorBeingDestroyed()) continue;
+				
+				if (CachedSpawnPoints.IsValidIndex(PlayerIndex))
 				{
-					PreviewActor->SetActorLocation(NewPoint->GetActorLocation());
+					PreviewActor->SetActorLocation(CachedSpawnPoints[PlayerIndex]->GetActorLocation());
 				}
 			}
 		}
@@ -278,7 +282,7 @@ bool ALobbyGameMode::CanHandleNewPlayer() const
 {
 	if (PlayerCount >= MaxPlayer)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Connection refused: lobby full"));
+		UE_LOG(MS_LobbyGameMode, Warning, TEXT("Connection refused: lobby full"));
 		return false;
 	}
 	return true;
