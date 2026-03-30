@@ -1,0 +1,14 @@
+﻿#pragma once
+
+#include "CoreMinimal.h"
+#include "NativeGameplayTags.h"
+
+namespace GameTags
+{
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item);
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Ingredient);
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Product);
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Utensil);
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Utensil_Container);
+ITEMS_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Item_Breakable);
+}

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
+#include "UObject/Class.h"
 #include "ActivityStepSettings.generated.h"
 
 class UActivityStep;
@@ -11,13 +11,17 @@ class UActivityStep;
 /**
  * 
  */
-UCLASS(Abstract, EditInlineNew)
-class ACTIVITIES_API UActivityStepSettings : public UPrimaryDataAsset
+UCLASS(Abstract, EditInlineNew, Blueprintable)
+class ACTIVITIES_API UActivityStepSettings : public UObject
 {
 	GENERATED_BODY()
 
 public:
 
-	UFUNCTION(BlueprintCallable)
-	virtual UActivityStep* CreateStep(UObject* Outer) const PURE_VIRTUAL(UActivityStepSettings::CreateStep, return nullptr;)
+	UFUNCTION(BlueprintNativeEvent)
+	UActivityStep* CreateStep(UObject* Outer) const;
+	
+protected:
+	
+	virtual UActivityStep* CreateStep_Implementation(UObject* Outer) const PURE_VIRTUAL(UActivityStepSettings::CreateStep, return nullptr;);
 };

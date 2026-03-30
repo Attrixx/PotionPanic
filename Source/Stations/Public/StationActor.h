@@ -5,10 +5,12 @@
 #include "Interactable.h"
 #include "StationActor.generated.h"
 
+class AItemActor;
 class UStationAsset;
 class UHolderComponent;
 class UActivityStep;
 class UItemAsset;
+struct FActivityOutput;
 
 UENUM()
 enum class EStationStatus : uint8
@@ -32,23 +34,19 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 	AStationActor();
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
-	void BeginPlay() override;
 
-	UFUNCTION()
-	void Interact(AActor* InInstigator) override;
+	void Interact_Implementation(AActor* InInstigator) override;
 
 public:
 
-	void SetStationAsset(UStationAsset& NewStationAsset);
-	UStationAsset* GetStationAsset() const { return StationAsset; }
+	UFUNCTION(BlueprintCallable)
+	void SetStationAsset(UStationAsset* NewStationAsset);
 
 private: // Activity logic
 
-	UFUNCTION()
 	void OnActivityFinished(const FActivityOutput& ActivityOutput);
-
 	void ResetCurrentActivities();
-	void ExecuteNextActivity(AActor* Instigator);
+	void ExecuteNextActivity();
 
 private:
 
@@ -59,17 +57,22 @@ private:
 
 private:
 
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AItemActor> ItemClass;
+
 	UPROPERTY(EditAnywhere, Category = "Station|Data", ReplicatedUsing=OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
 
-	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
+	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UStaticMeshComponent> StaticMesh;
 
-	UPROPERTY(VisibleAnywhere, Category = "Station|Components")
+	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UHolderComponent> ItemHolder;
 
 	EStationStatus Status = EStationStatus::Idle;
 
+	TWeakObjectPtr<AActor> LastInstigator;
+	
 	UPROPERTY()
 	TArray<UActivityStep*> CachedActivitySteps;
 	int32 ActivityIndex = -1;

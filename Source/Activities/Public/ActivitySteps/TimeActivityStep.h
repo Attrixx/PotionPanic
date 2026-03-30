@@ -12,7 +12,11 @@ class ACTIVITIES_API UTimeActivitySettings : public UActivityStepSettings
 {
 	GENERATED_BODY()
 
-	UActivityStep* CreateStep(UObject* Outer) const override;
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
+
+	UActivityStep* CreateStep_Implementation(UObject* Outer) const override;
 
 public:
 
@@ -25,12 +29,7 @@ class ACTIVITIES_API UTimeActivityStep : public UActivityStep
 {
 	GENERATED_BODY()
 
-public:
-
-	void StartActivity(const FActivityContext& Context) override;
-	bool RequiresPlayerInteraction() const override { return true; }
-
-private:
+	void StartActivity_Implementation(AActor* Instigator) override;
 
 	friend UTimeActivitySettings;
 

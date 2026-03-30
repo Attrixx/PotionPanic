@@ -2,6 +2,7 @@
 
 #include "ItemActor.h"
 #include "ItemAsset.h"
+#include "ItemTags.h"
 #include <Net/UnrealNetwork.h>
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
@@ -42,7 +43,7 @@ void AItemActor::OnConstruction(const FTransform& Transform)
 
 	if (ItemAsset)
 	{
-		SetItemAsset(*ItemAsset);
+		ApplyItemAsset();
 	}
 }
 
@@ -53,10 +54,23 @@ void AItemActor::BeginPlay()
 	StaticMesh->OnComponentHit.AddDynamic(this, &AItemActor::Mesh_OnHit);
 }
 
-void AItemActor::SetItemAsset(UItemAsset& NewItemAsset)
+void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
 {
-	ItemAsset = &NewItemAsset;
-	ApplyItemAsset();
+	if (HasAuthority())
+	{
+		ItemAsset = NewItemAsset;
+		OnRep_ItemAsset();
+	}
+}
+
+void AItemActor::AppendItemTags(const FGameplayTagContainer& NewItemTags)
+{
+	ItemTags.AppendTags(NewItemTags);
+}
+
+void AItemActor::RemoveItemTag(const FGameplayTagContainer& ItemTagsToRemove)
+{
+	check("Not Implemented" && false);
 }
 
 UPrimitiveComponent* AItemActor::GetPrimitive_Implementation() const
@@ -77,6 +91,12 @@ FName AItemActor::GetCarriedCollisionProfileName_Implementation() const
 void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 	check(StaticMesh == HitComponent);
+	
+	if (ItemTags.HasTag(GameTags::Item_Breakable))
+	{
+		// TODO: Implement breakable items
+		UE_LOGFMT(MS_ItemActor, Warning, "Breakable items are not implemented.");
+	}
 
 	if (Hit.ImpactNormal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{
@@ -95,7 +115,9 @@ void AItemActor::OnRep_ItemAsset()
 void AItemActor::ApplyItemAsset()
 {
 	check(IsValid(ItemAsset));
-	
+
+	ItemTags = ItemAsset->ItemTags;
+
 	StaticMesh->SetStaticMesh(ItemAsset->StaticMesh);
 
 	Niagara->SetAsset(ItemAsset->NiagaraSystem);

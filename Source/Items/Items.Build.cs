@@ -2,17 +2,24 @@
 
 public class Items : ModuleRules
 {
-    public Items(ReadOnlyTargetRules Target) : base(Target)
-    {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+	public Items(ReadOnlyTargetRules Target) : base(Target)
+	{
+		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
-        PublicDependencyModuleNames.AddRange(new string[]
-        {
-            "Core",
-            "CoreUObject",
-            "Engine",
-            "Niagara",
-            "CoreGameplay"
-        });
-    }
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core",
+			"CoreUObject",
+			"Engine",
+			"GameplayTags"
+		});
+
+
+		PrivateDependencyModuleNames.AddRange(new string[]
+		{
+			"Niagara",
+
+			"CoreGameplay"
+		});
+	}
 }

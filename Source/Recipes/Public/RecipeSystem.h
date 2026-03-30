@@ -4,23 +4,24 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "GameplayTagContainer.h"
 #include "RecipeSystem.generated.h"
 
 class UActivityStep;
+class URecipeAsset;
 class UItemAsset;
-class UActivityAsset;
-class UHolderComponent;
-class RecipeAsset;
+class UItemTransformation;
 
 USTRUCT()
-struct RECIPES_API FGetRecipeStepResponse
-{	
+struct FInstruction
+{
 	GENERATED_BODY()
-public:
+
 	UPROPERTY()
-	TArray<UActivityStep*> ActivitySteps;
+	TArray<TObjectPtr<UActivityStep>> Steps;
+
 	UPROPERTY()
-	TObjectPtr<UItemAsset> OutputItem = nullptr;
+	TObjectPtr<UItemAsset> OutputItem;
 };
 
 /**
@@ -32,14 +33,31 @@ class RECIPES_API URecipeSystem : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
-	void OnWorldBeginPlay(UWorld& InWorld) override;
-	
-	FGetRecipeStepResponse GetRecipeStep(const TObjectPtr<UHolderComponent> StationHolder, const TArray<TObjectPtr<UActivityAsset>>& StationActivities);
-	
-	UFUNCTION(BlueprintCallable, Category = "Recipes|Shuffling")
-	TArray<URecipeAsset*> GetShuffledRecipes(const TArray<URecipeAsset*>& InRecipes);
-	
+
+	UFUNCTION(BlueprintCallable)
+	void AddRecipe(URecipeAsset* Recipe);
+
+	UFUNCTION(BlueprintCallable)
+	void ClearRecipes();
+
+	// NOTE: If this is ever needed, we need to track how many times each transformation was added
+	// UFUNCTION(BlueprintCallable)
+	// void RemoveRecipe(URecipeAsset* Recipe);
+
+	/**
+	 * Finds a transformation matching the given tags and creates an instruction from it.
+	 * @param Tags Item tags and activity tags.
+	 * @return Instruction, or NullOpt if no transformation matches the tags.
+	 */
+	TOptional<FInstruction> CreateInstruction(const FGameplayTagContainer& Tags);
+
+	UFUNCTION(BlueprintCallable)
+	const TArray<UItemTransformation*>& GetTransformations() const { return Transformations; }
+
 private:
+
+	FInstruction CreateInstruction(UItemTransformation& Transformation);
+
 	UPROPERTY()
-	TObjectPtr<URecipeAsset> RecipeAsset = nullptr;
+	TArray<UItemTransformation*> Transformations;
 };
