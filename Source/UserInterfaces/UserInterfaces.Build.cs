@@ -10,11 +10,17 @@ public class UserInterfaces : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
+			"UMG",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
+			"AudioMixer",
+            "EnhancedInput",
+			"InputCore",
+			
+			"CoreGameplay",
 		});
 	}
 }
