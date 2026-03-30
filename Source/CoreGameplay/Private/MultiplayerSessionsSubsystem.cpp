@@ -46,15 +46,17 @@ void UMultiplayerSessionsSubsystem::CreateSession(const TMap<FName, FVariant> &S
 	LastSessionSettings->bIsLANMatch = Online::GetSubsystem(GetWorld())->GetSubsystemName() == "NULL" ? true : false;
 
 	int32 MaxPlayers = 5;
-	if (Settings.Contains(FName("MaxPlayers")) && Settings[FName("MaxPlayers")].GetType() == EVariantTypes::Int32)
+	FName MaxPlayersKey = FName("MaxPlayers");
+	FName PrivateGameKey = FName("bPrivateGame");
+	if (Settings.Contains(MaxPlayersKey) && Settings[MaxPlayersKey].GetType() == EVariantTypes::Int32)
 	{
-		MaxPlayers = Settings[FName("MaxPlayers")].GetValue<int32>();
+		MaxPlayers = Settings[MaxPlayersKey].GetValue<int32>();
 	}
 
 	bool bPrivateGame = true;
-	if (Settings.Contains(FName("bPrivateGame")) && Settings[FName("bPrivateGame")].GetType() == EVariantTypes::Bool)
+	if (Settings.Contains(PrivateGameKey) && Settings[PrivateGameKey].GetType() == EVariantTypes::Bool)
 	{
-		bPrivateGame = Settings[FName("bPrivateGame")].GetValue<bool>();
+		bPrivateGame = Settings[PrivateGameKey].GetValue<bool>();
 	}
 
 	if (bPrivateGame)

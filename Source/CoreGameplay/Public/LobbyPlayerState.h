@@ -13,6 +13,26 @@ class ULevelSequencePlayer;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLobbyPlayerStateUpdated);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerColorChanged, FColor, NewColor);
 
+
+USTRUCT(BlueprintType)
+struct FLobbyPlayerInfo
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FColor PlayerColor = FColor::Black;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsReady = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsHost = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsCouchCoopPlayer = false;
+};
+
+
 /**
  * 
  */
@@ -22,7 +42,6 @@ class COREGAMEPLAY_API ALobbyPlayerState : public APlayerState
 	GENERATED_BODY()
 	
 public:
-	ALobbyPlayerState();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 protected:
@@ -39,7 +58,7 @@ public:
 	void Server_SetPlayerColor(FColor NewColor);
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	FColor GetPlayerColor() const { return PlayerColor; }
+	FColor GetPlayerColor() const { return PlayerInfo.PlayerColor; }
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetIsHost(bool bHost);
@@ -51,13 +70,13 @@ public:
 	void Server_SetIsReady(bool bReady);
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	bool IsReady() const { return bIsReady; }
+	bool IsReady() const { return PlayerInfo.bIsReady; }
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	bool IsHost() const { return bIsHost; }
+	bool IsHost() const { return PlayerInfo.bIsHost; }
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	bool IsCouchCoopPlayer() const { return bIsCouchCoopPlayer; }
+	bool IsCouchCoopPlayer() const { return PlayerInfo.bIsCouchCoopPlayer; }
 
 	void PlayLevelSequence(ECameraPosition TargetCameraPosition);
 	UFUNCTION(Client, Reliable)
@@ -78,26 +97,12 @@ protected:
 	UFUNCTION()
 	void OnLobbyInterfaceSequenceFinished();
 
-	UPROPERTY(ReplicatedUsing = OnRep_IsHost, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
-	bool bIsHost;
+	UPROPERTY(ReplicatedUsing=OnRep_PlayerInfo)
+	FLobbyPlayerInfo PlayerInfo;
 
 	UFUNCTION()
-	void OnRep_IsHost();
+	void OnRep_PlayerInfo();
 
-	UPROPERTY(ReplicatedUsing = OnRep_PlayerColor, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
-	FColor PlayerColor;
-
-	UFUNCTION()
-	void OnRep_PlayerColor();
-
-	UPROPERTY(ReplicatedUsing = OnRep_IsReady, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
-	bool bIsReady;
-
-	UFUNCTION()
-	void OnRep_IsReady();
-
-	UPROPERTY(Replicated, VisibleAnywhere, BlueprintReadOnly, Category = "Lobby")
-	bool bIsCouchCoopPlayer;
 
 	ECameraPosition CurrentCameraPosition = ECameraPosition::Exterior;
 

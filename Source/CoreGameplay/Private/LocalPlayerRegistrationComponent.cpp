@@ -63,7 +63,7 @@ void ULocalPlayerRegistrationComponent::ServerRequestNewLocalPlayer_Implementati
 
 void ULocalPlayerRegistrationComponent::ClientAuthorizeNewLocalPlayer_Implementation(int32 ControllerId)
 {
-	APlayerController* NewPC = UGameplayStatics::CreatePlayer(this->GetWorld(), ControllerId, true);
+	APlayerController* NewPC = UGameplayStatics::CreatePlayer(GetWorld(), ControllerId, true);
 }
 
 void ULocalPlayerRegistrationComponent::ServerLocalPlayerLeave_Implementation()
@@ -71,12 +71,12 @@ void ULocalPlayerRegistrationComponent::ServerLocalPlayerLeave_Implementation()
 	// If this PC shares a connection with other PCs, we should not destroy the connection
 	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
 	{
-		UChildConnection* C = Cast<UChildConnection>(PC->Player);
-		if (C)
+		UChildConnection* ChildConnection = Cast<UChildConnection>(PC->Player);
+		if (ChildConnection)
 		{
-			UNetConnection* parent = C->Parent;
-			C->CleanUp();
-			parent->Children.Remove(C);
+			UNetConnection* parent = ChildConnection->Parent;
+			ChildConnection->CleanUp();
+			parent->Children.Remove(ChildConnection);
 		}
 	}
 }

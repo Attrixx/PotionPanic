@@ -182,7 +182,7 @@ void ALobbyGameMode::SwitchCameraForAllPlayers(ECameraPosition NewCameraPosition
 	CurrentCameraPosition = NewCameraPosition;
 	if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
 	{
-		LobbyGameState->MulticastPlayLevelSequence(NewCameraPosition);
+		LobbyGameState->SetCameraPosition(NewCameraPosition);
 	}
 }
 
@@ -348,7 +348,7 @@ void ALobbyGameMode::OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosit
 		bDoorsOpen = true;
 		if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
 		{
-			LobbyGameState->MulticastOpenDoors();
+			LobbyGameState->SetDoorsOpen();
 		}
 		break;
 	case ECameraPosition::Interior:
@@ -377,7 +377,7 @@ void ALobbyGameMode::OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosit
 			bDoorsOpen = false;
 			if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
 			{
-				LobbyGameState->MulticastOpenDoors(false);
+				LobbyGameState->SetDoorsOpen(false);
 			}
 		}
 

@@ -48,9 +48,9 @@ struct FLevelSequenceInfo
 {
 	GENERATED_BODY()
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ELevelSequenceType SequenceType;
+	ELevelSequenceType SequenceType{};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<ALevelSequenceActor> SequenceActor;
+	TObjectPtr<ALevelSequenceActor> SequenceActor{};
 };
 
 UCLASS()
@@ -68,16 +68,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Lobby")
 	bool AreAllPlayersReady() const;
 
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastPlayLevelSequence(ECameraPosition TargetCameraPosition);
-	UFUNCTION(NetMulticast, Reliable)
-	void MulticastOpenDoors(bool bOpen = true);
+	void SetCameraPosition(ECameraPosition NewCameraPosition);
+
+	void SetDoorsOpen(bool bOpen = true);
 
 	ALevelSequenceActor* GetLevelSequenceActor(ELevelSequenceType SequenceType) const;
 
 protected:
+
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
 	virtual void RemovePlayerState(APlayerState* PlayerState) override;
+
+	UPROPERTY(ReplicatedUsing = OnRep_TargetCameraPosition)
+	ECameraPosition TargetCameraPosition;
+
+	UFUNCTION()
+	void OnRep_TargetCameraPosition();
+
+	UPROPERTY(ReplicatedUsing = OnRep_DoorsOpen)
+	bool bDoorsOpen;
+
+	UFUNCTION()
+	void OnRep_DoorsOpen();
 
 public:
 

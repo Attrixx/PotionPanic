@@ -11,22 +11,11 @@
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/Character.h"
 
-ALobbyPlayerState::ALobbyPlayerState()
-{
-	PlayerColor = FColor::Green;
-	bIsReady = false;
-	bIsHost = false;
-	bIsCouchCoopPlayer = false;
-}
-
 void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ALobbyPlayerState, PlayerColor);
-	DOREPLIFETIME(ALobbyPlayerState, bIsReady);
-	DOREPLIFETIME(ALobbyPlayerState, bIsHost);
-	DOREPLIFETIME(ALobbyPlayerState, bIsCouchCoopPlayer);
+	DOREPLIFETIME(ALobbyPlayerState, PlayerInfo);
 }
 
 void ALobbyPlayerState::BeginPlay()
@@ -45,8 +34,8 @@ void ALobbyPlayerState::SetPlayerColor(FColor NewColor)
 {
 	if (HasAuthority())
 	{
-		PlayerColor = NewColor;
-		OnRep_PlayerColor();
+		PlayerInfo.PlayerColor = NewColor;
+		OnRep_PlayerInfo();
 	}
 	else
 	{
@@ -61,16 +50,16 @@ void ALobbyPlayerState::Server_SetPlayerColor_Implementation(FColor NewColor)
 
 void ALobbyPlayerState::Server_SetIsHost_Implementation(bool bHost)
 {
-	bIsHost = bHost;
-	OnRep_IsHost();
+	PlayerInfo.bIsHost = bHost;
+	OnRep_PlayerInfo();
 }
 
 void ALobbyPlayerState::SetIsReady(bool bNewReady)
 {
 	if (HasAuthority())
 	{
-		bIsReady = bNewReady;
-		OnRep_IsReady();
+		PlayerInfo.bIsReady = bNewReady;
+		OnRep_PlayerInfo();
 	}
 	else
 	{
@@ -219,18 +208,8 @@ void ALobbyPlayerState::OnLobbyInterfaceSequenceFinished()
 	}
 }
 
-void ALobbyPlayerState::OnRep_IsHost()
+void ALobbyPlayerState::OnRep_PlayerInfo()
 {
 	OnPlayerInfoChanged.Broadcast();
-}
-
-void ALobbyPlayerState::OnRep_PlayerColor()
-{
-	OnPlayerInfoChanged.Broadcast();
-	OnPlayerColorChanged.Broadcast(PlayerColor);
-}
-
-void ALobbyPlayerState::OnRep_IsReady()
-{
-	OnPlayerInfoChanged.Broadcast();
+	OnPlayerColorChanged.Broadcast(PlayerInfo.PlayerColor);
 }

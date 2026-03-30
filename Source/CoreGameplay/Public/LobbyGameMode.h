@@ -19,10 +19,10 @@ struct FTeleportPointsForArea
 	GENERATED_BODY()
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	ECameraPosition Area;
+	ECameraPosition Area{};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<AActor*> TeleportPoints;
+	TArray<AActor*> TeleportPoints{};
 };
 
 UCLASS()

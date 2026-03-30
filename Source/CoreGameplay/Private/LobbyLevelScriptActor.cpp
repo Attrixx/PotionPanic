@@ -62,7 +62,7 @@ void ALobbyLevelScriptActor::OnStartupSequenceFinished()
 void ALobbyLevelScriptActor::OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor* OtherActor)
 {
 	ACharacter* OverlappingCharacter = Cast<ACharacter>(OtherActor);
-	ALobbyGameMode* LobbyGameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ALobbyGameMode>() : nullptr;
+	ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>();
 	if (!IsValid(OverlappingCharacter) || !IsValid(LobbyGameMode)) return;
 
 	if (TriggerBox->ActorHasTag(TEXT("LobbyInterface")))
@@ -82,7 +82,7 @@ void ALobbyLevelScriptActor::OnTriggerBoxBeginOverlap(AActor* TriggerBox, AActor
 void ALobbyLevelScriptActor::OnTriggerBoxEndOverlap(AActor* TriggerBox, AActor* OtherActor)
 {
 	ACharacter* OverlappingCharacter = Cast<ACharacter>(OtherActor);
-	ALobbyGameMode* LobbyGameMode = GetWorld() ? GetWorld()->GetAuthGameMode<ALobbyGameMode>() : nullptr;
+	ALobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<ALobbyGameMode>();
 	if (!IsValid(OverlappingCharacter) || !IsValid(LobbyGameMode)) return;
 
 	if (TriggerBox->ActorHasTag(TEXT("LobbyInterface")))

@@ -49,34 +49,21 @@ bool ALobbyGameState::AreAllPlayersReady() const
 	return true;
 }
 
-void ALobbyGameState::MulticastPlayLevelSequence_Implementation(ECameraPosition TargetCameraPosition)
+void ALobbyGameState::SetCameraPosition(ECameraPosition NewCameraPosition)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	TargetCameraPosition = NewCameraPosition;
+	if (HasAuthority())
 	{
-		APlayerController* PC = Iterator->Get();
-		if (!IsValid(PC) || !PC->IsLocalController()) continue;
-		ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
-		if (!IsValid(LocalPlayer) || LocalPlayer->GetControllerId() != 0) continue;
-		ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>();
-		if (!IsValid(PS)) continue;
-		PS->PlayLevelSequence(TargetCameraPosition);
+		OnRep_TargetCameraPosition();
 	}
 }
 
-void ALobbyGameState::MulticastOpenDoors_Implementation(bool bOpen)
+void ALobbyGameState::SetDoorsOpen(bool bOpen)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	bDoorsOpen = bOpen;
+	if (HasAuthority())
 	{
-		if (APlayerController* PC = Iterator->Get())
-		{
-			if (PC->IsLocalController())
-			{
-				if (ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>())
-				{
-					PS->PlaySequence(ELevelSequenceType::OpenDoors, bOpen);
-				}
-			}
-		}
+		OnRep_DoorsOpen();
 	}
 }
 
@@ -129,6 +116,49 @@ void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 			if (Index != INDEX_NONE)
 			{
 				AvailableColors[Index] = true;
+			}
+		}
+	}
+}
+
+void ALobbyGameState::OnRep_TargetCameraPosition()
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* PC = Iterator->Get();
+		if (!IsValid(PC) || !PC->IsLocalController())
+		{
+			continue;
+		}
+
+		ULocalPlayer* LocalPlayer = PC->GetLocalPlayer();
+		if (!IsValid(LocalPlayer) || LocalPlayer->GetControllerId() != 0)
+		{
+			continue;
+		}
+
+		ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>();
+		if (!IsValid(PS))
+		{
+			continue;
+		}
+
+		PS->PlayLevelSequence(TargetCameraPosition);
+	}
+}
+
+void ALobbyGameState::OnRep_DoorsOpen()
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		if (APlayerController* PC = Iterator->Get())
+		{
+			if (PC->IsLocalController())
+			{
+				if (ALobbyPlayerState* PS = PC->GetPlayerState<ALobbyPlayerState>())
+				{
+					PS->PlaySequence(ELevelSequenceType::OpenDoors, bDoorsOpen);
+				}
 			}
 		}
 	}
