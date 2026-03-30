@@ -15,25 +15,25 @@ DEFINE_LOG_CATEGORY_STATIC(MS_CreateItem, Log, All);
 EDataValidationResult UCreateItemActivityConclusion::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
-	
+
 	if (!IsValid(ItemClass))
 	{
 		Context.AddError(FText::FromString("ItemClass is null."));
 		Result = EDataValidationResult::Invalid;
 	}
-	
+
 	if (bCreateOnSuccess && !IsValid(OnActivitySuccess))
 	{
 		Context.AddError(FText::FromString("OnActivitySuccess is enabled but null."));
 		Result = EDataValidationResult::Invalid;
 	}
-	
+
 	if (bCreateOnFail && !IsValid(OnActivityFail))
 	{
 		Context.AddError(FText::FromString("OnActivityFail is enabled but null."));
 		Result = EDataValidationResult::Invalid;
 	}
-	
+
 	return Result;
 }
 #endif
@@ -58,6 +58,9 @@ void UCreateItemActivityConclusion::Conclude_Implementation(const FActivityExecu
 		return;
 	}
 
+	if (!ItemAsset)
+		return;
+
 	UWorld* World = ActivityState.Holder->GetWorld();
 	check(World);
 
@@ -69,5 +72,9 @@ void UCreateItemActivityConclusion::Conclude_Implementation(const FActivityExecu
 			UE_LOGFMT(MS_CreateItem, Error, "Holder cannot pickup the new item. Teleporting it.");
 			NewItem->SetActorLocation(ActivityState.Holder->GetComponentLocation());
 		}
+	}
+	else
+	{
+		UE_LOGFMT(MS_CreateItem, Error, "Failed to spawn item actor {0}.", ItemClass->GetName());
 	}
 }

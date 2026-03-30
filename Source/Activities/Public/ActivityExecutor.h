@@ -41,11 +41,11 @@ struct FActivityExecutionState
 	TWeakObjectPtr<AItemActor> Item; // = Cast<AItemActor>(Holder->GetCarriable());
 
 	/**
-	 * Last Instigator received through StartActivity or Interact. can be null.
+	 * Last Instigator received through StartActivity or Interact. Can be null.
 	 */
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<AActor> LastInstigator;
-	
+
 	UPROPERTY(BlueprintReadOnly)
 	EActivityExecutionStatus Status = EActivityExecutionStatus::NotStarted;
 
@@ -65,24 +65,24 @@ class ACTIVITIES_API UActivityExecutor : public UObject
 	GENERATED_BODY()
 
 public:
-	
+
 	UFUNCTION(BlueprintCallable)
 	void Initialize(UHolderComponent* HolderComponent);
-	
+
 	UFUNCTION(BlueprintCallable)
 	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr);
-	
+
 	UFUNCTION(BlueprintCallable)
 	void Interact(AActor* Instigator);
-	
+
 	UFUNCTION(BlueprintCallable)
 	void Cancel();
 
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
-	
+
 private:
-	
+
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
 	void ContinueExecution();

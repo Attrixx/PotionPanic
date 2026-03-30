@@ -4,7 +4,7 @@
 #include "ActivityExecutor.h"
 #include "Items/Public/ItemActor.h"
 
-DEFINE_LOG_CATEGORY_STATIC(MS_CMorphOrConsumeItem, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(MS_MorphOrConsumeItem, Log, All);
 
 void UMorphOrConsumeItemActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {
@@ -27,10 +27,10 @@ void UMorphOrConsumeItemActivityConclusion::Conclude_Implementation(const FActiv
 		checkNoEntry();
 		return;
 	}
-	
+
 	if (!ActivityState.Item.IsValid())
 	{
-		UE_LOGFMT(MS_CMorphOrConsumeItem, Error, "Cannot morph Null item.");
+		UE_LOGFMT(MS_MorphOrConsumeItem, Error, "Cannot morph Null item.");
 		return;
 	}
 

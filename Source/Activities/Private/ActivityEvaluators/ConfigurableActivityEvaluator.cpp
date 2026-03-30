@@ -11,19 +11,20 @@ FActivityEvaluationResult UConfigurableActivityEvaluator::EvaluateStep_Implement
 {
 	auto ScoreManagementMethod = [](EScoreManagementMethod Method, int32 ActivityScore, int32 StepScore) -> int32
 	{
+		int32 NewScore = ActivityScore;
 		switch (Method)
 		{
-		case EScoreManagementMethod::Discard: return ActivityScore;
-		case EScoreManagementMethod::AddToScore: return ActivityScore + StepScore;
-		case EScoreManagementMethod::RemoveFromScore: return ActivityScore - StepScore;
-		case EScoreManagementMethod::MultiplyScore: return ActivityScore * StepScore;
-		case EScoreManagementMethod::DivideScore: return ActivityScore / StepScore;
+		case EScoreManagementMethod::Discard: NewScore = ActivityScore; break;
+		case EScoreManagementMethod::AddToScore: NewScore = ActivityScore + StepScore; break;
+		case EScoreManagementMethod::RemoveFromScore: NewScore = ActivityScore - StepScore; break;
+		case EScoreManagementMethod::MultiplyScore: NewScore = ActivityScore * StepScore; break;
+		case EScoreManagementMethod::DivideScore: NewScore = ActivityScore / StepScore; break;
 		default:
 			checkNoEntry();
-			return ActivityScore;
 		}
+		return NewScore;
 	};
-	
+
 	FActivityEvaluationResult Result;
 	switch (StepResult.Status)
 	{
@@ -45,6 +46,6 @@ FActivityEvaluationResult UConfigurableActivityEvaluator::EvaluateStep_Implement
 	default:
 		checkNoEntry();
 	}
-	
+
 	return Result;
 }

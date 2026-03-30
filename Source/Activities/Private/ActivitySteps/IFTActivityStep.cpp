@@ -41,11 +41,10 @@ void UIFTActivityStep::StartStep_Implementation(AActor* LastInstigator)
 {
 	if (UWorld* World = GetOuter()->GetWorld())
 	{
-		FTimerHandle Handle;
 		Status = EIFTStatus::WaitingForWindow;
 		UE_LOGFMT(MS_ITFActivityStep, Verbose, "Waiting for Window opening");
 
-		World->GetTimerManager().SetTimer(Handle,
+		World->GetTimerManager().SetTimer(WindowHandle,
 			[&, World]
 			{
 				Status = EIFTStatus::DuringWindow;
@@ -56,9 +55,11 @@ void UIFTActivityStep::StartStep_Implementation(AActor* LastInstigator)
 					{
 						Status = EIFTStatus::PastWindow;
 						UE_LOGFMT(MS_ITFActivityStep, Verbose, "Missed Window");
-						ActivityOutput.Status = EActivityStepStatus::Fail;
-						// TODO François Compute Activity score
-						FinishStep(ActivityOutput);
+
+						FinishStep(FActivityStepResult{
+							.Status = EActivityStepStatus::Fail,
+							.Score = 0, // TODO: Fill this field
+						});
 					},
 					WindowLengthSeconds,
 					false);
@@ -73,8 +74,23 @@ void UIFTActivityStep::OnInteract_Implementation(AActor* Instigator)
 	if (Status == EIFTStatus::DuringWindow)
 	{
 		UE_LOGFMT(MS_ITFActivityStep, Verbose, "Window Activity triggered successfully");
-		GetWorld()->GetTimerManager().ClearTimer(WindowHandle);
-		ActivityOutput.Status = EActivityStepStatus::Success;
-		FinishStep(ActivityOutput);
+
+		if (UWorld* World = GetOuter()->GetWorld())
+		{
+			World->GetTimerManager().ClearTimer(WindowHandle);
+		}
+
+		FinishStep(FActivityStepResult{
+			.Status = EActivityStepStatus::Success,
+			.Score = 0, // TODO: Fill this field
+		});
+	}
+}
+
+void UIFTActivityStep::CancelStep_Implementation()
+{
+	if (UWorld* World = GetOuter()->GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(WindowHandle);
 	}
 }

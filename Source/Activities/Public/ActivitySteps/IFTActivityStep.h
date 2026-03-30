@@ -46,6 +46,7 @@ class ACTIVITIES_API UIFTActivityStep : public UActivityStep
 
 	void StartStep_Implementation(AActor* LastInstigator) override;
 	void OnInteract_Implementation(AActor* Instigator) override;
+	void CancelStep_Implementation() override;
 
 	friend UIFTActivitySetting;
 
@@ -54,5 +55,4 @@ class ACTIVITIES_API UIFTActivityStep : public UActivityStep
 
 	FTimerHandle WindowHandle;
 	EIFTStatus Status = EIFTStatus::None;
-	FActivityStepResult ActivityOutput;
 };

@@ -57,6 +57,10 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 		}
 	}
 
+	// This must be set BEFORE AttachToComponent, because it may trigger
+	// Sphere_OnBeginOverlap which will call TryPickup again.
+	Carriable = NewCarriable;
+
 	Primitive->SetSimulatePhysics(false);
 	bool bAttachSuccess = Primitive->AttachToComponent(this, {LocationRule, RotationRule, ScaleRule, false});
 
@@ -77,8 +81,7 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 			Primitive->SetCollisionProfileName(Profile);
 		}
 	}
-
-	Carriable = NewCarriable;
+	
 	OnCarriableChanged.Broadcast(this);
 	return true;
 }

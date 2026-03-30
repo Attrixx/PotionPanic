@@ -29,9 +29,11 @@ class ACTIVITIES_API UTimeActivityStep : public UActivityStep
 {
 	GENERATED_BODY()
 
-	void StartStep_Implementation(AActor* Performer) override;
+	void StartStep_Implementation(AActor* LastInstigator) override;
+	void CancelStep_Implementation() override;
 
 	friend UTimeActivitySettings;
 
 	float SecondsToWait = 0.f;
+	FTimerHandle TimerHandle;
 };

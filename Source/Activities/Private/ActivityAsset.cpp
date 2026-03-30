@@ -2,12 +2,28 @@
 #include "ActivityStepSettings.h"
 #include "ActivityEvaluator.h"
 #include "ActivityConclusion.h"
+#include "ActivityTags.h"
+#include "ItemTags.h"
 #include "Misc/DataValidation.h"
 
 #if WITH_EDITOR
 EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
+
+	if (!InputTags.HasTag(GameTags::Activity))
+	{
+		Context.AddError(FText::FromString("Input tags must have at least one activity tag."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	if (!InputTags.HasTag(GameTags::Item))
+	{
+		Context.AddError(FText::FromString(FString::Format(
+			TEXT("Input tags must have at least one item tag. Use {0} if you wish to not take any item as input."),
+			{GameTags::Item_None.GetTag().ToString()})));
+		Result = EDataValidationResult::Invalid;
+	}
 
 	for (const UActivityStepSettings* Settings : ActivitySteps)
 	{

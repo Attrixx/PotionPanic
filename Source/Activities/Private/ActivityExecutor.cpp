@@ -149,6 +149,7 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 	}
 
 	FActivityEvaluationResult EvalResult = Evaluator->EvaluateStep(State, StepResult);
+	State.Score = EvalResult.Score;
 
 	switch (EvalResult.FlowDecision)
 	{
@@ -157,25 +158,24 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 		{
 			State.Status = EActivityExecutionStatus::Success;
 			Conclusion->Conclude(State);
+			return; // do not call ContinueExecution
 		}
 		break;
 
 	case EActivityFlowDecision::Fail:
 		State.Status = EActivityExecutionStatus::Failed;
 		Conclusion->Conclude(State);
-		break;
+		return; // do not call ContinueExecution
 
 	case EActivityFlowDecision::Restart:
 		Reset();
-		EvalResult.Score = 0;
 		State.Status = EActivityExecutionStatus::Ongoing;
 		break;
 		
 	default:
 		checkNoEntry();
 	}
-	State.Score = EvalResult.Score;
-
+	
 	ContinueExecution();
 }
 

@@ -1,9 +1,10 @@
 #include "StationActor.h"
+#include "ActivityExecutor.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
-#include "StationAsset.h"
-#include "ActivityExecutor.h"
+#include "ItemTags.h"
 #include "RecipeSystem.h"
+#include "StationAsset.h"
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
@@ -21,7 +22,7 @@ AStationActor::AStationActor()
 	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
 }
 
-void AStationActor::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void AStationActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AStationActor, StationAsset);
@@ -63,8 +64,11 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 void AStationActor::FetchInstructions(AActor* InInstigator)
 {
 	if (Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing)
+	{
+		// Calling StartActivity again would cancel the current activity
 		return;
-	
+	}
+
 	URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
 	check(RecipeSystem);
 
@@ -72,6 +76,10 @@ void AStationActor::FetchInstructions(AActor* InInstigator)
 	if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
 		InteractionTags.AppendTags(ItemActor->GetItemTags());
+	}
+	else
+	{
+		InteractionTags.AddTag(GameTags::Item_None);
 	}
 
 	if (UActivityAsset* Activity = RecipeSystem->FindActivityByInputTags(InteractionTags))

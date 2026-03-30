@@ -5,6 +5,10 @@ namespace GameTags
 UE_DEFINE_GAMEPLAY_TAG_COMMENT(Item,
 	"Item",
 	"Parent tag for all Items. Items are required for certain Transformations (Recipes)."
+	);
+UE_DEFINE_GAMEPLAY_TAG_COMMENT(Item_None,
+	"Item.None",
+	"Indicates a requirement of no item. Useful in recipes that spawn items."
 );
 UE_DEFINE_GAMEPLAY_TAG_COMMENT(Item_Ingredient,
 	"Item.Ingredient",
