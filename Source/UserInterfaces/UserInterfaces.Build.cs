@@ -6,6 +6,7 @@ public class UserInterfaces : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
+<<<<<<< HEAD
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -18,8 +19,23 @@ public class UserInterfaces : ModuleRules
 		{
 			"AudioMixer",
             "EnhancedInput",
+			"InputCore",
 			
 			"CoreGameplay",
 		});
 	}
+=======
+        PublicDependencyModuleNames.AddRange(new string[]
+        {
+            "Core",
+            "CoreUObject",
+            "Engine",
+            "CoreGameplay",
+            "UMG",
+            "AudioMixer",
+            "InputCore",
+            "EnhancedInput"
+        });
+    }
+>>>>>>> 4ee7636 (Add missing module to be able to build the project)
 }
