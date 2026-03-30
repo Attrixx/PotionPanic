@@ -12,9 +12,6 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
-class IInteractable;
-class UCarriableComponent;
-
 UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
 {
@@ -26,8 +23,9 @@ protected:
 
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void PawnClientRestart() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	void Tick(float DeltaSeconds) override;
 
 protected:
 
@@ -61,9 +59,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	// Timer interval for sorting items in range (computes difference in locations)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
+	float InRangeInfosSortInterval = 0.1f;
+
 private:
 
-	void UpdateBestComponents();
+	void SortInRangeInfos();
+	AActor* GetBestInteractable() const;
+	AActor* GetBestCarriable() const;
 
 	UFUNCTION()
 	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
@@ -71,6 +75,8 @@ private:
 
 	UFUNCTION()
 	void Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+private: // Input
 
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Dash();
@@ -91,15 +97,17 @@ private:
 	void Server_Throw();
 
 private:
+	
+	FTimerHandle InRangeSortTimerHandle;
 
-	struct FOverlappedActor
+	struct FInRangeInfo
 	{
-		AActor* Actor;
-		uint64 NbOccurrences;
+		FInRangeInfo(AActor* Actor);
+
+		TWeakObjectPtr<AActor> Actor;
+		uint32 NbOccurrences;
+		float Score;
 	};
 
-	TArray<FOverlappedActor> OverlappedActors;
-
-	TScriptInterface<IInteractable> BestInteractable;
-	TWeakObjectPtr<UCarriableComponent> BestCarriable;
+	TArray<FInRangeInfo> InRangeInfos;
 };

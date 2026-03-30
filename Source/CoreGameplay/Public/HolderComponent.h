@@ -3,45 +3,78 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/SceneComponent.h"
+#include "Components/SphereComponent.h"
+#include "Engine/EngineTypes.h"
 #include "HolderComponent.generated.h"
 
-class UCarriableComponent;
-
 UCLASS(meta=(BlueprintSpawnableComponent))
-class COREGAMEPLAY_API UHolderComponent : public USceneComponent
+class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 {
 	GENERATED_BODY()
 
 	UHolderComponent();
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void BeginPlay() override;
 
 public:
 
-	UFUNCTION(BlueprintPure)
-	UCarriableComponent* GetCarriable() const { return Carriable; }
-
 	/**
-	 * Replace the CarriableComponent currently held by this component.
-	 * @param NewCarriable Can be nullptr.
-	 * @return Old Carriable (or nullptr is there was none) 
+	 * @returns The held Carriable. If not null, you can assume Implements<UCarriable>() to be true.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
-	UCarriableComponent* Replace(UCarriableComponent* NewCarriable);
+	UFUNCTION(BlueprintPure)
+	UObject* GetCarriable() const { return Carriable.Get(); }
+
+	UFUNCTION(BlueprintCallable)
+	bool TryPickup(UObject* NewCarriable);
+
+	UFUNCTION(BlueprintCallable)
+	UObject* Release(FVector Velocity = FVector::ZeroVector);
+
+private:
+
+	UFUNCTION()
+	void Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
+	                           int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnRep_Carriable();
 
 protected:
 
-	UFUNCTION()
-	void OnRep_Carriable(UCarriableComponent* OldCarriable);
+	// Can another Holder take from this one?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bAllowStealing : 1;
 
-	/**
-	 * Override this in blueprint for cosmetic events.
-	 */
-	UFUNCTION(BlueprintNativeEvent, meta=(ForceAsFunction))
-	void OnCarriableChanged(UCarriableComponent* OldCarriable, UCarriableComponent* NewCarriable);
+	// Is ICarriable::GetCarriedCollisionProfileName() applied on pick up?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSwitchCollisionProfileOnPickup : 1;
+
+	// Is ICarriable::GetStandaloneCollisionProfileName() applied on release?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSwitchCollisionProfileOnRelease : 1;
+
+	// If Velocity.IsNearlyZero() on release, should we try to snap on the groud and not activate physics?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bShouldSnapToGroundOnReleaseWithoutVelocity : 1;
+
+	// Should the holder try to pickup Carriables that begin overlapping with it?
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	uint8 bIsCatchAllowed : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule LocationRule = EAttachmentRule::SnapToTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule RotationRule = EAttachmentRule::SnapToTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component|AttachmentRules")
+	EAttachmentRule ScaleRule = EAttachmentRule::KeepWorld;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ClampMin=0), Category="Holder Component")
+	float SnapToGroundMaxDistance = 200.f;
 
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
-	TObjectPtr<UCarriableComponent> Carriable;
+	TWeakObjectPtr<UObject> Carriable;
 };
