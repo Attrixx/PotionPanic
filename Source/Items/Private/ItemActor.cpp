@@ -78,7 +78,7 @@ void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActo
 {
 	check(StaticMesh == HitComponent);
 
-	if (Hit.Normal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
+	if (Hit.ImpactNormal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
 	{
 		StaticMesh->SetSimulatePhysics(false);
 	}

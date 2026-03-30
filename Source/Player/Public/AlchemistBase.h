@@ -23,6 +23,8 @@ protected:
 
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void PawnClientRestart() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 protected:
@@ -57,6 +59,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	// Timer interval for sorting items in range (computes difference in locations)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
 	float InRangeInfosSortInterval = 0.1f;
 
@@ -94,6 +97,8 @@ private: // Input
 	void Server_Throw();
 
 private:
+	
+	FTimerHandle InRangeSortTimerHandle;
 
 	struct FInRangeInfo
 	{

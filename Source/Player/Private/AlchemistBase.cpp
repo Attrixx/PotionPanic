@@ -46,33 +46,16 @@ void AAlchemistBase::OnConstruction(const FTransform& Transform)
 void AAlchemistBase::BeginPlay()
 {
 	Super::BeginPlay();
-
-	bool bIsLocalPlayer = false;
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
-	{
-		if (auto* LocalPlayer = PlayerController->GetLocalPlayer())
-		{
-			bIsLocalPlayer = true;
-			if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-			{
-				if (MappingContext)
-				{
-					Subsystem->AddMappingContext(MappingContext, 0);
-				}
-			}
-		}
-	}
-
+	
 	CapsuleOverlapComponent->OnComponentBeginOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnBeginOverlap);
 	CapsuleOverlapComponent->OnComponentEndOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnEndOverlap);
 
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle,
-		[this, bIsLocalPlayer]
+	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
+		[this]
 		{
 			SortInRangeInfos();
 
-			if (!bIsLocalPlayer)
+			if (!IsLocallyControlled())
 				return;
 
 			// TODO: Replace this by actual effects
@@ -103,6 +86,32 @@ void AAlchemistBase::BeginPlay()
 		},
 		InRangeInfosSortInterval,
 		true);
+}
+
+void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	
+	CapsuleOverlapComponent->OnComponentBeginOverlap.RemoveAll(this);
+	CapsuleOverlapComponent->OnComponentEndOverlap.RemoveAll(this);
+
+	GetWorldTimerManager().ClearTimer(InRangeSortTimerHandle);
+}
+
+void AAlchemistBase::PawnClientRestart()
+{
+	Super::PawnClientRestart();
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			if (MappingContext)
+			{
+				Subsystem->AddMappingContext(MappingContext, 0);
+			}
+		}
+	}
 }
 
 void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
