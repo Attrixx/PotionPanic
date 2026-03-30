@@ -23,5 +23,5 @@ class COREGAMEPLAY_API IInteractable
 public:
 
 	UFUNCTION(BlueprintCallable)
-	virtual void Interact(APlayerController* Instigator) PURE_VIRTUAL(,);
+	virtual void Interact(AActor* Instigator) PURE_VIRTUAL(,);
 };

@@ -6,21 +6,11 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "RecipeSystem.generated.h"
 
-class UInteractionBase;
+class UActivityStep;
 class UItemAsset;
 class UActivityAsset;
 class UHolderComponent;
 class RecipeAsset;
-
-USTRUCT()
-struct RECIPES_API FInteractionInfo
-{
-	GENERATED_BODY()
-	
-	UPROPERTY()
-	UInteractionBase* Interaction = nullptr;
-	bool bRequiresPlayerInteraction = false;
-};
 
 USTRUCT()
 struct RECIPES_API FGetRecipeStepResponse
@@ -28,7 +18,7 @@ struct RECIPES_API FGetRecipeStepResponse
 	GENERATED_BODY()
 public:
 	UPROPERTY()
-	TArray<FInteractionInfo> InteractionInfos;
+	TArray<UActivityStep*> ActivitySteps;
 	UPROPERTY()
 	TObjectPtr<UItemAsset> OutputItem = nullptr;
 };

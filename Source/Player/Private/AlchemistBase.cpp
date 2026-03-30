@@ -253,7 +253,7 @@ void AAlchemistBase::Server_Interact_Implementation()
 {
 	if (auto* Interactable = Cast<IInteractable>(GetBestInteractable()))
 	{
-		Interactable->Interact(Cast<APlayerController>(Controller));
+		Interactable->Interact(this);
 	}
 }
 

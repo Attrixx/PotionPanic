@@ -42,7 +42,6 @@ private:
 	UFUNCTION()
 	void OnRep_ItemAsset();
 	
-	UFUNCTION()
 	void ApplyItemAsset();
 
 protected:

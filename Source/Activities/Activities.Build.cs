@@ -1,8 +1,8 @@
 ﻿using UnrealBuildTool;
 
-public class Interactions : ModuleRules
+public class Activities : ModuleRules
 {
-    public Interactions(ReadOnlyTargetRules Target) : base(Target)
+    public Activities(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 

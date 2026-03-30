@@ -17,6 +17,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
+	FName HolderSocket = NAME_None;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Station")
 	TArray<TObjectPtr<UActivityAsset>> Activities;
 };
