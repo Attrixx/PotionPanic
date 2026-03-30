@@ -137,7 +137,7 @@ void ALobbyGameState::OnRep_TargetCameraPosition()
 			continue;
 		}
 
-		PS->PlayLevelSequence(TargetCameraPosition);
+		PS->Client_PlayLevelSequence(TargetCameraPosition);
 	}
 }
 

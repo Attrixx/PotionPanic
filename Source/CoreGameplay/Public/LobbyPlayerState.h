@@ -57,8 +57,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	FColor GetPlayerColor() const { return PlayerInfo.PlayerColor; }
 
-	UFUNCTION(Server, Reliable)
-	void Server_SetIsHost(bool bHost);
+	// Not an RPC, only server should be allowed to set this
+	void SetIsHost(bool bHost);
 
 	UFUNCTION(Server, Reliable)
 	void Server_SetIsReady(bool bReady);
@@ -72,9 +72,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	bool IsCouchCoopPlayer() const { return PlayerInfo.bIsCouchCoopPlayer; }
 
-	void PlayLevelSequence(ECameraPosition TargetCameraPosition);
 	UFUNCTION(Client, Reliable)
 	void Client_PlayLevelSequence(ECameraPosition TargetCameraPosition);
+	
 	ULevelSequencePlayer* PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward = true);
 
 	UFUNCTION(Server, Reliable)

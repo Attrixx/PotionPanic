@@ -36,7 +36,7 @@ void ALobbyPlayerState::Server_SetPlayerColor_Implementation(FColor NewColor)
 	OnRep_PlayerInfo();
 }
 
-void ALobbyPlayerState::Server_SetIsHost_Implementation(bool bHost)
+void ALobbyPlayerState::SetIsHost(bool bHost)
 {
 	PlayerInfo.bIsHost = bHost;
 	OnRep_PlayerInfo();
@@ -46,11 +46,6 @@ void ALobbyPlayerState::Server_SetIsReady_Implementation(bool bNewReady)
 {
 	PlayerInfo.bIsReady = bNewReady;
 	OnRep_PlayerInfo();
-}
-
-void ALobbyPlayerState::PlayLevelSequence(ECameraPosition TargetCameraPosition)
-{
-	Client_PlayLevelSequence(TargetCameraPosition);
 }
 
 void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition TargetCameraPosition)
@@ -82,6 +77,8 @@ void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition 
 		case ECameraPosition::Interior:
 			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToInterior);
 			break;
+		default:
+			checkNoEntry();
 		}
 		break;
 	case ECameraPosition::Entrance:
@@ -96,6 +93,8 @@ void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition 
 		case ECameraPosition::Exterior:
 			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToEntrance, false);
 			break;
+		default:
+			checkNoEntry();
 		}
 		break;
 	case ECameraPosition::LobbyInterface:
@@ -110,6 +109,8 @@ void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition 
 		case ECameraPosition::Exterior:
 			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToLobbyInterface, false);
 			break;
+		default:
+			checkNoEntry();
 		}
 		break;
 	case ECameraPosition::Interior:
@@ -124,8 +125,13 @@ void ALobbyPlayerState::Client_PlayLevelSequence_Implementation(ECameraPosition 
 		case ECameraPosition::Exterior:
 			PlayedSequence = PlaySequence(ELevelSequenceType::ExteriorToInterior, false);
 			break;
+		default:
+			checkNoEntry();
 		}
 		break;
+
+	default:
+		checkNoEntry();
 	}
 	
 	CurrentCameraPosition = TargetCameraPosition;

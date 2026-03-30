@@ -53,7 +53,7 @@ void ALobbyGameMode::PostLogin(APlayerController* NewPlayer)
 		{
 			bHostPlayerIdInitialized = true;
 			HostPlayerId = PlayerState->GetPlayerId();
-			PlayerState->Server_SetIsHost(true);
+			PlayerState->SetIsHost(true);
 		}
 	}
 
@@ -190,7 +190,7 @@ void ALobbyGameMode::SwitchCameraForTarget(AActor* TargetActor, ECameraPosition 
 {
 	if (ACharacter* Character = Cast<ACharacter>(TargetActor))
 	{
-		Character->GetPlayerState<ALobbyPlayerState>()->PlayLevelSequence(NewCameraPosition);
+		Character->GetPlayerState<ALobbyPlayerState>()->Client_PlayLevelSequence(NewCameraPosition);
 	}
 }
 
