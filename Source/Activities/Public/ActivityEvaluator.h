@@ -12,9 +12,9 @@ struct FActivityStepResult;
 UENUM(BlueprintType)
 enum class EActivityFlowDecision : uint8
 {
-	Continue, // Start the next step or Concludes the activity if there is none.
-	Fail, // Skip remaining steps and Concludes the activity
-	Restart // Restart the activity without concluding.
+	Continue, // Start the next step, or conclude the activity with success if none remain.
+	Fail, // Skip remaining steps and instantly conclude the activity with a failure state.
+	Restart // Reset and restart the activity from the beginning without concluding.
 };
 
 USTRUCT(BlueprintType)
@@ -30,7 +30,7 @@ struct FActivityEvaluationResult
 };
 
 /**
- * 
+ * @brief Abstract base class responsible for evaluating the outcome of an activity step.
  */
 UCLASS(Abstract, EditInlineNew, Blueprintable)
 class ACTIVITIES_API UActivityEvaluator : public UObject
@@ -40,7 +40,11 @@ class ACTIVITIES_API UActivityEvaluator : public UObject
 public:
 
 	/**
-	 *
+	 * Evaluates the current state and the result of the last executed step to determine the next flow decision.
+	 * @param State The current execution context of the activity.
+	 * @param StepResult The output data of the step that just finished.
+	 * @return The evaluation result dictating whether the activity continues, fails, or restarts.
+	 * @warning Child classes (both C++ and Blueprint) MUST override this method.
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	FActivityEvaluationResult EvaluateStep(const FActivityExecutionState& State, const FActivityStepResult& StepResult) const;

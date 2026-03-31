@@ -30,15 +30,36 @@ protected:
 
 public:
 
+	/**
+	 * Initializes the executor with a holder component.
+	 * If the executor was already bound to another Holder, the previous binding is cleared.
+	 * @param HolderComponent The component responsible for holding the interactive object. Must be valid.
+	 */
 	UFUNCTION(BlueprintCallable)
 	void Initialize(UHolderComponent* HolderComponent);
 
+	/**
+	 * Starts the execution of a new activity from a definition asset.
+     * Automatically cancel any currently ongoing activity.
+	 * @param Activity Activity The asset defining the activity structure (Steps, Evaluator, Conclusion).
+	 * @param Instigator The optional actor that initiated the activity.
+	 */
 	UFUNCTION(BlueprintCallable)
 	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr);
 
+	/**
+	 * Forwards an interaction event to the currently executing activity step.
+	 * Does nothing if there is no ongoing activity.
+	 * The current step is responsible for handling the internal logic triggered by this interaction.
+	 * @param Instigator The actor triggering the interaction.
+	 */
 	UFUNCTION(BlueprintCallable)
 	void Interact(AActor* Instigator);
 
+	/**
+	 * Interrupts the ongoing activity and resets the executor's state.
+	 * Propagates the cancellation to the current step to allow it to execute its cleanup logic.
+	 */
 	UFUNCTION(BlueprintCallable)
 	void Cancel();
 

@@ -8,7 +8,7 @@
 #include "ActivityConclusion.generated.h"
 
 /**
- * 
+ * Abstract base class defining the final outcome of an Activity.
  */
 UCLASS(Abstract, EditInlineNew, Blueprintable)
 class ACTIVITIES_API UActivityConclusion : public UObject
@@ -18,9 +18,9 @@ class ACTIVITIES_API UActivityConclusion : public UObject
 public:
 
 	/**
-	 * Concludes the activity. Often by spawning an item or modifying the input item.
-	 * @param State Output of the activity.
-	 * @return Transformed Item. Can be equal or not to the InputItem.
+	 * Executes the final logic of the activity based on its final execution state.
+	 * @param State The final context and evaluation data of the completed activity.
+	 * @warning Child classes (both C++ and Blueprint) MUST override this method. Failure to do so will trigger a fatal error.
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void Conclude(const FActivityExecutionState& State) const;
