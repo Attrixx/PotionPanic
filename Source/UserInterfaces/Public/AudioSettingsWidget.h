@@ -1,0 +1,81 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Blueprint/UserWidget.h"
+#include "GameFramework/SaveGame.h"
+#include "AudioSettingsWidget.generated.h"
+
+class USoundClass;
+class USoundMix;
+
+UCLASS()
+class USERINTERFACES_API UAudioSaveGame : public USaveGame
+{
+	GENERATED_BODY()
+
+public:
+
+	UPROPERTY()
+	float MasterVolume = 1.0f;
+
+	UPROPERTY()
+	float MusicVolume = 1.0f;
+
+	UPROPERTY()
+	float EffectsVolume = 1.0f;
+};
+
+UCLASS()
+class USERINTERFACES_API UAudioSettingsWidget : public UUserWidget
+{
+	GENERATED_BODY()
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Settings|Audio")
+	void SetMaster(float Value) { Master = FMath::Clamp(Value, 0.0f, 1.0f); bDirty = true; }
+
+	UFUNCTION(BlueprintCallable, Category = "Settings|Audio")
+	void SetMusic(float Value) { Music = FMath::Clamp(Value, 0.0f, 1.0f); bDirty = true; }
+
+	UFUNCTION(BlueprintCallable, Category = "Settings|Audio")
+	void SetEffects(float Value) { Effects = FMath::Clamp(Value, 0.0f, 1.0f); bDirty = true; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Settings|Audio")
+	float GetMaster() const { return Master; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Settings|Audio")
+	float GetMusic() const { return Music; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Settings|Audio")
+	float GetEffects() const { return Effects; }
+
+	UFUNCTION(BlueprintCallable, Category = "Settings|Audio")
+	void LoadCurrentSettings();
+
+	void ApplyIfDirty();
+
+protected:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Settings|Audio")
+	TObjectPtr<USoundMix> MasterSoundMix;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Settings|Audio")
+	TObjectPtr<USoundClass> MasterSoundClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Settings|Audio")
+	TObjectPtr<USoundClass> MusicSoundClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Settings|Audio")
+	TObjectPtr<USoundClass> EffectsSoundClass;
+
+private:
+
+	void Apply();
+
+	float Master  = 1.0f;
+	float Music   = 1.0f;
+	float Effects = 1.0f;
+
+	bool bDirty = false;
+};
