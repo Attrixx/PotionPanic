@@ -47,11 +47,22 @@ void AItemActor::OnConstruction(const FTransform& Transform)
 	}
 }
 
-void AItemActor::BeginPlay()
+void AItemActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved,
+                           FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
 {
-	Super::BeginPlay();
+	Super::NotifyHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
 
-	StaticMesh->OnComponentHit.AddDynamic(this, &AItemActor::Mesh_OnHit);
+	if (ItemTags.HasTag(GameTags::Item_Breakable))
+	{
+		// TODO: Implement breakable items
+		UE_LOGFMT(MS_ItemActor, Warning, "Breakable items are not implemented.");
+	}
+
+	constexpr float GroundCollisionThreshold = 0.8f;
+	if (Hit.ImpactNormal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
+	{
+		StaticMesh->SetSimulatePhysics(false);
+	}
 }
 
 void AItemActor::SetItemAsset(UItemAsset* NewItemAsset)
@@ -94,22 +105,6 @@ FName AItemActor::GetStandaloneCollisionProfileName_Implementation() const
 FName AItemActor::GetCarriedCollisionProfileName_Implementation() const
 {
 	return CarriedCollisionProfileName;
-}
-
-void AItemActor::Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
-{
-	check(StaticMesh == HitComponent);
-	
-	if (ItemTags.HasTag(GameTags::Item_Breakable))
-	{
-		// TODO: Implement breakable items
-		UE_LOGFMT(MS_ItemActor, Warning, "Breakable items are not implemented.");
-	}
-
-	if (Hit.ImpactNormal.Dot(FVector::UpVector) >= GroundCollisionThreshold)
-	{
-		StaticMesh->SetSimulatePhysics(false);
-	}
 }
 
 void AItemActor::OnRep_ItemAsset()

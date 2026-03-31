@@ -21,7 +21,8 @@ class ITEMS_API AItemActor : public AActor, public ICarriable
 	AItemActor();
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
-	void BeginPlay() override;
+	void NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiveComponent* OtherComp, bool bSelfMoved,
+	               FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
 
 public:
 
@@ -30,13 +31,13 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	const FGameplayTagContainer& GetItemTags() const { return ItemTags; }
-	
+
 	UFUNCTION(BlueprintCallable)
 	void SetItemTags(const FGameplayTagContainer& NewItemTags);
-	
+
 	UFUNCTION(BlueprintCallable)
 	void AppendItemTags(const FGameplayTagContainer& NewItemTags);
-	
+
 	UFUNCTION(BlueprintCallable)
 	void RemoveItemTag(const FGameplayTagContainer& ItemTagsToRemove);
 
@@ -47,10 +48,6 @@ protected: // ICarriable
 	FName GetCarriedCollisionProfileName_Implementation() const override;
 
 private:
-
-	UFUNCTION()
-	void Mesh_OnHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
-	static constexpr float GroundCollisionThreshold = 0.8f;
 
 	UFUNCTION()
 	void OnRep_ItemAsset();

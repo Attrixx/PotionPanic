@@ -16,7 +16,6 @@ class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 
 	UHolderComponent();
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	void BeginPlay() override;
 
 public:
 

@@ -15,19 +15,16 @@ UHolderComponent::UHolderComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+	
+	SetGenerateOverlapEvents(true);
+	// the following delegate is part of our (inherited) members, binding here and never unbinding is fine
+	OnComponentBeginOverlap.AddDynamic(this, &UHolderComponent::Sphere_OnBeginOverlap);
 }
 
 void UHolderComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UHolderComponent, Carriable);
-}
-
-void UHolderComponent::BeginPlay()
-{
-	Super::BeginPlay();
-
-	OnComponentBeginOverlap.AddDynamic(this, &UHolderComponent::Sphere_OnBeginOverlap);
 }
 
 bool UHolderComponent::TryPickup(UObject* NewCarriable)
