@@ -22,7 +22,8 @@ public class CoreGameplay : ModuleRules
             "SteamSockets",
             "InputCore",
             "LevelSequence",
-            "MovieScene"
+            "MovieScene",
+            "CommonUI",
         });
     }
 }

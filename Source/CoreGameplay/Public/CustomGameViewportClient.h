@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/GameViewportClient.h"
+#include "CommonGameViewportClient.h"
 #include "CustomGameViewportClient.generated.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_CustomGameViewportClient, Log, All);
@@ -20,7 +20,7 @@ class UInputAction;
  * 
  */
 UCLASS(Config=Game)
-class COREGAMEPLAY_API UCustomGameViewportClient : public UGameViewportClient
+class COREGAMEPLAY_API UCustomGameViewportClient : public UCommonGameViewportClient
 {
 	GENERATED_BODY()
 
