@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistCustomizationAsset.h"
+#include "Core/QTESourceProvider.h"
+#include "Widgets/QTEActivityDisplay.h"
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
@@ -15,11 +17,14 @@ class UInputMappingContext;
 class UInputAction;
 class UInteractableActorFilter;
 class UInterfaceActorFilter;
+class UQTEComponent;
+class UQTEWidgetBase;
+class UWidgetComponent;
 struct FInputActionValue;
 
 
 UCLASS(Abstract)
-class PLAYER_API AAlchemistBase : public ACharacter
+class PLAYER_API AAlchemistBase : public ACharacter, public IQTESourceProvider, public IQTEActivityDisplay
 {
 	GENERATED_BODY()
 
@@ -81,6 +86,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FPhysicalAnimationData PhysicalAnimationData;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UQTEComponent> QTEComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UWidgetComponent> QTEWidgetComponent;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
 
@@ -102,6 +113,26 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE|UI")
+	TSubclassOf<UQTEWidgetBase> QTEWidgetClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE|UI")
+	FVector QTEWidgetRelativeLocation = FVector(0.f, 0.f, 180.f);
+
+public:
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Interaction")
+	AActor* GetCurrentInteractableActor() const;
+
+	UObject* GetQTESourceObject_Implementation() const override;
+	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
+	void HideQTEActivityStep_Implementation() override;
+
+protected:
+
 	// Timer interval for sorting items in range (computes difference in locations)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
 	float InRangeInfosSortInterval = 0.1f;
@@ -109,7 +140,12 @@ protected:
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
-
+	bool ShouldBlockGameplayInput() const;
+	void InitializeQTEWidgetComponent();
+	void ShowQTEActivityStepLocal(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass);
+	void HideQTEActivityStepLocal();
+	UQTEWidgetBase* GetQTEWidget() const;
+	
 private: // Input
 	
 	void Input_Move(const FInputActionValue& Value);
@@ -130,6 +166,12 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
+
+	UFUNCTION(Client, Reliable)
+	void ClientShowQTEActivityStep(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass);
+
+	UFUNCTION(Client, Reliable)
+	void ClientHideQTEActivityStep();
 
 private:
 	

@@ -12,13 +12,13 @@ public class Stations : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"GameplayTags",
-			
+
+			"Activities",
 			"CoreGameplay"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Activities",
 			"Items",
 			"Recipes"
 		});

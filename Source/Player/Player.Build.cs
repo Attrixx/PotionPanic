@@ -13,6 +13,9 @@ public class Player : ModuleRules
 			"Engine",
 
 			"CoreGameplay",
+			"UMG",
+
+			"QTE"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

@@ -9,6 +9,10 @@
 #include "Carriable.h"
 #include "ActorFilters/InteractableActorFilter.h"
 #include "ActorFilters/InterfaceActorFilter.h"
+#include "Components/QTEComponent.h"
+#include "Components/WidgetComponent.h"
+#include "Widgets/QTEWidgetBase.h"
+#include <Components/CapsuleComponent.h>
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 #include "PotionPanicKeybindSubsystem.h"
@@ -50,6 +54,15 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	// Enable CustomDepth to have player color and outline when behing walls
 	GetMesh()->SetRenderCustomDepth(true);
 	GetMesh()->SetCustomDepthStencilValue(1);
+
+	QTEComponent = CreateDefaultSubobject<UQTEComponent>(TEXT("QTE Component"));
+
+	QTEWidgetComponent = CreateDefaultSubobject<UWidgetComponent>(TEXT("QTE Widget"));
+	QTEWidgetComponent->SetupAttachment(RootComponent);
+	QTEWidgetComponent->SetWidgetSpace(EWidgetSpace::Screen);
+	QTEWidgetComponent->SetDrawAtDesiredSize(true);
+	QTEWidgetComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	QTEWidgetComponent->SetVisibility(false);
 }
 
 bool AAlchemistBase::IsCarrying() const
@@ -105,6 +118,11 @@ void AAlchemistBase::OnConstruction(const FTransform& Transform)
 			FAttachmentTransformRules::KeepRelativeTransform,
 			HolderParentSocket);
 	}
+
+	if (QTEWidgetComponent)
+	{
+		QTEWidgetComponent->SetRelativeLocation(QTEWidgetRelativeLocation);
+	}
 }
 
 void AAlchemistBase::BeginPlay()
@@ -122,6 +140,8 @@ void AAlchemistBase::BeginPlay()
 		PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
 		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
 	}
+
+	InitializeQTEWidgetComponent();
 
 	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
 		[this]
@@ -211,6 +231,7 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
+	QTEComponent->InitializeEnhancedInput(EIC);
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -248,8 +269,113 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 	}
 }
 
+AActor* AAlchemistBase::GetCurrentInteractableActor() const
+{
+	return GetBestInteractable();
+}
+
+UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
+{
+	return GetBestInteractable();
+}
+
+void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
+{
+	if (IsLocallyControlled())
+	{
+		ShowQTEActivityStepLocal(InQTEComponent, InWidgetClass);
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		ClientShowQTEActivityStep(InQTEComponent, InWidgetClass);
+	}
+}
+
+void AAlchemistBase::HideQTEActivityStep_Implementation()
+{
+	if (IsLocallyControlled())
+	{
+		HideQTEActivityStepLocal();
+		return;
+	}
+
+	if (HasAuthority())
+	{
+		ClientHideQTEActivityStep();
+	}
+}
+
+bool AAlchemistBase::ShouldBlockGameplayInput() const
+{
+	return QTEComponent && QTEComponent->IsQTERunning();
+}
+
+void AAlchemistBase::InitializeQTEWidgetComponent()
+{
+	if (!QTEWidgetComponent)
+	{
+		return;
+	}
+
+	QTEWidgetComponent->SetVisibility(false);
+	QTEWidgetComponent->SetRelativeLocation(QTEWidgetRelativeLocation);
+
+	if (QTEWidgetClass)
+	{
+		QTEWidgetComponent->SetWidgetClass(QTEWidgetClass);
+		QTEWidgetComponent->InitWidget();
+	}
+}
+
+void AAlchemistBase::ShowQTEActivityStepLocal(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
+{
+	if (!QTEWidgetComponent)
+	{
+		return;
+	}
+
+	if (InWidgetClass && QTEWidgetComponent->GetWidgetClass() != InWidgetClass)
+	{
+		QTEWidgetComponent->SetWidgetClass(InWidgetClass);
+		QTEWidgetComponent->InitWidget();
+	}
+
+	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
+	{
+		QTEWidget->BindToQTEComponent(InQTEComponent ? InQTEComponent : QTEComponent.Get());
+		QTEWidgetComponent->SetVisibility(true);
+	}
+}
+
+void AAlchemistBase::HideQTEActivityStepLocal()
+{
+	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
+	{
+		QTEWidget->BindToQTEComponent(nullptr);
+	}
+
+	if (QTEWidgetComponent)
+	{
+		QTEWidgetComponent->SetVisibility(false);
+	}
+}
+
+UQTEWidgetBase* AAlchemistBase::GetQTEWidget() const
+{
+	return QTEWidgetComponent
+		? Cast<UQTEWidgetBase>(QTEWidgetComponent->GetUserWidgetObject())
+		: nullptr;
+}
+
 void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	auto Axis2D = Value.Get<FInputActionValue::Axis2D>();
 
 	FRotator CamRotation;
@@ -269,6 +395,11 @@ void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 
 void AAlchemistBase::Input_Dash()
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (auto* AMC = Cast<UAlchemistMovementComponent>(GetCharacterMovement()))
 	{
 		AMC->Dash();
@@ -283,6 +414,11 @@ void AAlchemistBase::Input_Interact()
 
 void AAlchemistBase::Input_PickupOrDrop()
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (HolderComponent->GetCarriable())
 		Server_Drop();
 	else if (AActor* Carriable = RangeComponent->FindBestMatchingActor(CarriableFilter))
@@ -291,6 +427,11 @@ void AAlchemistBase::Input_PickupOrDrop()
 
 void AAlchemistBase::Input_Throw()
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (HolderComponent->GetCarriable())
 		Server_Throw(GetActorForwardVector());
 }
@@ -319,4 +460,14 @@ void AAlchemistBase::Server_Drop_Implementation()
 void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 {
 	HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
+}
+
+void AAlchemistBase::ClientShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
+{
+	ShowQTEActivityStepLocal(InQTEComponent, InWidgetClass);
+}
+
+void AAlchemistBase::ClientHideQTEActivityStep_Implementation()
+{
+	HideQTEActivityStepLocal();
 }

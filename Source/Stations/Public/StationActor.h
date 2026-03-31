@@ -73,7 +73,6 @@ protected:
 	bool CanInteract_Implementation(AActor* InInstigator) const override;
 
 public:
-
 	UFUNCTION(BlueprintCallable)
 	void SetStationAsset(UStationAsset* NewStationAsset);
 
@@ -86,7 +85,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	UHolderComponent* GetItemHolder() const { return ItemHolder; }
 
-private:
+	UFUNCTION(BlueprintPure)
+	UActivityExecutor* GetActivityExecutor() const;
 
 	void TryStartMatchingActivity(AActor* InInstigator);
 
@@ -106,6 +106,8 @@ private:
 	void ApplyStationAsset();
 
 private:
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<AItemActor> ItemClass;
 
 	UPROPERTY(EditInstanceOnly, ReplicatedUsing = OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
