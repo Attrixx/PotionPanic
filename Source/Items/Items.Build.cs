@@ -11,15 +11,15 @@ public class Items : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
-			"GameplayTags"
+			"GameplayTags",
+			
+			"CoreGameplay"
 		});
 
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Niagara",
-
-			"CoreGameplay"
 		});
 	}
 }

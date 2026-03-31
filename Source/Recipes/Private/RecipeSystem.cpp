@@ -1,10 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "RecipeSystem.h"
-
-#include "ActivityStepSettings.h"
 #include "RecipeAsset.h"
-#include "ItemTransformation.h"
+#include "ActivityAsset.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_RecipeSystem, Log, All);
 
@@ -13,41 +11,28 @@ void URecipeSystem::AddRecipe(URecipeAsset* Recipe)
 	if (!Recipe)
 		return;
 
-	for (UItemTransformation* Step : Recipe->Steps)
+	for (UActivityAsset* Step : Recipe->Steps)
 	{
 		check(Step);
-		Transformations.AddUnique(Step);
+		Activities.AddUnique(Step);
 	}
 }
 
 void URecipeSystem::ClearRecipes()
 {
-	Transformations.Empty();
+	Activities.Empty();
 }
 
-TOptional<FInstruction> URecipeSystem::CreateInstruction(const FGameplayTagContainer& Tags)
+UActivityAsset* URecipeSystem::FindActivityByInputTags(const FGameplayTagContainer& Tags) const
 {
-	for (UItemTransformation* Transformation : Transformations)
+	for (UActivityAsset* Activity : Activities)
 	{
-		check(Transformation);
-		if (Tags.HasAll(Transformation->InputTags))
+		check(Activity);
+		if (Tags.HasAll(Activity->InputTags))
 		{
 			// Returns the first transformation that matches
-			return CreateInstruction(*Transformation);
+			return Activity;
 		}
 	}
-	return NullOpt;
-}
-
-FInstruction URecipeSystem::CreateInstruction(UItemTransformation& Transformation)
-{
-	FInstruction Instruction;
-	Instruction.Steps.Empty(Transformation.ActivitySteps.Num());
-	for (UActivityStepSettings* Settings : Transformation.ActivitySteps)
-	{
-		check(Settings);
-		Instruction.Steps.Add(Settings->CreateStep(this));
-	}
-	Instruction.OutputItem = Transformation.OutputItem;
-	return Instruction;
+	return nullptr;
 }

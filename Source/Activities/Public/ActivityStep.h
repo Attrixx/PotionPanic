@@ -6,52 +6,61 @@
 #include "UObject/Class.h"
 #include "ActivityStep.generated.h"
 
-UENUM(BlueprintType)
-enum class EActivityResult : uint8
-{
-	Default,
-	// CriticalSuccess, // TODO Maybe ?
-	Success,
-	Fail,
-	CriticalFail
-};
+struct FActivityStepResult;
 
-USTRUCT(BlueprintType)
-struct ACTIVITIES_API FActivityOutput
-{
-	GENERATED_BODY()
+DECLARE_DELEGATE_OneParam(FActivityStepResultDelegate, const FActivityStepResult&);
 
-	UPROPERTY(BlueprintReadWrite)
-	EActivityResult ActivityResult = EActivityResult::Default;
-	
-	UPROPERTY(BlueprintReadWrite)
-	int32 Score = 0;
-};
-
-DECLARE_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityOutput&);
-
-UCLASS(Abstract, Blueprintable)
+/**
+ * Abstract base class representing a single modular step within an Activity.
+ * Designed to be subclassed in C++ or Blueprint to implement custom step logic.
+ */
+UCLASS(Abstract, EditInlineNew, Blueprintable)
 class ACTIVITIES_API UActivityStep : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	
-	FActivityOutputDelegate OnActivityFinished;
 
+	/**
+	 * Starts the step
+	 * @param LastInstigator The actor which last interacted with the activity this step is part of.
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void StartActivity(AActor* Instigator);
+	void StartStep(AActor* LastInstigator);
 
+	/**
+	 * 
+	 * @param Instigator Actor triggering the interaction.
+	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void InteractWhileProcess();
+	void OnInteract(AActor* Instigator);
+
+	/**
+	 * Cancels the step.
+	 * Implementation should NOT call FinishStep after being canceled.
+	 * Make sure to correctly clean up any timer or bindings here.
+	 * /!\ May be called before StartStep. TODO: Fix this (in ActivityExecutor)
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void CancelStep();
 	
 protected:
-	
+
+	/**
+	 * Notify the step executor that this step is finished.
+	 * @param Output Result to report.
+	 */
 	UFUNCTION(BlueprintPure=false)
-	void FinishActivity(const FActivityOutput& Output) const { OnActivityFinished.ExecuteIfBound(Output); }
+	void FinishStep(const FActivityStepResult& Output) const;
+	
+private:
+	
+	friend class UActivityExecutor;
+	FActivityStepResultDelegate StepFinishedCallback;
 
-protected:
+protected: // Default implementations
 
-	virtual void StartActivity_Implementation(AActor* Instigator) PURE_VIRTUAL(UActivityStep::RequiresPlayerInteraction,);
-	virtual void InteractWhileProcess_Implementation() { }
+	virtual void StartStep_Implementation(AActor* LastInstigator);
+	virtual void OnInteract_Implementation(AActor* Instigator);
+	virtual void CancelStep_Implementation();
 };

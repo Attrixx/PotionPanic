@@ -7,6 +7,8 @@
 #include "Engine/EngineTypes.h"
 #include "HolderComponent.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHolderCarriableDelegate, class UHolderComponent*, Holder);
+
 UCLASS(meta=(BlueprintSpawnableComponent))
 class COREGAMEPLAY_API UHolderComponent : public USphereComponent
 {
@@ -29,6 +31,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	UObject* Release(FVector Velocity = FVector::ZeroVector);
+	
+	UPROPERTY(BlueprintAssignable)
+	FHolderCarriableDelegate OnCarriableChanged;
 
 private:
 

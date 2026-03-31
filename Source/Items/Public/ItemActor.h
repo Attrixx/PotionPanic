@@ -32,6 +32,9 @@ public:
 	const FGameplayTagContainer& GetItemTags() const { return ItemTags; }
 	
 	UFUNCTION(BlueprintCallable)
+	void SetItemTags(const FGameplayTagContainer& NewItemTags);
+	
+	UFUNCTION(BlueprintCallable)
 	void AppendItemTags(const FGameplayTagContainer& NewItemTags);
 	
 	UFUNCTION(BlueprintCallable)

@@ -1,5 +1,6 @@
 ﻿#include "ActivitySteps/TimeActivityStep.h"
-#include "Misc/DataValidation.h"
+#include "ActivityStepResult.h"
+#include <Misc/DataValidation.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_TimeActivityStep, Verbose, All);
 
@@ -27,21 +28,30 @@ UActivityStep* UTimeActivitySettings::CreateStep_Implementation(UObject* Outer) 
 	return Step;
 }
 
-void UTimeActivityStep::StartActivity_Implementation(AActor* Instigator)
+void UTimeActivityStep::StartStep_Implementation(AActor* Performer)
 {
 	if (UWorld* World = GetOuter()->GetWorld())
 	{
-		FTimerHandle Handle;
 		UE_LOG(MS_TimeActivityStep, Verbose, TEXT("Started waiting on Time Activity"));
-		World->GetTimerManager().SetTimer(Handle,
+		World->GetTimerManager().SetTimer(TimerHandle,
 			[this]
 			{
-				FActivityOutput Output;
 				UE_LOG(MS_TimeActivityStep, Verbose, TEXT("Stopped waiting on Time Activity"));
-				Output.ActivityResult = EActivityResult::Success;
-				FinishActivity(Output);
+				FinishStep(FActivityStepResult{
+					.Status = EActivityStepStatus::Success,
+					.Score = 0, // TODO: Fill this field
+				});
 			},
 			SecondsToWait,
 			false);
+	}
+}
+
+void UTimeActivityStep::CancelStep_Implementation()
+{
+	if (UWorld* World = GetOuter()->GetWorld())
+	{
+		UE_LOG(MS_TimeActivityStep, Verbose, TEXT("Time Activity canceled"));
+		World->GetTimerManager().ClearTimer(TimerHandle);
 	}
 }

@@ -16,7 +16,6 @@ public class Recipes : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Items",
 			"Activities"
 		});
 	}

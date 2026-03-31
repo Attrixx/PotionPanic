@@ -7,22 +7,8 @@
 #include "GameplayTagContainer.h"
 #include "RecipeSystem.generated.h"
 
-class UActivityStep;
+class UActivityAsset;
 class URecipeAsset;
-class UItemAsset;
-class UItemTransformation;
-
-USTRUCT()
-struct FInstruction
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	TArray<TObjectPtr<UActivityStep>> Steps;
-
-	UPROPERTY()
-	TObjectPtr<UItemAsset> OutputItem;
-};
 
 /**
  * 
@@ -40,24 +26,22 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ClearRecipes();
 
-	// NOTE: If this is ever needed, we need to track how many times each transformation was added
+	// NOTE: If this is ever needed, we need to track how many times each activity was added
 	// UFUNCTION(BlueprintCallable)
 	// void RemoveRecipe(URecipeAsset* Recipe);
 
 	/**
-	 * Finds a transformation matching the given tags and creates an instruction from it.
+	 * Finds an activity matching the given tags.
 	 * @param Tags Item tags and activity tags.
-	 * @return Instruction, or NullOpt if no transformation matches the tags.
+	 * @return The found activity, or nullptr.
 	 */
-	TOptional<FInstruction> CreateInstruction(const FGameplayTagContainer& Tags);
+	UActivityAsset* FindActivityByInputTags(const FGameplayTagContainer& Tags) const;
 
 	UFUNCTION(BlueprintCallable)
-	const TArray<UItemTransformation*>& GetTransformations() const { return Transformations; }
+	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }
 
 private:
 
-	FInstruction CreateInstruction(UItemTransformation& Transformation);
-
 	UPROPERTY()
-	TArray<UItemTransformation*> Transformations;
+	TArray<UActivityAsset*> Activities;
 };

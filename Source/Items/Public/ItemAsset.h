@@ -19,6 +19,12 @@ class ITEMS_API UItemAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
+protected:
+	
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
+#endif
+	
 public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
