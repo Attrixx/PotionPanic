@@ -8,40 +8,36 @@
 FActivityEvaluationResult UConfigurableActivityEvaluator::EvaluateStep_Implementation(
 	const FActivityExecutionState& State, const FActivityStepResult& StepResult) const
 {
-	auto ScoreManagementMethod = [](EScoreManagementMethod Method, int32 ActivityScore, int32 StepScore) -> int32
-	{
-		int32 NewScore = ActivityScore;
-		switch (Method)
-		{
-		case EScoreManagementMethod::Discard: NewScore = ActivityScore; break;
-		case EScoreManagementMethod::AddToScore: NewScore = ActivityScore + StepScore; break;
-		case EScoreManagementMethod::RemoveFromScore: NewScore = ActivityScore - StepScore; break;
-		case EScoreManagementMethod::MultiplyScore: NewScore = ActivityScore * StepScore; break;
-		case EScoreManagementMethod::DivideScore: NewScore = ActivityScore / StepScore; break;
-		default:
-			checkNoEntry();
-		}
-		return NewScore;
-	};
-
 	FActivityEvaluationResult Result;
+	EScoreManagementMethod ScoreManagementMethod = EScoreManagementMethod::Discard;
 	switch (StepResult.Status)
 	{
 	case EActivityStepStatus::Success:
 		Result.FlowDecision = FlowDecisionOnSuccess;
-		Result.Score = ScoreManagementMethod(ScoreManagementMethodOnSuccess, State.Score, StepResult.Score);
+		ScoreManagementMethod = ScoreManagementMethodOnSuccess;
 		break;
 
 	case EActivityStepStatus::Fail:
 		Result.FlowDecision = FlowDecisionOnFail;
-		Result.Score = ScoreManagementMethod(ScoreManagementMethodOnFail, State.Score, StepResult.Score);
+		ScoreManagementMethod = ScoreManagementMethodOnFail;
 		break;
 
 	case EActivityStepStatus::CriticalFail:
 		Result.FlowDecision = FlowDecisionOnCriticalFail;
-		Result.Score = ScoreManagementMethod(ScoreManagementMethodOnCriticalFail, State.Score, StepResult.Score);
+		ScoreManagementMethod = ScoreManagementMethodOnCriticalFail;
 		break;
 
+	default:
+		checkNoEntry();
+	}
+	
+	switch (ScoreManagementMethod)
+	{
+	case EScoreManagementMethod::Discard: break;
+	case EScoreManagementMethod::AddToScore: Result.Score = State.Score + StepResult.Score; break;
+	case EScoreManagementMethod::RemoveFromScore: Result.Score = State.Score - StepResult.Score; break;
+	case EScoreManagementMethod::MultiplyScore: Result.Score = State.Score * StepResult.Score; break;
+	case EScoreManagementMethod::DivideScore: Result.Score = State.Score / StepResult.Score; break;
 	default:
 		checkNoEntry();
 	}
