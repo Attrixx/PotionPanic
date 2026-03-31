@@ -38,7 +38,7 @@ public:
 	// Can be null if there is no steps
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Instanced)
 	TObjectPtr<UActivityEvaluator> Evaluator;
-	
+
 	// Concludes the activity on success or failure.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Instanced)
 	TObjectPtr<UActivityConclusion> Conclusion;

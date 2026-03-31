@@ -1,10 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "ActivityConclusions/CompositeActivityConclusion.h"
-
 #include "Misc/DataValidation.h"
-
 
 EDataValidationResult UCompositeActivityConclusion::IsDataValid(FDataValidationContext& Context) const
 {

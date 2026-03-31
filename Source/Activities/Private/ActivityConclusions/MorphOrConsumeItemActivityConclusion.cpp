@@ -1,8 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ActivityConclusions/MorphOrConsumeItemActivityConclusion.h"
-#include "ActivityExecutor.h"
-#include "Items/Public/ItemActor.h"
+#include "ItemActor.h"
+#include "ItemAsset.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_MorphOrConsumeItem, Log, All);
 

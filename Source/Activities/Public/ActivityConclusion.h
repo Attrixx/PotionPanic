@@ -4,10 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "ActivityExecutor.h"
+#include "ActivityExecutionState.h"
 #include "ActivityConclusion.generated.h"
-
-struct FActivityExecutionState;
 
 /**
  * 
@@ -29,5 +27,5 @@ public:
 
 protected:
 
-	virtual void Conclude_Implementation(const FActivityExecutionState& State) const PURE_VIRTUAL(UActivityConclusion::Conclude)
+	virtual void Conclude_Implementation(const FActivityExecutionState& State) const PURE_VIRTUAL(UActivityConclusion::Conclude);
 };

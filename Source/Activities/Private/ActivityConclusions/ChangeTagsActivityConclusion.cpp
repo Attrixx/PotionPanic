@@ -1,8 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "ActivityConclusions/ChangeTagsActivityConclusion.h"
-
 #include "ItemActor.h"
 
 void UChangeTagsActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const

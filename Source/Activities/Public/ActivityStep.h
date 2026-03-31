@@ -27,7 +27,7 @@ struct ACTIVITIES_API FActivityStepResult
 	int32 Score = 0;
 };
 
-DECLARE_DELEGATE_OneParam(FActivityOutputDelegate, const FActivityStepResult&);
+DECLARE_DELEGATE_OneParam(FActivityStepResultDelegate, const FActivityStepResult&);
 
 UCLASS(Abstract, EditInlineNew, Blueprintable)
 class ACTIVITIES_API UActivityStep : public UObject
@@ -35,9 +35,7 @@ class ACTIVITIES_API UActivityStep : public UObject
 	GENERATED_BODY()
 
 public:
-	
-	FActivityOutputDelegate ActivityFinishedCallback;
-	
+
 	UFUNCTION(BlueprintNativeEvent)
 	void StartStep(AActor* LastInstigator);
 
@@ -51,6 +49,11 @@ protected:
 	
 	UFUNCTION(BlueprintPure=false)
 	void FinishStep(const FActivityStepResult& Output) const;
+	
+private:
+	
+	friend class UActivityExecutor;
+	FActivityStepResultDelegate StepFinishedCallback;
 
 protected: // Default implementations
 

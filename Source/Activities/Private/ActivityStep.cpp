@@ -2,7 +2,7 @@
 
 void UActivityStep::FinishStep(const FActivityStepResult& Output) const
 {
-	ActivityFinishedCallback.ExecuteIfBound(Output);
+	StepFinishedCallback.ExecuteIfBound(Output);
 }
 
 void UActivityStep::StartStep_Implementation(AActor* LastInstigator)

@@ -2,8 +2,6 @@
 
 
 #include "ActivityEvaluators/ConfigurableActivityEvaluator.h"
-
-#include "ActivityExecutor.h"
 #include "ActivityStep.h"
 
 FActivityEvaluationResult UConfigurableActivityEvaluator::EvaluateStep_Implementation(

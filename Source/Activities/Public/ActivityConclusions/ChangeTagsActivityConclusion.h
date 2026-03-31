@@ -23,18 +23,18 @@ UCLASS(DisplayName = "Change Tags")
 class ACTIVITIES_API UChangeTagsActivityConclusion : public UActivityConclusion
 {
 	GENERATED_BODY()
-	
+
 	void Conclude_Implementation(const FActivityExecutionState& ActivityState) const override;
-	
+
 	UPROPERTY(EditAnywhere, Category="")
 	EChangeTagsMethod OnSuccessMethod = EChangeTagsMethod::DoNothing;
-	
+
 	UPROPERTY(EditAnywhere, Category="", meta=(DisplayAfter="OnSuccessTags"))
 	EChangeTagsMethod OnFailedMethod = EChangeTagsMethod::DoNothing;
-	
-	UPROPERTY(EditAnywhere, Category="", meta=(EditCondition="OnSuccessMethod!=EChangeTagsMethod::DoNothing"))
+
+	UPROPERTY(EditAnywhere, Category="", meta=(EditCondition="OnSuccessMethod != EChangeTagsMethod::DoNothing", Categories="Item"))
 	FGameplayTagContainer OnSuccessTags;
-	
-	UPROPERTY(EditAnywhere, Category="", meta=(EditCondition="OnFailedMethod!=EChangeTagsMethod::DoNothing"))
+
+	UPROPERTY(EditAnywhere, Category="", meta=(EditCondition="OnFailedMethod != EChangeTagsMethod::DoNothing", Categories="Item"))
 	FGameplayTagContainer OnFailedTags;
 };

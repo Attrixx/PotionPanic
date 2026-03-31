@@ -3,66 +3,30 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/Object.h"
+#include "Components/ActorComponent.h"
+#include "ActivityExecutionState.h"
 #include "ActivityExecutor.generated.h"
 
-class UHolderComponent;
-class AItemActor;
 class UActivityAsset;
 class UActivityStep;
 class UActivityEvaluator;
 class UActivityConclusion;
 struct FActivityStepResult;
 
-UENUM(BlueprintType)
-enum class EActivityExecutionStatus : uint8
-{
-	NotStarted = 0,
-	Ongoing,
-	Success,
-	Failed,
-};
-
-USTRUCT(BlueprintType)
-struct FActivityExecutionState
-{
-	GENERATED_BODY()
-
-	/**
-	 * Holder where the Activity is executed.
-	 */
-	UPROPERTY(BlueprintReadOnly)
-	TWeakObjectPtr<UHolderComponent> Holder;
-
-	/**
-	 * Item present on the Holder. Can be null.
-	 */
-	UPROPERTY(BlueprintReadOnly)
-	TWeakObjectPtr<AItemActor> Item; // = Cast<AItemActor>(Holder->GetCarriable());
-
-	/**
-	 * Last Instigator received through StartActivity or Interact. Can be null.
-	 */
-	UPROPERTY(BlueprintReadOnly)
-	TWeakObjectPtr<AActor> LastInstigator;
-
-	UPROPERTY(BlueprintReadOnly)
-	EActivityExecutionStatus Status = EActivityExecutionStatus::NotStarted;
-
-	/**
-	 * Global score of the activity.
-	 */
-	UPROPERTY(BlueprintReadOnly)
-	int32 Score = 0;
-};
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActivityExecutionStatusChangedDelegate, UActivityExecutor*, Executor, EActivityExecutionStatus, NewStatus);
 
 /**
  * 
  */
-UCLASS(BlueprintType)
-class ACTIVITIES_API UActivityExecutor : public UObject
+UCLASS(meta=(BlueprintSpawnableComponent))
+class ACTIVITIES_API UActivityExecutor : public UActorComponent
 {
 	GENERATED_BODY()
+
+protected:
+	
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 public:
 
@@ -80,6 +44,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
+	
+	UPROPERTY(BlueprintAssignable)
+	FActivityExecutionStatusChangedDelegate OnExecutionStatusChanged;
 
 private:
 
@@ -87,11 +54,15 @@ private:
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
 	void ContinueExecution();
 	void OnStepFinished(const FActivityStepResult& Result);
-	void Reset();
+	void Conclude(EActivityExecutionStatus Status); // Conclude and broadcast the status change
+	void Reset(EActivityExecutionStatus Status); // Reset and broadcast the status change
 
+	UFUNCTION()
+	void OnRep_State(const FActivityExecutionState& OldState);
+	
 private:
 
-	UPROPERTY()
+	UPROPERTY(ReplicatedUsing=OnRep_State)
 	FActivityExecutionState State;
 
 	UPROPERTY()

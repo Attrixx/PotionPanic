@@ -8,8 +8,26 @@
 #include "ActivityEvaluator.h"
 #include "ActivityStep.h"
 #include "ActivityStepSettings.h"
+#include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ActivityExecutor, Log, All);
+
+void UActivityExecutor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UActivityExecutor, State);
+}
+
+void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if (State.Holder.IsValid())
+	{
+		Cancel();
+		State.Holder->OnCarriableChanged.RemoveAll(this);
+	}
+}
 
 void UActivityExecutor::Initialize(UHolderComponent* Holder)
 {
@@ -48,14 +66,14 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 	State.Item = Cast<AItemActor>(State.Holder->GetCarriable()); // null item is valid
 	State.LastInstigator = Instigator; // null instigator is valid
 
-	Steps.Empty(Activity->ActivitySteps.Num()); // Step.Num() == 0 is valid
+	Steps.Reset(Activity->ActivitySteps.Num()); // Step.Num() == 0 is valid
 	for (UActivityStepSettings* Settings : Activity->ActivitySteps)
 	{
 		check(Settings);
 
 		if (UActivityStep* Step = Settings->CreateStep(this))
 		{
-			Step->ActivityFinishedCallback.BindUObject(this, &UActivityExecutor::OnStepFinished);
+			Step->StepFinishedCallback.BindUObject(this, &UActivityExecutor::OnStepFinished);
 			Steps.Emplace(Step);
 		}
 		else
@@ -78,8 +96,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 
 	if (Steps.Num() == 0)
 	{
-		State.Status = EActivityExecutionStatus::Success;
-		Conclusion->Conclude(State);
+		Conclude(EActivityExecutionStatus::Success);
 		return;
 	}
 
@@ -90,7 +107,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 		return;
 	}
 
-	State.Status = EActivityExecutionStatus::Ongoing;
+	Reset(EActivityExecutionStatus::Ongoing);
 	ContinueExecution();
 }
 
@@ -98,8 +115,10 @@ void UActivityExecutor::Interact(AActor* Instigator)
 {
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
+		if (Instigator)
+			State.LastInstigator = Instigator;
+
 		check(CurrentStepIndex < Steps.Num());
-		State.LastInstigator = Instigator;
 		Steps[CurrentStepIndex]->OnInteract(Instigator);
 	}
 }
@@ -110,8 +129,8 @@ void UActivityExecutor::Cancel()
 	{
 		check(CurrentStepIndex < Steps.Num());
 		Steps[CurrentStepIndex]->CancelStep();
+		Reset(EActivityExecutionStatus::Canceled);
 	}
-	Reset();
 }
 
 EActivityExecutionStatus UActivityExecutor::GetExecutionStatus() const
@@ -143,7 +162,7 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 {
 	if (State.Status != EActivityExecutionStatus::Ongoing)
 	{
-		// We were probably canceled, but this should not happen
+		// We were probably canceled, but this should not happen (the step did not clean up itself)
 		UE_LOGFMT(MS_ActivityExecutor, Warning, "OnStepFinished called but the activity is not ongoing.");
 		return;
 	}
@@ -156,32 +175,45 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 	case EActivityFlowDecision::Continue:
 		if (++CurrentStepIndex >= Steps.Num())
 		{
-			State.Status = EActivityExecutionStatus::Success;
-			Conclusion->Conclude(State);
+			Conclude(EActivityExecutionStatus::Success);
 			return; // do not call ContinueExecution
 		}
 		break;
 
 	case EActivityFlowDecision::Fail:
-		State.Status = EActivityExecutionStatus::Failed;
-		Conclusion->Conclude(State);
+		Conclude(EActivityExecutionStatus::Failed);
 		return; // do not call ContinueExecution
 
 	case EActivityFlowDecision::Restart:
-		Reset();
-		State.Status = EActivityExecutionStatus::Ongoing;
+		Reset(EActivityExecutionStatus::Ongoing);
 		break;
-		
+
 	default:
 		checkNoEntry();
 	}
-	
+
 	ContinueExecution();
 }
 
-void UActivityExecutor::Reset()
+void UActivityExecutor::Conclude(EActivityExecutionStatus Status)
 {
-	State.Status = EActivityExecutionStatus::NotStarted;
+	State.Status = Status;
+	Conclusion->Conclude(State);
+	OnExecutionStatusChanged.Broadcast(this, Status);
+}
+
+void UActivityExecutor::Reset(EActivityExecutionStatus Status)
+{
+	State.Status = Status;
 	State.Score = 0;
 	CurrentStepIndex = 0;
+	OnExecutionStatusChanged.Broadcast(this, Status);
+}
+
+void UActivityExecutor::OnRep_State(const FActivityExecutionState& OldState)
+{
+	if (OldState.Status != State.Status)
+	{
+		OnExecutionStatusChanged.Broadcast(this, State.Status);
+	}
 }
