@@ -12,12 +12,7 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem() : CreateSessionCo
 																 DestroySessionCompleteDelegate(FOnDestroySessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnDestroySessionComplete)),
 																 StartSessionCompleteDelegate(FOnStartSessionCompleteDelegate::CreateUObject(this, &UMultiplayerSessionsSubsystem::OnStartSessionComplete))
 {
-	if (const IOnlineSubsystem *Subsystem = Online::GetSubsystem(UObject::GetWorld()))
-	{
-		SessionInterface = Subsystem->GetSessionInterface();
-	}
-
-	if (SessionInterface)
+	if (auto SessionInterface = GetSessionInterface())
 	{
 		SessionInterface->OnSessionUserInviteAcceptedDelegates.AddUObject(this, &UMultiplayerSessionsSubsystem::OnUserInviteAccepted);
 	}
@@ -25,6 +20,7 @@ UMultiplayerSessionsSubsystem::UMultiplayerSessionsSubsystem() : CreateSessionCo
 
 void UMultiplayerSessionsSubsystem::CreateSession(const TMap<FName, FVariant> &Settings)
 {
+	auto SessionInterface = GetSessionInterface();
 	if (!SessionInterface.IsValid())
 	{
 		return;
@@ -109,6 +105,7 @@ void UMultiplayerSessionsSubsystem::CreateSession(const TMap<FName, FVariant> &S
 
 void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 {
+	auto SessionInterface = GetSessionInterface();
 	if (!SessionInterface.IsValid())
 	{
 		return;
@@ -132,6 +129,7 @@ void UMultiplayerSessionsSubsystem::FindSessions(int32 MaxSearchResults)
 
 void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult &SessionResult)
 {
+	auto SessionInterface = GetSessionInterface();
 	if (!SessionInterface.IsValid())
 	{
 		MultiplayerOnJoinSessionComplete.Broadcast(EOnJoinSessionCompleteResult::UnknownError);
@@ -167,6 +165,7 @@ void UMultiplayerSessionsSubsystem::JoinSession(const FOnlineSessionSearchResult
 
 void UMultiplayerSessionsSubsystem::DestroySession()
 {
+	auto SessionInterface = GetSessionInterface();
 	if (!SessionInterface.IsValid())
 	{
 		MultiplayerOnDestroySessionComplete.Broadcast(false);
@@ -188,7 +187,7 @@ void UMultiplayerSessionsSubsystem::StartSession()
 
 void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	if (SessionInterface)
+	if (auto SessionInterface = GetSessionInterface())
 	{
 		SessionInterface->ClearOnCreateSessionCompleteDelegate_Handle(CreateSessionCompleteDelegateHandle);
 	}
@@ -198,7 +197,7 @@ void UMultiplayerSessionsSubsystem::OnCreateSessionComplete(FName SessionName, b
 
 void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 {
-	if (SessionInterface)
+	if (auto SessionInterface = GetSessionInterface())
 	{
 		SessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegateHandle);
 	}
@@ -214,7 +213,7 @@ void UMultiplayerSessionsSubsystem::OnFindSessionsComplete(bool bWasSuccessful)
 
 void UMultiplayerSessionsSubsystem::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-	if (SessionInterface)
+	if (auto SessionInterface = GetSessionInterface())
 	{
 		SessionInterface->ClearOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegateHandle);
 	}
@@ -224,7 +223,7 @@ void UMultiplayerSessionsSubsystem::OnJoinSessionComplete(FName SessionName, EOn
 
 void UMultiplayerSessionsSubsystem::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	if (SessionInterface)
+	if (auto SessionInterface = GetSessionInterface())
 	{
 		SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(DestroySessionCompleteDelegateHandle);
 	}
@@ -248,4 +247,13 @@ void UMultiplayerSessionsSubsystem::OnStartSessionComplete(FName SessionName, bo
 void UMultiplayerSessionsSubsystem::OnUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult &InviteResult)
 {
 	MultiplayerOnSessionUserInviteAccepted.Broadcast(bWasSuccessful, ControllerId, UserId, InviteResult);
+}
+
+IOnlineSessionPtr UMultiplayerSessionsSubsystem::GetSessionInterface() const
+{
+	if (const IOnlineSubsystem *Subsystem = Online::GetSubsystem(GetOuter()->GetWorld()))
+	{
+		return Subsystem->GetSessionInterface();
+	}
+	return nullptr;
 }

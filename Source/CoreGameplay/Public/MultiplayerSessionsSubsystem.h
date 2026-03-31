@@ -46,7 +46,9 @@ protected:
     void OnUserInviteAccepted(const bool bWasSuccessful, const int32 ControllerId, FUniqueNetIdPtr UserId, const FOnlineSessionSearchResult &InviteResult);
 
 private:
-    IOnlineSessionPtr SessionInterface;
+
+    IOnlineSessionPtr GetSessionInterface() const;
+    
     TSharedPtr<FOnlineSessionSettings> LastSessionSettings;
     TSharedPtr<FOnlineSessionSearch> LastSessionSearch;
 
