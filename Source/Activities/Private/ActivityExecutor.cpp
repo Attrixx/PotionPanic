@@ -20,13 +20,13 @@ void UActivityExecutor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 
 void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	Super::EndPlay(EndPlayReason);
-
 	if (State.Holder.IsValid())
 	{
 		Cancel();
 		State.Holder->OnCarriableChanged.RemoveAll(this);
 	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void UActivityExecutor::Initialize(UHolderComponent* Holder)
@@ -185,6 +185,8 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 		return; // do not call ContinueExecution
 
 	case EActivityFlowDecision::Restart:
+		// WARN: If we later want the restart to create again the steps (if there is random in Settings::CreateStep)
+		// then we Cancel/StartActivity again
 		Reset(EActivityExecutionStatus::Ongoing);
 		break;
 

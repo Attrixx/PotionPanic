@@ -3,6 +3,7 @@
 #include "ActivityConclusions/CompositeActivityConclusion.h"
 #include <Misc/DataValidation.h>
 
+#if WITH_EDITOR
 EDataValidationResult UCompositeActivityConclusion::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
@@ -22,6 +23,7 @@ EDataValidationResult UCompositeActivityConclusion::IsDataValid(FDataValidationC
 	
 	return Result;
 }
+#endif
 
 void UCompositeActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {

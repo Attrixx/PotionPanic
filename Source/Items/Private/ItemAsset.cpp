@@ -4,6 +4,7 @@
 #include "ItemTags.h"
 #include <Misc/DataValidation.h>
 
+#if WITH_EDITOR
 EDataValidationResult UItemAsset::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
@@ -24,3 +25,4 @@ EDataValidationResult UItemAsset::IsDataValid(FDataValidationContext& Context) c
 	
 	return Result;
 }
+#endif
