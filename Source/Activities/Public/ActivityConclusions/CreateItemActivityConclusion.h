@@ -6,6 +6,7 @@
 #include "ActivityConclusion.h"
 #include "CreateItemActivityConclusion.generated.h"
 
+class AItemActor;
 class UItemAsset;
 
 /**

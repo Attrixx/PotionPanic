@@ -6,26 +6,7 @@
 #include "UObject/Class.h"
 #include "ActivityStep.generated.h"
 
-UENUM(BlueprintType)
-enum class EActivityStepStatus : uint8
-{
-	// CriticalSuccess, // TODO Maybe ?
-	Success,
-	Fail,
-	CriticalFail
-};
-
-USTRUCT(BlueprintType)
-struct ACTIVITIES_API FActivityStepResult
-{
-	GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadWrite)
-	EActivityStepStatus Status = EActivityStepStatus::Success;
-	
-	UPROPERTY(BlueprintReadWrite)
-	int32 Score = 0;
-};
+struct FActivityStepResult;
 
 DECLARE_DELEGATE_OneParam(FActivityStepResultDelegate, const FActivityStepResult&);
 

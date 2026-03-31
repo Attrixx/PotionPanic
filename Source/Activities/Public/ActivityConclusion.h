@@ -4,8 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "ActivityExecutionState.h"
 #include "ActivityConclusion.generated.h"
+
+struct FActivityExecutionState;
 
 /**
  * Abstract base class defining the final outcome of an Activity.

@@ -2,7 +2,8 @@
 
 
 #include "ActivityEvaluators/ConfigurableActivityEvaluator.h"
-#include "ActivityStep.h"
+#include "ActivityExecutionState.h"
+#include "ActivityStepResult.h"
 
 FActivityEvaluationResult UConfigurableActivityEvaluator::EvaluateStep_Implementation(
 	const FActivityExecutionState& State, const FActivityStepResult& StepResult) const

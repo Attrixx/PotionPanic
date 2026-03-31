@@ -1,5 +1,6 @@
 ﻿#include "ActivitySteps/TimeActivityStep.h"
-#include "Misc/DataValidation.h"
+#include "ActivityStepResult.h"
+#include <Misc/DataValidation.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_TimeActivityStep, Verbose, All);
 

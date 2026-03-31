@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
-#include "ActivityExecutionState.h"
 #include "ActivityEvaluator.generated.h"
 
+struct FActivityExecutionState;
 struct FActivityStepResult;
 
 UENUM(BlueprintType)

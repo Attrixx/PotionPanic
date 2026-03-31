@@ -1,7 +1,8 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ActivitySteps/IFTActivityStep.h"
-#include "Misc/DataValidation.h"
+#include "ActivityStepResult.h"
+#include <Misc/DataValidation.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ITFActivityStep, Verbose, All);
 
