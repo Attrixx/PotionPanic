@@ -44,6 +44,14 @@
 			]
 		},
 		{
+			"Name": "Lobby",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine"
+			]
+		},
+		{
 			"Name": "Player",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",

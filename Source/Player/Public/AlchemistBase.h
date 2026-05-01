@@ -4,10 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
 class URangeComponent;
+class UPhysicalAnimationComponent;
 class UInputMappingContext;
 class UInputAction;
 class UInteractableActorFilter;
@@ -20,6 +22,12 @@ class PLAYER_API AAlchemistBase : public ACharacter
 	GENERATED_BODY()
 
 	AAlchemistBase(const FObjectInitializer& ObjectInitializer);
+
+public:
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void SetColor(FColor Color);
+	bool IsCarrying() const;
 
 protected:
 
@@ -45,6 +53,15 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
 	TObjectPtr<UInterfaceActorFilter> CarriableFilter;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	FName RagdollRootBoneName = NAME_None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	FPhysicalAnimationData PhysicalAnimationData;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;

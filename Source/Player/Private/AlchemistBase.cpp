@@ -38,6 +38,19 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
 	CarriableFilter->Interface = UCarriable::StaticClass();
+	
+
+	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
+	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
+
+	// Useful for physical animation (ragdoll)
+	GetMesh()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("IgnoreOnlyPawn"));
+}
+
+bool AAlchemistBase::IsCarrying() const
+{
+	return HolderComponent->GetCarriable() != nullptr;
 }
 
 void AAlchemistBase::OnConstruction(const FTransform& Transform)
@@ -55,6 +68,14 @@ void AAlchemistBase::OnConstruction(const FTransform& Transform)
 void AAlchemistBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	CapsuleOverlapComponent->OnComponentBeginOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnBeginOverlap);
+	CapsuleOverlapComponent->OnComponentEndOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnEndOverlap);
+
+	// Setup physical animation for ragdolling
+	PhysicalAnimationComponent->SetSkeletalMeshComponent(GetMesh());
+	PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
+	GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)

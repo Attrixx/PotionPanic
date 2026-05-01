@@ -20,8 +20,9 @@ public class UserInterfaces : ModuleRules
 		{
 			"ApplicationCore",
 			"DeveloperSettings",
-			"EnhancedInput",
 			"GameplayTags",
+			"AudioMixer",
+      		"EnhancedInput",
 			"InputCore",
 			"Slate",
 			"SlateCore",
@@ -29,6 +30,7 @@ public class UserInterfaces : ModuleRules
 			"CoreGameplay",
 
 			"HidApi",
+			"Lobby"
 		});
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
