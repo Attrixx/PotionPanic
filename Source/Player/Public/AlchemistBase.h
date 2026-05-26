@@ -27,6 +27,13 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void SetColor(FColor Color);
+
+	/**
+	 * Sets the Custom Depth Stencil value used to visually distinguish players.
+	 * Convention: 0 = disabled, 1-4 = Player 0-3.
+	 */
+	void SetPlayerStencilIndex(int32 StencilValue);
+
 	bool IsCarrying() const;
 
 protected:
@@ -84,6 +91,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	// Timer interval for sorting items in range (computes difference in locations)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
+	float InRangeInfosSortInterval = 0.1f;
+
+private:
+
+	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 5);
+
 private: // Input
 	
 	void Input_Move(const FInputActionValue& Value);
@@ -104,4 +119,12 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
+
+private:
+	
+	FTimerHandle InRangeSortTimerHandle;
+
+	AActor* LastBestInteractable;
+	AActor* LastBestCarriable;
+
 };

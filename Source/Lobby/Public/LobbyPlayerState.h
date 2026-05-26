@@ -22,6 +22,9 @@ struct FLobbyPlayerInfo
 	FColor PlayerColor = FColor::Black;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 PlayerIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIsReady = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -55,6 +58,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	FColor GetPlayerColor() const { return PlayerInfo.PlayerColor; }
+
+	// Not an RPC: only the server should call this directly.
+	void SetPlayerIndex(int32 Index);
+
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
+	int32 GetPlayerIndex() const { return PlayerInfo.PlayerIndex; }
 
 	// Not an RPC, only server should be allowed to set this
 	void SetIsHost(bool bHost);

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
 #include "Engine/DataTable.h"
+#include "Materials/MaterialParameterCollection.h"
 #include "LobbyGameState.generated.h"
 
 /**
@@ -21,7 +22,8 @@ enum class ECameraPosition : uint8
 	Exterior,
 	LobbyInterface,
 	Entrance,
-	Interior
+	Interior,
+	Settings
 };
 
 UENUM(BlueprintType)
@@ -30,9 +32,10 @@ enum class ELevelSequenceType : uint8
 	ExteriorToLobbyInterface,
 	ExteriorToEntrance,
 	ExteriorToInterior,
+	ExteriorToSettings,
 	EntranceToLobbyInterface,
 	EntranceToInterior,
-	InteriorToLobbyInterface,
+	InteriorToSettings,
 	OpenDoors
 };
 
@@ -78,6 +81,8 @@ public:
 
 	ALevelSequenceActor* GetLevelSequenceActor(ELevelSequenceType SequenceType) const;
 
+	void UpdatePlayerColorInMPC(int32 PlayerIndex, FLinearColor NewColor);
+
 protected:
 
 	virtual void AddPlayerState(APlayerState* PlayerState) override;
@@ -102,6 +107,11 @@ public:
 
 	UPROPERTY(BlueprintAssignable, Category = "Lobby")
 	FOnLobbyPlayerRemoved OnPlayerRemoved;
+
+protected:
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Visuals")
+	TObjectPtr<UMaterialParameterCollection> PlayerColorMPC;
 
 private:
 

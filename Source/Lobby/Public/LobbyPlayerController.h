@@ -39,6 +39,7 @@ protected:
 
 public:
 
+	UFUNCTION(BlueprintCallable)
 	void TransitionToArea(ECameraPosition TargetArea);
 	
 	ULevelSequencePlayer* PlaySequence(ELevelSequenceType SequenceType, bool bPlayForward = true);

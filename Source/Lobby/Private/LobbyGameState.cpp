@@ -9,6 +9,8 @@
 
 #include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
+#include "Materials/MaterialParameterCollectionInstance.h"
+#include "Kismet/GameplayStatics.h"
 
 void ALobbyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -79,6 +81,7 @@ void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 			{
 				if (AvailableColors[i])
 				{
+					LobbyPS->SetPlayerIndex(i);
 					LobbyPS->Server_SetPlayerColor(DefaultColors[i]);
 					AvailableColors[i] = false;
 					return;
@@ -99,13 +102,24 @@ void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 	{
 		if (ALobbyPlayerState* LobbyPS = Cast<ALobbyPlayerState>(PlayerState))
 		{
-			int32 Index = DefaultColors.Find(LobbyPS->GetPlayerColor());
-			if (Index != INDEX_NONE)
+			int32 PlayerIndex = LobbyPS->GetPlayerIndex();
+			if (AvailableColors.IsValidIndex(PlayerIndex))
 			{
-				AvailableColors[Index] = true;
+				AvailableColors[PlayerIndex] = true;
 			}
 		}
 	}
+}
+
+void ALobbyGameState::UpdatePlayerColorInMPC(int32 PlayerIndex, FLinearColor NewColor)
+{
+	if (!IsValid(PlayerColorMPC)) return;
+
+	UMaterialParameterCollectionInstance* MPCI = GetWorld()->GetParameterCollectionInstance(PlayerColorMPC);
+	if (!IsValid(MPCI)) return;
+
+	FName ParameterName = FName(*FString::Printf(TEXT("Player%d_Color"), PlayerIndex + 1));
+	MPCI->SetVectorParameterValue(ParameterName, NewColor);
 }
 
 void ALobbyGameState::OnRep_GlobalArea()

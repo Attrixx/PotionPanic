@@ -102,7 +102,7 @@ void ALobbyLevelScriptActor::OnTriggerBoxEndOverlap(AActor* TriggerBox, AActor* 
 		LobbyGameMode->OnPlayerLeaveArea(
 			OverlappingCharacter, 
 			ECameraPosition::Entrance, 
-			IsAnyActorInTriggerBox(AActor::StaticClass(), ECameraPosition::Entrance),
+			IsAnyActorInTriggerBox(ACharacter::StaticClass(), ECameraPosition::Entrance),
 			IsActorInTriggerBox(OverlappingCharacter, ECameraPosition::Interior)
 		);
 	}

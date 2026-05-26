@@ -54,7 +54,7 @@ public:
 	void RequestLeaveInviteArea(APlayerController* PlayerController);
 
 	void OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea);
-	void OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea, bool bIsAnyActorInArea = false, bool bIsPlayerInArea = false);
+	void OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosition TargetArea, bool bIsAnyCharacterInArea = false, bool bIsPlayerInArea = false);
 	void OnPlayerEndedStartupSequence(ACharacter* PlayerCharacter);
 
 private:
