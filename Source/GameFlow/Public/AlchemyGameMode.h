@@ -18,22 +18,13 @@ class GAMEFLOW_API AAlchemyGameMode : public AGameModeBase
 
 	AAlchemyGameMode();
 	void InitGameState() override;
-	void OnPostLogin(AController* NewPlayer) override;
 	
 private:
 	
 	TSoftObjectPtr<UWorldData> GetWorldDataForCurrentWorld();
 
 protected:
-
-	UPROPERTY(EditAnywhere)
-	FName ViewTargetTag;
 	
 	UPROPERTY(EditAnywhere)
 	TMap<TSoftObjectPtr<UWorld>, TSoftObjectPtr<UWorldData>> WorldsData;
-
-private:
-
-	AActor* GetViewTarget();
-	TWeakObjectPtr<AActor> CachedViewTarget;
 };
