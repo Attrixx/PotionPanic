@@ -28,9 +28,4 @@ struct FKeybindEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Keybind")
 	FKey DefaultGamepadKey;
-
-	FName GetUniqueId() const
-	{
-		return FName(*FString::Printf(TEXT("%s_%d"), *InputActionName.ToString(), MappingIndex));
-	}
 };
