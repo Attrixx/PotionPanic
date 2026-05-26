@@ -54,6 +54,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Settings|Controls")
 	TObjectPtr<UInputMappingContext> InputMappingContext;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Settings|Controls")
+	TMap<FName, FText> DisplayNameOverrides;
+
 private:
 
 	void ProcessRebind(const FKey& NewKey);

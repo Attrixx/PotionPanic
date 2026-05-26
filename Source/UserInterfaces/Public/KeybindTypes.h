@@ -1,7 +1,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/SaveGame.h"
 #include "KeybindTypes.generated.h"
 
 USTRUCT(BlueprintType)
@@ -30,21 +29,8 @@ struct FKeybindEntry
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Keybind")
 	FKey DefaultGamepadKey;
 
-	FString GetUniqueId() const
+	FName GetUniqueId() const
 	{
-		return FString::Printf(TEXT("%s_%d"), *InputActionName.ToString(), MappingIndex);
+		return FName(*FString::Printf(TEXT("%s_%d"), *InputActionName.ToString(), MappingIndex));
 	}
-};
-
-UCLASS()
-class USERINTERFACES_API UKeybindsSaveGame : public USaveGame
-{
-	GENERATED_BODY()
-
-public:
-
-	UPROPERTY()
-	TArray<FKeybindEntry> SavedBindings;
-
-	static const FString SlotName;
 };

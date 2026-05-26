@@ -2,28 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
-#include "GameFramework/SaveGame.h"
 #include "AudioSettingsWidget.generated.h"
 
 class USoundClass;
 class USoundMix;
-
-UCLASS()
-class USERINTERFACES_API UAudioSaveGame : public USaveGame
-{
-	GENERATED_BODY()
-
-public:
-
-	UPROPERTY()
-	float MasterVolume = 1.0f;
-
-	UPROPERTY()
-	float MusicVolume = 1.0f;
-
-	UPROPERTY()
-	float EffectsVolume = 1.0f;
-};
 
 UCLASS()
 class USERINTERFACES_API UAudioSettingsWidget : public UUserWidget

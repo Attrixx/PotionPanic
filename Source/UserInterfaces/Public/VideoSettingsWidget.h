@@ -44,16 +44,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Settings|Video")
 	void LoadCurrentSettings();
 
+	UFUNCTION(BlueprintCallable, Category = "Settings|Video")
+	TArray<FIntPoint> GetAvailableResolutions();
+
 	void ApplyIfDirty();
 
 private:
 
-	static constexpr int32 NUM_RESOLUTIONS = 4;
 	static constexpr int32 NUM_FPS_OPTIONS = 4;
-	static const FIntPoint Resolutions[NUM_RESOLUTIONS];
 	static const int32 FPSValues[NUM_FPS_OPTIONS];
 
 	void Apply();
+	void CacheResolutions();
+
+	TArray<FIntPoint> CachedResolutions;
 
 	int32 ScreenMode = 0;
 	int32 Quality    = 0;

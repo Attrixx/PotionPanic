@@ -1,14 +1,40 @@
 #include "VideoSettingsWidget.h"
 #include "GameFramework/GameUserSettings.h"
-
-const FIntPoint UVideoSettingsWidget::Resolutions[NUM_RESOLUTIONS] = {
-	{1280, 720}, {1920, 1080}, {2560, 1440}, {3840, 2160}
-};
+#include "Kismet/KismetSystemLibrary.h"
 
 const int32 UVideoSettingsWidget::FPSValues[NUM_FPS_OPTIONS] = { 30, 60, 120, 0 };
 
+void UVideoSettingsWidget::CacheResolutions()
+{
+	if (CachedResolutions.Num() > 0) return;
+
+	TArray<FIntPoint> Supported;
+	UKismetSystemLibrary::GetSupportedFullscreenResolutions(Supported);
+
+	for (const FIntPoint& Res : Supported)
+	{
+		if (Res.Y >= 720)
+		{
+			CachedResolutions.Add(Res);
+		}
+	}
+
+	if (CachedResolutions.Num() == 0)
+	{
+		CachedResolutions.Add(FIntPoint(1920, 1080));
+	}
+}
+
+TArray<FIntPoint> UVideoSettingsWidget::GetAvailableResolutions()
+{
+	CacheResolutions();
+	return CachedResolutions;
+}
+
 void UVideoSettingsWidget::LoadCurrentSettings()
 {
+	CacheResolutions();
+
 	UGameUserSettings* Settings = UGameUserSettings::GetGameUserSettings();
 	if (!Settings) return;
 
@@ -24,9 +50,9 @@ void UVideoSettingsWidget::LoadCurrentSettings()
 
 	const FIntPoint CurrentRes = Settings->GetScreenResolution();
 	Resolution = 0;
-	for (int32 i = 0; i < NUM_RESOLUTIONS; ++i)
+	for (int32 i = 0; i < CachedResolutions.Num(); ++i)
 	{
-		if (Resolutions[i] == CurrentRes)
+		if (CachedResolutions[i] == CurrentRes)
 		{
 			Resolution = i;
 			break;
@@ -57,6 +83,8 @@ void UVideoSettingsWidget::ApplyIfDirty()
 
 void UVideoSettingsWidget::Apply()
 {
+	CacheResolutions();
+
 	UGameUserSettings* Settings = UGameUserSettings::GetGameUserSettings();
 	if (!Settings) return;
 
@@ -73,9 +101,9 @@ void UVideoSettingsWidget::Apply()
 
 	Settings->SetOverallScalabilityLevel(FMath::Clamp(Quality, 0, 2));
 
-	if (Resolution >= 0 && Resolution < NUM_RESOLUTIONS)
+	if (Resolution >= 0 && Resolution < CachedResolutions.Num())
 	{
-		Settings->SetScreenResolution(Resolutions[Resolution]);
+		Settings->SetScreenResolution(CachedResolutions[Resolution]);
 	}
 
 	if (FPS >= 0 && FPS < NUM_FPS_OPTIONS)

@@ -1,21 +1,8 @@
 #include "KeybindManager.h"
-#include "KeybindTypes.h"
+#include "PotionPanicUserSettings.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
 #include "EnhancedInputSubsystems.h"
-#include "Kismet/GameplayStatics.h"
-
-static const TMap<FString, FText> DisplayNameOverrides = {
-	{ TEXT("IA_Move_0"),     INVTEXT("Forward") },
-	{ TEXT("IA_Move_1"),     INVTEXT("Backward") },
-	{ TEXT("IA_Move_2"),     INVTEXT("Left") },
-	{ TEXT("IA_Move_3"),     INVTEXT("Right") },
-	{ TEXT("IA_Interact_0"), INVTEXT("Interact") },
-	{ TEXT("IA_PickupDrop_0"), INVTEXT("Pick Up / Drop") },
-	{ TEXT("IA_Throw_0"),    INVTEXT("Throw") },
-	{ TEXT("IA_Dash_0"),     INVTEXT("Dash") },
-	{ TEXT("IA_Pause_0"),    INVTEXT("Pause") }
-};
 
 void UKeybindManager::InitializeFromIMC(UInputMappingContext* IMC)
 {
@@ -46,7 +33,7 @@ void UKeybindManager::InitializeFromIMC(UInputMappingContext* IMC)
 		NewEntry.KeyboardKey = Key;
 		NewEntry.DefaultKeyboardKey = Key;
 
-		FString UniqueId = FString::Printf(TEXT("%s_%d"), *ActionName.ToString(), Counter);
+		FName UniqueId = FName(*FString::Printf(TEXT("%s_%d"), *ActionName.ToString(), Counter));
 		if (const FText* Override = DisplayNameOverrides.Find(UniqueId))
 		{
 			NewEntry.DisplayName = *Override;
@@ -197,7 +184,13 @@ void UKeybindManager::ApplyToIMC(UInputMappingContext* IMC, UEnhancedInputLocalP
 
 void UKeybindManager::Save()
 {
-	UKeybindsSaveGame* SaveGame = NewObject<UKeybindsSaveGame>();
+	UPotionPanicUserSettings* Settings = UPotionPanicUserSettings::GetPotionPanicUserSettings();
+	if (!Settings) return;
+
+	Settings->SavedKeybinds.RemoveAll([this](const FSavedKeybind& Saved)
+	{
+		return Saved.PlayerIndex == PlayerIndex;
+	});
 
 	for (const FKeybindEntry& Entry : Bindings)
 	{
@@ -205,27 +198,33 @@ void UKeybindManager::Save()
 		                (Entry.GamepadKey != Entry.DefaultGamepadKey);
 		if (bChanged)
 		{
-			SaveGame->SavedBindings.Add(Entry);
+			FSavedKeybind Saved;
+			Saved.PlayerIndex     = PlayerIndex;
+			Saved.InputActionName = Entry.InputActionName;
+			Saved.MappingIndex    = Entry.MappingIndex;
+			Saved.KeyboardKey     = Entry.KeyboardKey;
+			Saved.GamepadKey      = Entry.GamepadKey;
+			Settings->SavedKeybinds.Add(Saved);
 		}
 	}
 
-	UGameplayStatics::SaveGameToSlot(SaveGame, UKeybindsSaveGame::SlotName, 0);
+	Settings->SaveSettings();
 }
 
 void UKeybindManager::Load()
 {
-	UKeybindsSaveGame* SaveGame = Cast<UKeybindsSaveGame>(
-		UGameplayStatics::LoadGameFromSlot(UKeybindsSaveGame::SlotName, 0));
+	UPotionPanicUserSettings* Settings = UPotionPanicUserSettings::GetPotionPanicUserSettings();
+	if (!Settings) return;
 
-	if (!SaveGame) return;
-
-	for (const FKeybindEntry& Saved : SaveGame->SavedBindings)
+	for (const FSavedKeybind& Saved : Settings->SavedKeybinds)
 	{
+		if (Saved.PlayerIndex != PlayerIndex) continue;
+
 		FKeybindEntry* Entry = FindBinding(Saved.InputActionName, Saved.MappingIndex);
 		if (Entry)
 		{
 			Entry->KeyboardKey = Saved.KeyboardKey;
-			Entry->GamepadKey = Saved.GamepadKey;
+			Entry->GamepadKey  = Saved.GamepadKey;
 		}
 	}
 }

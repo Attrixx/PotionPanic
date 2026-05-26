@@ -50,11 +50,20 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Keybind")
 	bool IsDirty() const { return bDirty; }
 
+	TMap<FName, FText> DisplayNameOverrides;
+
+	UFUNCTION(BlueprintCallable, Category = "Keybind")
+	void SetPlayerIndex(int32 InPlayerIndex) { PlayerIndex = InPlayerIndex; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Keybind")
+	int32 GetPlayerIndex() const { return PlayerIndex; }
+
 private:
 
 	FKeybindEntry* FindBinding(FName ActionName, int32 MappingIndex);
 	const FKeybindEntry* FindBinding(FName ActionName, int32 MappingIndex) const;
 
 	TArray<FKeybindEntry> Bindings;
+	int32 PlayerIndex = 0;
 	bool bDirty = false;
 };

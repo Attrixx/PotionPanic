@@ -12,6 +12,7 @@ UControlsSettingsWidget::UControlsSettingsWidget(const FObjectInitializer& Objec
 void UControlsSettingsWidget::InitializeBindings()
 {
 	KeybindManager = NewObject<UKeybindManager>(this);
+	KeybindManager->DisplayNameOverrides = DisplayNameOverrides;
 	KeybindManager->InitializeFromIMC(InputMappingContext);
 	KeybindManager->Load();
 
