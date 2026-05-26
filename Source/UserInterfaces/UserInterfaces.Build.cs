@@ -1,4 +1,4 @@
-﻿using UnrealBuildTool;
+using UnrealBuildTool;
 
 public class UserInterfaces : ModuleRules
 {
@@ -16,7 +16,6 @@ public class UserInterfaces : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"AudioMixer",
             "EnhancedInput",
 			"InputCore",
 			
