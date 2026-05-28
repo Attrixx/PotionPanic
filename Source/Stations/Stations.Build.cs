@@ -22,5 +22,10 @@ public class Stations : ModuleRules
 			"Items",
 			"Recipes"
 		});
+		
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd" });
+		}
 	}
 }
