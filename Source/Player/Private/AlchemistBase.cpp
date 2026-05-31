@@ -46,7 +46,7 @@ void AAlchemistBase::OnConstruction(const FTransform& Transform)
 void AAlchemistBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	CapsuleOverlapComponent->OnComponentBeginOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnBeginOverlap);
 	CapsuleOverlapComponent->OnComponentEndOverlap.AddDynamic(this, &AAlchemistBase::Capsule_OnEndOverlap);
 
@@ -62,7 +62,7 @@ void AAlchemistBase::BeginPlay()
 
 #if WITH_EDITOR // GetActorGuid is WITH_EDITOR only
 
-			AActor* BestInteractable = GetBestInteractable();
+			AActor* BestInteractable = GetBestActorImplementing<UInteractable>();
 			GEngine->AddOnScreenDebugMessage(
 				int32(GetActorGuid().A),
 				InRangeInfosSortInterval * 2,
@@ -74,7 +74,7 @@ void AAlchemistBase::BeginPlay()
 						BestInteractable ? BestInteractable->GetName() : "None"
 					}));
 
-			AActor* BestCarriable = GetBestCarriable();
+			AActor* BestCarriable = GetBestActorImplementing<UCarriable>();
 			GEngine->AddOnScreenDebugMessage(
 				int32(GetActorGuid().B),
 				InRangeInfosSortInterval * 2,
@@ -94,7 +94,7 @@ void AAlchemistBase::BeginPlay()
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
-	
+
 	CapsuleOverlapComponent->OnComponentBeginOverlap.RemoveAll(this);
 	CapsuleOverlapComponent->OnComponentEndOverlap.RemoveAll(this);
 
@@ -133,17 +133,40 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
 }
 
+AActor* AAlchemistBase::GetBestActorImplementing(const TSubclassOf<UInterface> Interface) const
+{
+	for (const FInRangeInfo& Info : InRangeInfos)
+	{
+		if (AActor* InfoActor = Info.Actor.Get())
+		{
+			UClass* InfoActorClass = InfoActor->GetClass();
+			if (InfoActorClass && InfoActorClass->ImplementsInterface(Interface))
+			{
+				return InfoActor;
+			}
+		}
+	}
+	return nullptr;
+}
+
 void AAlchemistBase::SortInRangeInfos()
 {
-	InRangeInfos.RemoveAll([this](FInRangeInfo& InRangeInfo)
+	if (InRangeInfos.IsEmpty())
+		return;
+		
+	const float CapsuleRadius = CapsuleOverlapComponent->GetScaledCapsuleRadius();
+	const FVector MyLocation = GetActorLocation();
+	const FVector MyForward = GetActorForwardVector();
+
+	InRangeInfos.RemoveAll([&](FInRangeInfo& InRangeInfo)
 	{
 		if (!InRangeInfo.Actor.IsValid())
 			return true;
 
-		FVector ToActor = InRangeInfo.Actor->GetActorLocation() - GetActorLocation();
-		float Dot = FVector::DotProduct(GetActorForwardVector(), ToActor.GetSafeNormal());
+		FVector ToActor = InRangeInfo.Actor->GetActorLocation() - MyLocation;
+		float Dot = FVector::DotProduct(MyForward, ToActor.GetSafeNormal());
 		float DistToActor = ToActor.Length();
-		InRangeInfo.Score = Dot - DistToActor / CapsuleOverlapComponent->GetScaledCapsuleRadius();
+		InRangeInfo.Score = Dot - DistToActor / CapsuleRadius;
 		return false;
 	});
 
@@ -152,26 +175,6 @@ void AAlchemistBase::SortInRangeInfos()
 		// The best (higher) score should be first in the array
 		return Left.Score > Right.Score;
 	});
-}
-
-AActor* AAlchemistBase::GetBestInteractable() const
-{
-	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& Info)
-	{
-		return Info.Actor->Implements<UInteractable>();
-	});
-
-	return InfoPtr ? InfoPtr->Actor.Get() : nullptr;
-}
-
-AActor* AAlchemistBase::GetBestCarriable() const
-{
-	const FInRangeInfo* InfoPtr = InRangeInfos.FindByPredicate([this](const FInRangeInfo& Info)
-	{
-		return Info.Actor->Implements<UCarriable>();
-	});
-
-	return InfoPtr ? InfoPtr->Actor.Get() : nullptr;
 }
 
 void AAlchemistBase::Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
@@ -234,7 +237,7 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	if (GetBestInteractable())
+	if (GetBestActorImplementing<UInteractable>())
 		Server_Interact();
 }
 
@@ -242,7 +245,7 @@ void AAlchemistBase::Input_PickupOrDrop()
 {
 	if (HolderComponent->GetCarriable())
 		Server_Drop();
-	else if (GetBestCarriable())
+	else if (GetBestActorImplementing<UCarriable>())
 		Server_Pickup();
 }
 
@@ -254,7 +257,7 @@ void AAlchemistBase::Input_Throw()
 
 void AAlchemistBase::Server_Interact_Implementation()
 {
-	if (AActor* Interactable = GetBestInteractable())
+	if (AActor* Interactable = GetBestActorImplementing<UInteractable>())
 	{
 		IInteractable::Execute_Interact(Interactable, this);
 	}
@@ -262,7 +265,7 @@ void AAlchemistBase::Server_Interact_Implementation()
 
 void AAlchemistBase::Server_Pickup_Implementation()
 {
-	HolderComponent->TryPickup(GetBestCarriable());
+	HolderComponent->TryPickup(GetBestActorImplementing<UCarriable>());
 }
 
 void AAlchemistBase::Server_Drop_Implementation()
