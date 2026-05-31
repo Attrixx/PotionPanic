@@ -1,13 +1,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "PotionPanicActivatableWidget.h"
 #include "VideoSettingsWidget.generated.h"
 
 UCLASS()
-class USERINTERFACES_API UVideoSettingsWidget : public UUserWidget
+class USERINTERFACES_API UVideoSettingsWidget : public UPotionPanicActivatableWidget
 {
 	GENERATED_BODY()
+
+protected:
+
+	virtual void NativeOnInitialized() override;
 
 public:
 

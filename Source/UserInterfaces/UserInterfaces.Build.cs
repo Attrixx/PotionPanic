@@ -12,13 +12,18 @@ public class UserInterfaces : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"UMG",
+			"CommonUI",
+			"CommonInput",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-            "EnhancedInput",
+			"ApplicationCore",
+			"EnhancedInput",
 			"InputCore",
-			
+			"Slate",
+			"SlateCore",
+
 			"CoreGameplay",
 		});
 	}

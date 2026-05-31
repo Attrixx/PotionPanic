@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "PotionPanicActivatableWidget.h"
 #include "KeybindTypes.h"
 #include "ControlsSettingsWidget.generated.h"
 
@@ -9,7 +9,7 @@ class UInputMappingContext;
 class UKeybindManager;
 
 UCLASS()
-class USERINTERFACES_API UControlsSettingsWidget : public UUserWidget
+class USERINTERFACES_API UControlsSettingsWidget : public UPotionPanicActivatableWidget
 {
 	GENERATED_BODY()
 

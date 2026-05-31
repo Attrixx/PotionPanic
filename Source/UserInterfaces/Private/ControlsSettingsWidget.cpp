@@ -1,18 +1,29 @@
 #include "ControlsSettingsWidget.h"
 #include "KeybindManager.h"
+#include "PotionPanicKeybindSubsystem.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Engine/LocalPlayer.h"
 
 UControlsSettingsWidget::UControlsSettingsWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	SetIsFocusable(true);
+
+	bAutoActivate = false;
+	bIsBackHandler = false;
+	SetIsFocusable(false);
 }
 
 void UControlsSettingsWidget::InitializeBindings()
 {
 	KeybindManager = NewObject<UKeybindManager>(this);
 	KeybindManager->DisplayNameOverrides = DisplayNameOverrides;
+
+	if (const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
+	{
+		KeybindManager->SetPlayerIndex(LocalPlayer->GetControllerId());
+	}
+
 	KeybindManager->InitializeFromIMC(InputMappingContext);
 	KeybindManager->Load();
 
@@ -113,11 +124,18 @@ void UControlsSettingsWidget::ApplyIfDirty()
 
 void UControlsSettingsWidget::Apply()
 {
+	ULocalPlayer* LocalPlayer = GetOwningLocalPlayer();
 	UEnhancedInputLocalPlayerSubsystem* Subsystem =
-		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetOwningLocalPlayer());
+		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
 
 	if (!Subsystem || !InputMappingContext || !KeybindManager) return;
 
-	KeybindManager->ApplyToIMC(InputMappingContext, Subsystem);
+	UInputMappingContext* TargetContext = InputMappingContext;
+	if (UPotionPanicKeybindSubsystem* KeybindSubsystem = LocalPlayer ? LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>() : nullptr)
+	{
+		TargetContext = KeybindSubsystem->GetRuntimeContext(InputMappingContext);
+	}
+
+	KeybindManager->ApplyToIMC(TargetContext, Subsystem);
 	KeybindManager->Save();
 }

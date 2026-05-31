@@ -11,6 +11,7 @@
 #include "ActorFilters/InterfaceActorFilter.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
+#include "PotionPanicKeybindSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistBase, Log, All);
 
@@ -65,9 +66,15 @@ void AAlchemistBase::NotifyControllerChanged()
 {
 	if (APlayerController* PlayerController = Cast<APlayerController>(PreviousController))
 	{
-		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
+		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
 		{
-			Subsystem->RemoveMappingContext(MovementMappingContext);
+			UInputMappingContext* ContextToRemove = MovementMappingContext;
+			if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
+			{
+				ContextToRemove = KeybindSubsystem->GetRuntimeContext(MovementMappingContext);
+			}
+			Subsystem->RemoveMappingContext(ContextToRemove);
 		}
 	}
 
@@ -75,9 +82,15 @@ void AAlchemistBase::NotifyControllerChanged()
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
-		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
+		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
 		{
-			Subsystem->AddMappingContext(MovementMappingContext, 0);
+			UInputMappingContext* ContextToAdd = MovementMappingContext;
+			if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
+			{
+				ContextToAdd = KeybindSubsystem->GetRuntimeContext(MovementMappingContext);
+			}
+			Subsystem->AddMappingContext(ContextToAdd, 0);
 		}
 	}
 }

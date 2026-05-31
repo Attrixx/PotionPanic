@@ -4,6 +4,14 @@
 
 const int32 UVideoSettingsWidget::FPSValues[NUM_FPS_OPTIONS] = { 30, 60, 120, 0 };
 
+void UVideoSettingsWidget::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+
+	bAutoActivate = false;
+	bIsBackHandler = false;
+}
+
 void UVideoSettingsWidget::CacheResolutions()
 {
 	if (CachedResolutions.Num() > 0) return;
