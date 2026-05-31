@@ -4,27 +4,43 @@
 #include "HolderComponent.h"
 #include "StationActor.h"
 
+namespace
+{
+FName ComponentTag = "StationVisual_StaticMesh";
+}
+
 void UStationVisual_StaticMesh::Apply(AStationActor* Target)
 {
 	if (!Target || !ComponentTemplate)
 		return;
-	
-	if (auto* SMC = NewObject<UStaticMeshComponent>(Target, NAME_None, RF_NoFlags, ComponentTemplate))
-	{
-		SMC->SetupAttachment(Target->GetRootComponent());
-		SMC->RegisterComponent();
 
-		if (auto* Holder = Target->GetItemHolder())
-		{
-			Holder->AttachToComponent(SMC, FAttachmentTransformRules::SnapToTargetNotIncludingScale, HolderSocket);
-		}
+	auto* SMC = NewObject<UStaticMeshComponent>(Target, NAME_None, RF_NoFlags, ComponentTemplate);
+	if (!SMC)
+		return;
+
+	SMC->SetupAttachment(Target->GetRootComponent());
+	SMC->ComponentTags.Add(ComponentTag);
+	SMC->RegisterComponent();
+
+	if (auto* Holder = Target->GetItemHolder())
+	{
+		Holder->AttachToComponent(SMC, FAttachmentTransformRules::SnapToTargetNotIncludingScale, HolderSocket);
 	}
 }
 
 void UStationVisual_StaticMesh::Teardown(AStationActor* Target)
 {
-	if (auto* SMC = Target->GetComponentByClass<UStaticMeshComponent>())
+	if (!Target)
+		return;
+
+	if (auto* Holder = Target->GetItemHolder())
 	{
-		SMC->DestroyComponent(true);
+		Holder->AttachToComponent(Target->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
+	}
+
+	TArray Comps = Target->GetComponentsByTag(UStaticMeshComponent::StaticClass(), ComponentTag);
+	for (auto* Comp : Comps)
+	{
+		Comp->DestroyComponent();
 	}
 }

@@ -78,7 +78,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	const FGameplayTag& GetStationSlot() const { return StationSlot; }
-	
+
 	UFUNCTION(BlueprintCallable)
 	UHolderComponent* GetItemHolder() const { return ItemHolder; }
 
@@ -98,7 +98,10 @@ private:
 
 	UPROPERTY(EditInstanceOnly, ReplicatedUsing=OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
-    
+
+	UPROPERTY(Transient, NonTransactional)
+	TObjectPtr<UStationAsset> AppliedStationAsset;
+
 	/** Identifies this station's role in the layout system. */
 	UPROPERTY(EditInstanceOnly, meta=(Categories="StationSlot"))
 	FGameplayTag StationSlot;
@@ -108,6 +111,6 @@ private:
 	TObjectPtr<UHolderComponent> ItemHolder;
 
 	/** Drives activity execution (QTEs, interactions, timed sequences) on this station. */
-    UPROPERTY(VisibleAnywhere, Category = "Components")
+	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UActivityExecutor> Executor;
 };

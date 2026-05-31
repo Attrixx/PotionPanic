@@ -104,8 +104,15 @@ void AStationActor::OnRep_StationAsset()
 // This method MUST be callable in Editor, don't call gameplay stuff in here!!
 void AStationActor::ApplyStationAsset()
 {
+	if (AppliedStationAsset && AppliedStationAsset->VisualProvider)
+	{
+		AppliedStationAsset->VisualProvider->Teardown(this);
+		AppliedStationAsset = nullptr;
+	}
+	
 	if (StationAsset && StationAsset->VisualProvider)
 	{
 		StationAsset->VisualProvider->Apply(this);
+		AppliedStationAsset = StationAsset;
 	}
 }

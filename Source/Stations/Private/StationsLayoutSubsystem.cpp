@@ -14,16 +14,6 @@ void UStationsLayoutSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UStationsLayoutSubsystem::ApplyLayer(UStationsLayoutLayer* Layer)
 {
-#if WITH_EDITOR
-	if (UWorld* World = GetWorld())
-	{
-		if (World->WorldType == EWorldType::Editor || World->WorldType == EWorldType::EditorPreview)
-		{
-			GetStationsFromWorld(World);
-		}
-	}
-#endif
-
 	for (auto It = Stations.CreateIterator(); It; ++It)
 	{
 		if (AStationActor* Station = It->Get())

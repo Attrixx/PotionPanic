@@ -34,7 +34,8 @@ void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 	if (!EditorWorld) return;
 
-	bool bIsDirty = false;
+	GEditor->BeginTransaction(FText::FromString("Harvest Station Slots"));
+
 	for (TActorIterator<AStationActor> It(EditorWorld); It; ++It)
 	{
 		AStationActor* Station = *It;
@@ -42,16 +43,13 @@ void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 		{
 			if (!Overrides.Contains(Station->GetStationSlot()))
 			{
+				Modify();
 				Overrides.Add(Station->GetStationSlot(), nullptr);
-				bIsDirty = true;
 			}
 		}
 	}
 
-	if (bIsDirty)
-	{
-		MarkPackageDirty();
-	}
+	GEditor->EndTransaction();
 }
 
 void UStationsLayoutLayer::PreviewLayerInLevel()
@@ -62,7 +60,7 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 	if (!EditorWorld) return;
 
 	// Ctrl+Z setup
-	GEditor->BeginTransaction(FText::FromString("Preview Station Layout"));
+	GEditor->BeginTransaction(FText::FromString("Preview Station Layer"));
 
 	for (TActorIterator<AStationActor> It(EditorWorld); It; ++It)
 	{
@@ -83,4 +81,4 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 	GEditor->EndTransaction();
 }
 
-#endif WITH_EDITOR
+#endif // WITH_EDITOR

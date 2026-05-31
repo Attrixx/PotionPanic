@@ -12,13 +12,6 @@ class UStationVisualProvider;
  *
  * Carries everything that makes one station distinct from another.
  * AStationActor has no subclasses; all customization goes here.
- *
- * VisualProvider   — Strategy object built by the designer. Defines how the
- *                    station looks (mesh, skeletal, child actor, etc.)
- *                    without constraining AStationActor.
- *
- * ImplementedActivities — Tags declaring which activity types this station
- *                         supports. Queried by the instruction system at runtime.
  */
 UCLASS()
 class STATIONS_API UStationAsset : public UPrimaryDataAsset
