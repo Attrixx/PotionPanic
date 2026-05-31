@@ -46,7 +46,7 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 		UE_LOGFMT(MS_AlchemyGameState, Warning, "'{0}' loaded but we were waiting for '{1}'.", SoftWorldData.ToString(), RequestedPath.ToString());
 		return;
 	}
-	
+
 	auto* NewWorldData = Cast<UWorldData>(InLoadedObject);
 	if (!IsValid(NewWorldData))
 	{
@@ -55,10 +55,10 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	}
 
 	WorldData = NewWorldData;
-	
+
 	if (!HasAuthority())
 		return;
-	
+
 	if (URoundTree* Rounds = WorldData->Rounds)
 	{
 		auto& SetupData = Rounds->GetRoot().Content;
@@ -72,4 +72,3 @@ void AAlchemyGameState::OnRootRoundApplied()
 {
 	// TODO: Start match
 }
-

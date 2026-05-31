@@ -23,11 +23,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
 	static URoundLoader* LoadAndApplyRound(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete);
-
+		
+	UFUNCTION(BlueprintCallable)
+	void Cancel() const;
+	
 private:
 	
 	void StartLoading(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete);
-	void OnAssetsLoaded(TWeakObjectPtr<UObject> WeakContext, FRoundContent RoundContent, FOnRoundAppliedDelegate OnComplete);
+	void OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRoundContent RoundContent, FOnRoundAppliedDelegate OnComplete);
 	
 	TSharedPtr<FStreamableHandle> StreamableHandle;
 };

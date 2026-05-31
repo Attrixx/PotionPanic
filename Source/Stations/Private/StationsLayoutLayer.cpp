@@ -25,7 +25,6 @@ UStationAsset* UStationsLayoutLayer::GetOverride(const FGameplayTag& StationSlot
 #include "Editor.h"
 #include "EngineUtils.h"
 #include "StationActor.h"
-#include "Misc/MessageDialog.h"
 
 void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 {
@@ -59,7 +58,6 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 	if (!EditorWorld) return;
 
-	// Ctrl+Z setup
 	GEditor->BeginTransaction(FText::FromString("Preview Station Layer"));
 
 	for (TActorIterator<AStationActor> It(EditorWorld); It; ++It)
@@ -77,7 +75,6 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 		}
 	}
 
-	// Register Ctrl+Z modifications
 	GEditor->EndTransaction();
 }
 

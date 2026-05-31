@@ -20,7 +20,7 @@ void AAlchemistController::BeginPlay()
 	}
 	else
 	{
-		UE_LOGFMT(MS_AlchemistController, Error, "Could not find Actor with tag '{0}'", ViewTargetTag);
+		UE_LOGFMT(MS_AlchemistController, Error, "Could not find view target actor with tag '{0}'", ViewTargetTag);
 	}
 }
 

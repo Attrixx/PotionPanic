@@ -28,6 +28,12 @@ URoundLoader* URoundLoader::LoadAndApplyRound(UObject* WorldContextObject, const
 	return nullptr;
 }
 
+void URoundLoader::Cancel() const
+{
+	if (StreamableHandle.IsValid())
+		StreamableHandle->CancelHandle();
+}
+
 void URoundLoader::StartLoading(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete)
 {
 	TArray<FSoftObjectPath> Paths;

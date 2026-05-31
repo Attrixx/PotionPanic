@@ -16,12 +16,20 @@ class GAMEFLOW_API URoundTree : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
-	
-	const FRoundNode& GetRoot() const { return Nodes[0]; }
-	const FRoundNode* GetNodeAt(int32 Index) const { return Nodes.IsValidIndex(Index) ? &Nodes[Index] : nullptr; }
+
+	const FRoundNode& GetRoot() const
+	{
+		check(!Nodes.IsEmpty());
+		return Nodes[0];
+	}
+
+	const FRoundNode* GetNodeAt(int32 Index) const
+	{
+		return Nodes.IsValidIndex(Index) ? &Nodes[Index] : nullptr;
+	}
 
 protected:
-	
+
 	void PostInitProperties() override;
 	void PostLoad() override;
 
@@ -29,7 +37,7 @@ protected:
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 	void PostEditChangeProperty(FPropertyChangedEvent& Event) override;
 #endif
-	
+
 	void EnsureRootExists();
 
 	// Should always contain at least one element, the root
