@@ -101,9 +101,20 @@ void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearTimer(InRangeSortTimerHandle);
 }
 
-void AAlchemistBase::PawnClientRestart()
+void AAlchemistBase::NotifyControllerChanged()
 {
-	Super::PawnClientRestart();
+	if (APlayerController* PlayerController = Cast<APlayerController>(PreviousController))
+	{
+		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+		{
+			if (MappingContext)
+			{
+				Subsystem->RemoveMappingContext(MappingContext);
+			}
+		}
+	}
+	
+	Super::NotifyControllerChanged(); // Updates PreviousController
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{

@@ -24,7 +24,7 @@ protected:
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	void PawnClientRestart() override;
+	void NotifyControllerChanged() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	
 public:
