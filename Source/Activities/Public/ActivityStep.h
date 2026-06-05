@@ -39,7 +39,6 @@ public:
 	 * Cancels the step.
 	 * Implementation should NOT call FinishStep after being canceled.
 	 * Make sure to correctly clean up any timer or bindings here.
-	 * /!\ May be called before StartStep. TODO: Fix this (in ActivityExecutor)
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void CancelStep();

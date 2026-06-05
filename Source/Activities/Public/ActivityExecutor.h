@@ -24,7 +24,7 @@ class ACTIVITIES_API UActivityExecutor : public UActorComponent
 	GENERATED_BODY()
 
 protected:
-	
+
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -65,7 +65,7 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
-	
+
 	UPROPERTY(BlueprintAssignable)
 	FActivityExecutionStatusChangedDelegate OnExecutionStatusChanged;
 
@@ -80,7 +80,7 @@ private:
 
 	UFUNCTION()
 	void OnRep_State(const FActivityExecutionState& OldState);
-	
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_State)
@@ -96,4 +96,8 @@ private:
 	TObjectPtr<UActivityConclusion> Conclusion;
 
 	int32 CurrentStepIndex = 0;
+
+	// Guards against calling CancelStep before StartStep.
+	// Must be reset when writing to CurrentStepIndex.
+	bool bCurrentStepStarted = false;
 };

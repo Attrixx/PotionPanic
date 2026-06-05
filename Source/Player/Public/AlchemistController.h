@@ -7,21 +7,22 @@
 #include "AlchemistController.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS(Abstract)
 class PLAYER_API AAlchemistController : public APlayerController
 {
 	GENERATED_BODY()
-	
+
 protected:
-	
+
 	AAlchemistController();
 	void BeginPlay() override;
-	
+	void SetupInputComponent() override;
+
 protected:
 	
-	AActor* FindViewTarget() const;
+	AActor *FindViewTarget() const;
 
 	UPROPERTY(EditAnywhere)
 	FName ViewTargetTag;
