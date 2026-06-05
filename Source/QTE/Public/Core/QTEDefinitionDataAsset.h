@@ -15,6 +15,7 @@ class QTE_API UQTEDefinitionDataAsset : public UPrimaryDataAsset
 	GENERATED_BODY()
 
 public:
+
 	void PostLoad() override;
 	void EnsureRuntimeSettings();
 
@@ -65,6 +66,29 @@ public:
 #endif
 
 private:
+
 	UPROPERTY(meta = (DeprecatedProperty, DeprecationMessage = "Use RuntimeSettings."))
 	EQTEType QTEType = EQTEType::Press;
+
+public:
+
+	float GetDifficultyMultiplier();
+	float GetEffectiveGlobalTimeout();
+	float GetEffectiveStepTimeout(const FQTEStepDefinition& Step);
+	float GetEffectiveTolerance(const FQTEStepDefinition& Step);
+	float GetEffectiveHoldTime(const FQTEStepDefinition& Step);
+	int32 GetEffectiveMashTarget(const FQTEStepDefinition& Step);
+	const FQTEOutcomeConfiguration* GetOutcomeConfiguration(EQTEState FinalState);
+	EQTEGrade ResolveGrade(const FQTERuntimeState& RuntimeState, EQTEState FinalState);
+	FText ResolveOutcomeMessage(EQTEState FinalState, const FText& OverrideMessage);
+	FQTEResult BuildResult(
+		UObject* SourceObject,
+		AActor* InstigatorActor,
+		const FQTERuntimeState& RuntimeState,
+		EQTEState FinalState,
+		const FText& OverrideMessage);
+	FQTEAuthorityResult BuildAuthorityResult(
+		const FQTERuntimeState& RuntimeState,
+		const FQTEResult& LastResult,
+		EQTEState FallbackState);
 };

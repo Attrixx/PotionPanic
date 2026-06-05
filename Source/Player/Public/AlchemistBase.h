@@ -78,8 +78,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
 
-
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FName RagdollRootBoneName = NAME_None;
 
@@ -124,26 +122,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "QTE")
 	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
 
-	UFUNCTION(BlueprintPure, Category = "Interaction")
-	AActor* GetCurrentInteractableActor() const;
-
+	// IQTESourceProvider
 	UObject* GetQTESourceObject_Implementation() const override;
+	
+	// IQTEActivityDisplay
 	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
 	void HideQTEActivityStep_Implementation() override;
-
-protected:
-
-	// Timer interval for sorting items in range (computes difference in locations)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
-	float InRangeInfosSortInterval = 0.1f;
 
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
 	bool ShouldBlockGameplayInput() const;
 	void InitializeQTEWidgetComponent();
-	void ShowQTEActivityStepLocal(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass);
-	void HideQTEActivityStepLocal();
 	UQTEWidgetBase* GetQTEWidget() const;
 	
 private: // Input
@@ -172,12 +162,4 @@ private: // Input
 
 	UFUNCTION(Client, Reliable)
 	void ClientHideQTEActivityStep();
-
-private:
-	
-	FTimerHandle InRangeSortTimerHandle;
-
-	AActor* LastBestInteractable;
-	AActor* LastBestCarriable;
-
 };

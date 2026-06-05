@@ -14,7 +14,8 @@ public class QTE : ModuleRules
 			"EnhancedInput",
 			"UMG",
 
-			"Activities"
+			"Activities",
+			"CoreGameplay"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

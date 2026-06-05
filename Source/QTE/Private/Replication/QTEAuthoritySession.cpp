@@ -58,11 +58,11 @@ int32 FQTEAuthoritySession::Start(UQTEDefinitionDataAsset* InDefinition, AActor*
 		PendingDefinition = InDefinition;
 		PendingSourceActor = InSourceActor;
 		StartMirrorReadyTimeout(RequestId);
-		GetOwnerComponent().NotifyClientStartAuthorityQTE(RequestId, InDefinition, InSourceActor);
+		GetOwnerComponent().Client_StartAuthorityQTE(RequestId, InDefinition, InSourceActor);
 		return RequestId;
 	}
 
-	if (!GetOwnerComponent().StartQTEInternal(InDefinition, InSourceActor, Cast<AActor>(OwnerActor)))
+	if (!GetOwnerComponent().StartQTEInternal(InDefinition, InSourceActor, OwnerActor))
 	{
 		ActiveRequestId = INDEX_NONE;
 		PendingDefinition = nullptr;
@@ -87,7 +87,7 @@ void FQTEAuthoritySession::Cancel(int32 RequestId)
 		PendingDefinition = nullptr;
 		PendingSourceActor.Reset();
 		ClearMirrorReadyTimeout();
-		GetOwnerComponent().NotifyClientCancelAuthorityQTE(RequestId);
+		GetOwnerComponent().Client_CancelAuthorityQTE(RequestId);
 	}
 
 	ActiveRequestId = INDEX_NONE;
@@ -132,7 +132,7 @@ void FQTEAuthoritySession::Resolve(const FQTEAuthorityResult& AuthorityResult)
 
 		if (const APawn* OwnerPawn = Cast<APawn>(GetOwnerComponent().GetOwner()); OwnerPawn && !OwnerPawn->IsLocallyControlled())
 		{
-			GetOwnerComponent().NotifyClientCompleteAuthorityQTE(ResolvedRequestId, AuthorityResult);
+			GetOwnerComponent().Client_CompleteAuthorityQTE(ResolvedRequestId, AuthorityResult);
 		}
 
 		PendingDefinition = nullptr;
@@ -160,13 +160,13 @@ void FQTEAuthoritySession::HandleClientStart(int32 RequestId, UQTEDefinitionData
 
 	if (!GetOwnerComponent().StartQTEInternal(InDefinition, InSourceActor, Cast<AActor>(GetOwnerComponent().GetOwner())))
 	{
-		GetOwnerComponent().NotifyServerAuthorityQTEStartFailed(RequestId, FText::FromString(TEXT("Failed to start local mirror QTE.")));
+		GetOwnerComponent().Server_NotifyAuthorityQTEStartFailed(RequestId, FText::FromString(TEXT("Failed to start local mirror QTE.")));
 		ActiveRequestId = INDEX_NONE;
 		UE_LOG(MS_QTEAuthoritySession, Warning, TEXT("Failed to start local mirror QTE on '%s' for authority request '%d'."), *GetNameSafe(GetOwnerComponent().GetOwner()), RequestId);
 		return;
 	}
 
-	GetOwnerComponent().NotifyServerConfirmAuthorityQTEReady(RequestId);
+	GetOwnerComponent().Server_ConfirmAuthorityQTEReady(RequestId);
 }
 
 void FQTEAuthoritySession::HandleClientCancel(int32 RequestId)
@@ -310,7 +310,7 @@ void FQTEAuthoritySession::StartMirrorReadyTimeout(int32 RequestId)
 	{
 		World->GetTimerManager().SetTimer(
 			MirrorReadyTimeoutHandle,
-			OwnerComponent,
+			OwnerComponent, // We can't bind to ourselves (binding needs a UObject ptr)
 			&UQTEComponent::HandleAuthorityMirrorReadyTimeout,
 			GetOwnerComponent().GetAuthorityMirrorReadyTimeoutSeconds(),
 			false);
@@ -347,7 +347,7 @@ void FQTEAuthoritySession::FailRequest(int32 RequestId, const FText& FailureMess
 	{
 		if (const APawn* OwnerPawn = Cast<APawn>(GetOwnerComponent().GetOwner()); OwnerPawn && !OwnerPawn->IsLocallyControlled())
 		{
-			GetOwnerComponent().NotifyClientCompleteAuthorityQTE(RequestId, FailedResult);
+			GetOwnerComponent().Client_CompleteAuthorityQTE(RequestId, FailedResult);
 		}
 	}
 

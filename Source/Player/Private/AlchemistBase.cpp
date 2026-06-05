@@ -12,7 +12,6 @@
 #include "Components/QTEComponent.h"
 #include "Components/WidgetComponent.h"
 #include "Widgets/QTEWidgetBase.h"
-#include <Components/CapsuleComponent.h>
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 #include "PotionPanicKeybindSubsystem.h"
@@ -43,7 +42,6 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
 	CarriableFilter->Interface = UCarriable::StaticClass();
 	
-
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
 
@@ -142,38 +140,7 @@ void AAlchemistBase::BeginPlay()
 	}
 
 	InitializeQTEWidgetComponent();
-
-	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
-		[this]
-		{
-			if (!IsLocallyControlled())
-				return;
-
-			// TODO: Use filter callbacks instead
-			AActor* BestInteractable = RangeComponent->FindBestMatchingActor(InteractableFilter);
-			if (!BestInteractable || BestInteractable != LastBestInteractable)
-			{
-				SetActorCustomDepthEnabled(LastBestInteractable, false);
-			}
-			if (BestInteractable)
-			{
-				SetActorCustomDepthEnabled(BestInteractable, true);
-				LastBestInteractable = BestInteractable;
-			}
-
-			AActor* BestCarriable = RangeComponent->FindBestMatchingActor(CarriableFilter);
-			if (!BestCarriable || BestCarriable != LastBestCarriable)
-			{
-				SetActorCustomDepthEnabled(LastBestCarriable, false);
-			}
-			if (BestCarriable)
-			{
-				SetActorCustomDepthEnabled(BestCarriable, true);
-				LastBestCarriable = BestCarriable;
-			}
-		},
-		InRangeInfosSortInterval,
-		true);
+	// TODO: Register SetActorCustomDepthEnabled on RangeComponent
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -269,42 +236,19 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 	}
 }
 
-AActor* AAlchemistBase::GetCurrentInteractableActor() const
-{
-	return GetBestInteractable();
-}
-
 UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
 {
-	return GetBestInteractable();
+	return RangeComponent->FindBestActorImplementing(UInterface::StaticClass());
 }
 
 void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
 {
-	if (IsLocallyControlled())
-	{
-		ShowQTEActivityStepLocal(InQTEComponent, InWidgetClass);
-		return;
-	}
-
-	if (HasAuthority())
-	{
-		ClientShowQTEActivityStep(InQTEComponent, InWidgetClass);
-	}
+	Client_ShowQTEActivityStep(InQTEComponent, InWidgetClass);
 }
 
 void AAlchemistBase::HideQTEActivityStep_Implementation()
 {
-	if (IsLocallyControlled())
-	{
-		HideQTEActivityStepLocal();
-		return;
-	}
-
-	if (HasAuthority())
-	{
-		ClientHideQTEActivityStep();
-	}
+	Client_HideQTEActivityStep();
 }
 
 bool AAlchemistBase::ShouldBlockGameplayInput() const
@@ -326,39 +270,6 @@ void AAlchemistBase::InitializeQTEWidgetComponent()
 	{
 		QTEWidgetComponent->SetWidgetClass(QTEWidgetClass);
 		QTEWidgetComponent->InitWidget();
-	}
-}
-
-void AAlchemistBase::ShowQTEActivityStepLocal(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
-{
-	if (!QTEWidgetComponent)
-	{
-		return;
-	}
-
-	if (InWidgetClass && QTEWidgetComponent->GetWidgetClass() != InWidgetClass)
-	{
-		QTEWidgetComponent->SetWidgetClass(InWidgetClass);
-		QTEWidgetComponent->InitWidget();
-	}
-
-	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
-	{
-		QTEWidget->BindToQTEComponent(InQTEComponent ? InQTEComponent : QTEComponent.Get());
-		QTEWidgetComponent->SetVisibility(true);
-	}
-}
-
-void AAlchemistBase::HideQTEActivityStepLocal()
-{
-	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
-	{
-		QTEWidget->BindToQTEComponent(nullptr);
-	}
-
-	if (QTEWidgetComponent)
-	{
-		QTEWidgetComponent->SetVisibility(false);
 	}
 }
 
@@ -408,6 +319,11 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
 		Server_Interact(Interactable);
 }
@@ -462,12 +378,35 @@ void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 	HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
 }
 
-void AAlchemistBase::ClientShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
+void AAlchemistBase::Client_ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
 {
-	ShowQTEActivityStepLocal(InQTEComponent, InWidgetClass);
+	if (!QTEWidgetComponent)
+	{
+		return;
+	}
+
+	if (InWidgetClass && QTEWidgetComponent->GetWidgetClass() != InWidgetClass)
+	{
+		QTEWidgetComponent->SetWidgetClass(InWidgetClass);
+		QTEWidgetComponent->InitWidget();
+	}
+
+	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
+	{
+		QTEWidget->BindToQTEComponent(InQTEComponent ? InQTEComponent : QTEComponent.Get());
+		QTEWidgetComponent->SetVisibility(true);
+	}
 }
 
-void AAlchemistBase::ClientHideQTEActivityStep_Implementation()
+void AAlchemistBase::Client_HideQTEActivityStep_Implementation()
 {
-	HideQTEActivityStepLocal();
+	if (UQTEWidgetBase* QTEWidget = GetQTEWidget())
+	{
+		QTEWidget->BindToQTEComponent(nullptr);
+	}
+
+	if (QTEWidgetComponent)
+	{
+		QTEWidgetComponent->SetVisibility(false);
+	}
 }

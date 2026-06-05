@@ -8,17 +8,17 @@ TSubclassOf<UQTERuntimeSettings> GetRuntimeSettingsClass(EQTEType QTEType)
 {
 	switch (QTEType)
 	{
-		case EQTEType::Hold:
-			return UQTEHoldRuntimeSettings::StaticClass();
-		case EQTEType::Mash:
-			return UQTEMashRuntimeSettings::StaticClass();
-		case EQTEType::Sequence:
-			return UQTESequenceRuntimeSettings::StaticClass();
-		case EQTEType::Chain:
-			return UQTEChainRuntimeSettings::StaticClass();
-		case EQTEType::Press:
-		default:
-			return UQTEPressRuntimeSettings::StaticClass();
+	case EQTEType::Hold:
+		return UQTEHoldRuntimeSettings::StaticClass();
+	case EQTEType::Mash:
+		return UQTEMashRuntimeSettings::StaticClass();
+	case EQTEType::Sequence:
+		return UQTESequenceRuntimeSettings::StaticClass();
+	case EQTEType::Chain:
+		return UQTEChainRuntimeSettings::StaticClass();
+	case EQTEType::Press:
+	default:
+		return UQTEPressRuntimeSettings::StaticClass();
 	}
 }
 }
@@ -133,27 +133,27 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 	{
 		switch (RuntimeSettings->GetQTEType())
 		{
-			case EQTEType::Press:
-			case EQTEType::Hold:
-			case EQTEType::Mash:
+		case EQTEType::Press:
+		case EQTEType::Hold:
+		case EQTEType::Mash:
+		{
+			if (Steps.Num() != 1)
 			{
-				if (Steps.Num() != 1)
-				{
-					Context.AddError(FText::FromString("Press, Hold, and Mash QTE definitions must contain exactly one step."));
-					Result = EDataValidationResult::Invalid;
-				}
-				break;
+				Context.AddError(FText::FromString("Press, Hold, and Mash QTE definitions must contain exactly one step."));
+				Result = EDataValidationResult::Invalid;
 			}
-			case EQTEType::Sequence:
-			case EQTEType::Chain:
+			break;
+		}
+		case EQTEType::Sequence:
+		case EQTEType::Chain:
+		{
+			if (Steps.Num() < 2)
 			{
-				if (Steps.Num() < 2)
-				{
-					Context.AddError(FText::FromString("Sequence and Chain QTE definitions must contain at least two steps."));
-					Result = EDataValidationResult::Invalid;
-				}
-				break;
+				Context.AddError(FText::FromString("Sequence and Chain QTE definitions must contain at least two steps."));
+				Result = EDataValidationResult::Invalid;
 			}
+			break;
+		}
 		}
 	}
 
@@ -181,7 +181,8 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 
 		if (Step.StepType == EQTEStepType::Hold && Step.RequiredHoldTimeSeconds <= 0.f)
 		{
-			Context.AddError(FText::Format(FText::FromString("Step {0} is a Hold step and must have RequiredHoldTimeSeconds greater than zero."), FText::AsNumber(StepIndex)));
+			Context.AddError(FText::Format(FText::FromString("Step {0} is a Hold step and must have RequiredHoldTimeSeconds greater than zero."),
+				FText::AsNumber(StepIndex)));
 			Result = EDataValidationResult::Invalid;
 		}
 
@@ -193,7 +194,9 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 
 		if (Step.StepType == EQTEStepType::Mash && Step.RequiredMashCount < 2)
 		{
-			Context.AddWarning(FText::Format(FText::FromString("Step {0} is a Mash step with a very low RequiredMashCount. Consider using a Press step instead."), FText::AsNumber(StepIndex)));
+			Context.AddWarning(FText::Format(
+				FText::FromString("Step {0} is a Mash step with a very low RequiredMashCount. Consider using a Press step instead."),
+				FText::AsNumber(StepIndex)));
 		}
 
 		if (Step.bOverrideTolerance && Step.ToleranceOverrideSeconds < 0.f)
@@ -208,7 +211,9 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 			const bool bHasStepTimeout = Step.bUseStepTimeout && Step.StepTimeoutSeconds > 0.f;
 			if (!bHasGlobalTimeout && !bHasStepTimeout)
 			{
-				Context.AddWarning(FText::Format(FText::FromString("Step {0} has no timeout configured. This QTE can run indefinitely if the player never completes it."), FText::AsNumber(StepIndex)));
+				Context.AddWarning(FText::Format(
+					FText::FromString("Step {0} has no timeout configured. This QTE can run indefinitely if the player never completes it."),
+					FText::AsNumber(StepIndex)));
 			}
 		}
 	}
@@ -238,3 +243,157 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 	return Result;
 }
 #endif
+
+float UQTEDefinitionDataAsset::GetDifficultyMultiplier()
+{
+	return FMath::Max(0.1f, Configuration.DifficultyMultiplier);
+}
+
+float UQTEDefinitionDataAsset::GetEffectiveGlobalTimeout()
+{
+	if (Configuration.GlobalTimeoutSeconds <= 0.f)
+	{
+		return 0.f;
+	}
+
+	return Configuration.GlobalTimeoutSeconds / GetDifficultyMultiplier();
+}
+
+float UQTEDefinitionDataAsset::GetEffectiveStepTimeout(const FQTEStepDefinition& Step)
+{
+	if (!Step.bUseStepTimeout || Step.StepTimeoutSeconds <= 0.f)
+	{
+		return 0.f;
+	}
+
+	return Step.StepTimeoutSeconds / GetDifficultyMultiplier();
+}
+
+float UQTEDefinitionDataAsset::GetEffectiveTolerance(const FQTEStepDefinition& Step)
+{
+	const float BaseTolerance = Step.bOverrideTolerance
+		? Step.ToleranceOverrideSeconds
+		: Configuration.InputToleranceSeconds;
+
+	return BaseTolerance / GetDifficultyMultiplier();
+}
+
+float UQTEDefinitionDataAsset::GetEffectiveHoldTime(const FQTEStepDefinition& Step)
+{
+	return Step.StepType == EQTEStepType::Hold
+		? Step.RequiredHoldTimeSeconds * GetDifficultyMultiplier()
+		: 0.f;
+}
+
+int32 UQTEDefinitionDataAsset::GetEffectiveMashTarget(const FQTEStepDefinition& Step)
+{
+	return Step.StepType == EQTEStepType::Mash
+		? FMath::Max(1, FMath::CeilToInt(static_cast<float>(Step.RequiredMashCount) * GetDifficultyMultiplier()))
+		: 0;
+}
+
+const FQTEOutcomeConfiguration* UQTEDefinitionDataAsset::GetOutcomeConfiguration(EQTEState FinalState)
+{
+	switch (FinalState)
+	{
+	case EQTEState::Success:
+		return &SuccessOutcome;
+	case EQTEState::Failure:
+		return &FailureOutcome;
+	case EQTEState::Timeout:
+		return &TimeoutOutcome;
+	case EQTEState::Canceled:
+		return &CanceledOutcome;
+	case EQTEState::Interrupted:
+		return &InterruptedOutcome;
+	case EQTEState::None:
+	case EQTEState::Running:
+		return nullptr;
+	}
+
+	return nullptr;
+}
+
+EQTEGrade UQTEDefinitionDataAsset::ResolveGrade(const FQTERuntimeState& RuntimeState, EQTEState FinalState)
+{
+	if (FinalState == EQTEState::Success)
+	{
+		return RuntimeState.Mistakes == 0 ? EQTEGrade::Perfect : EQTEGrade::Good;
+	}
+
+	if (FinalState == EQTEState::Failure || FinalState == EQTEState::Timeout)
+	{
+		return EQTEGrade::Fail;
+	}
+
+	return EQTEGrade::None;
+}
+
+FText UQTEDefinitionDataAsset::ResolveOutcomeMessage(EQTEState FinalState, const FText& OverrideMessage)
+{
+	if (!OverrideMessage.IsEmpty())
+	{
+		return OverrideMessage;
+	}
+
+	if (const FQTEOutcomeConfiguration* OutcomeConfiguration = GetOutcomeConfiguration(FinalState))
+	{
+		return OutcomeConfiguration->Message;
+	}
+
+	return FText();
+}
+
+FQTEResult UQTEDefinitionDataAsset::BuildResult(
+
+	UObject* SourceObject,
+	AActor* InstigatorActor,
+	const FQTERuntimeState& RuntimeState,
+	EQTEState FinalState,
+	const FText& OverrideMessage)
+{
+	FQTEResult Result;
+	Result.Definition = this;
+	Result.SourceObject = SourceObject;
+	Result.InstigatorActor = InstigatorActor;
+	Result.QTEType = RuntimeState.QTEType;
+	Result.Outcome = FinalState;
+	Result.Grade = ResolveGrade(RuntimeState, FinalState);
+	Result.CompletedStepCount = RuntimeState.CompletedStepCount;
+	Result.FailedStepIndex = FinalState == EQTEState::Success ? INDEX_NONE : RuntimeState.CurrentStepIndex;
+	Result.Mistakes = RuntimeState.Mistakes;
+	Result.ElapsedTime = RuntimeState.ElapsedTime;
+	Result.FinalRuntimeState = RuntimeState;
+	Result.Message = ResolveOutcomeMessage(FinalState, OverrideMessage);
+	return Result;
+}
+
+FQTEAuthorityResult UQTEDefinitionDataAsset::BuildAuthorityResult(
+
+	const FQTERuntimeState& RuntimeState,
+	const FQTEResult& LastResult,
+	EQTEState FallbackState)
+{
+	FQTEAuthorityResult AuthorityResult;
+
+	if (RuntimeState.Status != EQTEState::Running && LastResult.Outcome != EQTEState::None)
+	{
+		AuthorityResult.Outcome = LastResult.Outcome;
+		AuthorityResult.Grade = LastResult.Grade;
+		AuthorityResult.CompletedStepCount = LastResult.CompletedStepCount;
+		AuthorityResult.FailedStepIndex = LastResult.FailedStepIndex;
+		AuthorityResult.Mistakes = LastResult.Mistakes;
+		AuthorityResult.ElapsedTime = LastResult.ElapsedTime;
+		AuthorityResult.Message = LastResult.Message;
+		return AuthorityResult;
+	}
+
+	AuthorityResult.Outcome = FallbackState;
+	AuthorityResult.Grade = ResolveGrade(RuntimeState, FallbackState);
+	AuthorityResult.CompletedStepCount = RuntimeState.CompletedStepCount;
+	AuthorityResult.FailedStepIndex = FallbackState == EQTEState::Success ? INDEX_NONE : RuntimeState.CurrentStepIndex;
+	AuthorityResult.Mistakes = RuntimeState.Mistakes;
+	AuthorityResult.ElapsedTime = RuntimeState.ElapsedTime;
+	AuthorityResult.Message = ResolveOutcomeMessage(FallbackState, FText());
+	return AuthorityResult;
+}

@@ -2,7 +2,6 @@
 
 #include "Components/QTEComponent.h"
 #include "Core/QTEDefinitionDataAsset.h"
-#include "Runtime/QTEResolver.h"
 #include "Runtime/QTERuntimeSettings.h"
 
 TUniquePtr<FQTERuntime> FQTERuntime::Create(UQTEComponent& OwnerComponent, UQTEDefinitionDataAsset& Definition)
@@ -34,7 +33,7 @@ void FQTERuntime::RefreshRuntimeState()
 		RuntimeState.EffectiveStepTimeout = 0.f;
 		RuntimeState.EffectiveTolerance = 0.f;
 		RuntimeState.StepTimeRemaining = 0.f;
-		const float GlobalTimeout = FQTEResolver::GetEffectiveGlobalTimeout(&Definition);
+		const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
 		RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 			? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)
 			: 0.f;
@@ -45,11 +44,11 @@ void FQTERuntime::RefreshRuntimeState()
 		return;
 	}
 
-	RuntimeState.EffectiveTolerance = FQTEResolver::GetEffectiveTolerance(&Definition, *CurrentStep);
-	RuntimeState.EffectiveHoldTime = FQTEResolver::GetEffectiveHoldTime(&Definition, *CurrentStep);
-	RuntimeState.EffectiveMashTarget = FQTEResolver::GetEffectiveMashTarget(&Definition, *CurrentStep);
-	RuntimeState.EffectiveStepTimeout = FQTEResolver::GetEffectiveStepTimeout(&Definition, *CurrentStep);
-	const float GlobalTimeout = FQTEResolver::GetEffectiveGlobalTimeout(&Definition);
+	RuntimeState.EffectiveTolerance = Definition.GetEffectiveTolerance(*CurrentStep);
+	RuntimeState.EffectiveHoldTime = Definition.GetEffectiveHoldTime(*CurrentStep);
+	RuntimeState.EffectiveMashTarget = Definition.GetEffectiveMashTarget(*CurrentStep);
+	RuntimeState.EffectiveStepTimeout = Definition.GetEffectiveStepTimeout(*CurrentStep);
+	const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
 	RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 		? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)
 		: 0.f;
@@ -101,7 +100,7 @@ void FQTERuntime::BeginCurrentStep(bool bBroadcastStepChanged)
 	RuntimeState.FeedbackText = !CurrentStep->Feedback.PromptText.IsEmpty()
 		? CurrentStep->Feedback.PromptText
 		: CurrentStep->Presentation.Title;
-		OwnerComponent.GetMutableHoldStartTime() = 0.f;
+	OwnerComponent.GetMutableHoldStartTime() = 0.f;
 	RefreshRuntimeState();
 
 	if (bBroadcastStepChanged)
@@ -157,16 +156,16 @@ void FQTERuntime::RefreshCurrentStepByType(const FQTEStepDefinition& Step)
 {
 	switch (Step.StepType)
 	{
-		case EQTEStepType::Hold:
-			RefreshHoldStepProgress();
-			break;
-		case EQTEStepType::Mash:
-			RefreshMashStepProgress();
-			break;
-		case EQTEStepType::Press:
-		default:
-			RefreshPressStepProgress();
-			break;
+	case EQTEStepType::Hold:
+		RefreshHoldStepProgress();
+		break;
+	case EQTEStepType::Mash:
+		RefreshMashStepProgress();
+		break;
+	case EQTEStepType::Press:
+	default:
+		RefreshPressStepProgress();
+		break;
 	}
 }
 
@@ -174,13 +173,13 @@ bool FQTERuntime::HandleCurrentStepPressedByType(const FQTEStepDefinition& Step)
 {
 	switch (Step.StepType)
 	{
-		case EQTEStepType::Hold:
-			return StartHoldStep();
-		case EQTEStepType::Mash:
-			return AdvanceMashStep();
-		case EQTEStepType::Press:
-		default:
-			return CompletePressStep();
+	case EQTEStepType::Hold:
+		return StartHoldStep();
+	case EQTEStepType::Mash:
+		return AdvanceMashStep();
+	case EQTEStepType::Press:
+	default:
+		return CompletePressStep();
 	}
 }
 

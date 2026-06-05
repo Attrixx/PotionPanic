@@ -15,6 +15,7 @@ public class Player : ModuleRules
 			"CoreGameplay",
 			"UMG",
 
+			"CoreGameplay",
 			"QTE"
 		});
 
