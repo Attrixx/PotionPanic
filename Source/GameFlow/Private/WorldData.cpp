@@ -5,6 +5,7 @@
 #include "Misc/DataValidation.h"
 #include "Rounds/RoundTree.h"
 
+#if WITH_EDITOR
 EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
@@ -21,3 +22,4 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 	
 	return Result;
 }
+#endif
