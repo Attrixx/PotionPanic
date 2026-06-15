@@ -9,10 +9,20 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(Abstract)
 class PLAYER_API AAlchemistController : public APlayerController
 {
 	GENERATED_BODY()
 	
+protected:
+	
 	AAlchemistController();
+	void BeginPlay() override;
+	
+protected:
+	
+	AActor* FindViewTarget() const;
+
+	UPROPERTY(EditAnywhere)
+	FName ViewTargetTag;
 };

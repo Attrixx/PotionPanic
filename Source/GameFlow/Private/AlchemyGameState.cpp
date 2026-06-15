@@ -2,8 +2,9 @@
 
 #include "AlchemyGameState.h"
 #include "WorldData.h"
-#include "RecipeSystem.h"
-#include "Net/UnrealNetwork.h"
+#include "Rounds/RoundTree.h"
+#include "Rounds/RoundLoader.h"
+#include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
@@ -22,34 +23,52 @@ void AAlchemyGameState::SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldD
 	}
 }
 
+float AAlchemyGameState::GetRoundRemainingTime() const
+{
+	return RoundEndTime - GetServerWorldTimeSeconds();
+}
+
 void AAlchemyGameState::OnRep_SoftWorldData()
 {
-	WorldData = SoftWorldData.LoadSynchronous();
-	if (!WorldData)
+	if (SoftWorldData.IsNull())
 	{
 		UE_LOGFMT(MS_AlchemyGameState, Error, "Received invalid world data.");
 		return;
 	}
 
-	ConfigureRecipeSystem();
+	SoftWorldData.LoadAsync(FLoadSoftObjectPathAsyncDelegate::CreateUObject(this, &ThisClass::OnNewWorldDataLoaded));
 }
 
-void AAlchemyGameState::ConfigureRecipeSystem() const
+void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPath, UObject* InLoadedObject)
 {
-	check(IsValid(WorldData));
-
-	if (auto* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>())
+	if (SoftWorldData.ToSoftObjectPath() != RequestedPath)
 	{
-		RecipeSystem->ClearRecipes();
-		for (URecipeAsset* Recipe : WorldData->Recipes)
-		{
-			RecipeSystem->AddRecipe(Recipe);
-		}
-
-		UE_LOGFMT(MS_AlchemyGameState,
-			Log,
-			"Added {0} transformations to the Recipe System, using {1} recipes.",
-			RecipeSystem->GetActivities().Num(),
-			WorldData->Recipes.Num());
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "'{0}' loaded but we were waiting for '{1}'.", SoftWorldData.ToString(), RequestedPath.ToString());
+		return;
 	}
+
+	auto* NewWorldData = Cast<UWorldData>(InLoadedObject);
+	if (!IsValid(NewWorldData))
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Error, "Loaded invalid world data.");
+		return;
+	}
+
+	WorldData = NewWorldData;
+
+	if (!HasAuthority())
+		return;
+
+	if (URoundTree* Rounds = WorldData->Rounds)
+	{
+		auto& SetupData = Rounds->GetRoot().Content;
+		FOnRoundAppliedDelegate OnRoundApplied;
+		OnRoundApplied.BindDynamic(this, &ThisClass::OnRootRoundApplied);
+		URoundLoader::LoadAndApplyRound(this, SetupData, OnRoundApplied);
+	}
+}
+
+void AAlchemyGameState::OnRootRoundApplied()
+{
+	// TODO: Start match
 }

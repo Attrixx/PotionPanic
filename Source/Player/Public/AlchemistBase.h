@@ -24,8 +24,16 @@ protected:
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	void PawnClientRestart() override;
+	void NotifyControllerChanged() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	
+public:
+	
+	UFUNCTION(BlueprintCallable)
+	AActor* GetBestActorImplementing(TSubclassOf<UInterface> Interface) const;
+	
+	template <std::derived_from<UInterface> T>
+	AActor* GetBestActorImplementing() const { return GetBestActorImplementing(T::StaticClass()); }
 
 protected:
 
@@ -66,8 +74,6 @@ protected:
 private:
 
 	void SortInRangeInfos();
-	AActor* GetBestInteractable() const;
-	AActor* GetBestCarriable() const;
 
 	UFUNCTION()
 	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,

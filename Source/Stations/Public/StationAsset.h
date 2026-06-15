@@ -5,21 +5,27 @@
 #include "Engine/DataAsset.h"
 #include "StationAsset.generated.h"
 
+class UStationVisualProvider;
+
+/**
+ * UStationAsset — Data definition for a station.
+ *
+ * Carries everything that makes one station distinct from another.
+ * AStationActor has no subclasses; all customization goes here.
+ */
 UCLASS()
 class STATIONS_API UStationAsset : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
-	
+
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText StationName;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	FName HolderSocket = NAME_None;
+	UPROPERTY(EditAnywhere, Instanced)
+	TObjectPtr<UStationVisualProvider> VisualProvider;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Station", meta=(Categories="Activity"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Activity"))
 	FGameplayTagContainer ImplementedActivities;
 };

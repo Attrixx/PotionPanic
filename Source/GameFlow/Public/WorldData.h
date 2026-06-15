@@ -7,7 +7,7 @@
 #include "WorldData.generated.h"
 
 class URecipeAsset;
-class USectionAsset;
+class URoundTree;
 
 /**
  * 
@@ -19,16 +19,15 @@ class GAMEFLOW_API UWorldData : public UPrimaryDataAsset
 
 public:
 	
-	// TODO: Change this array to the choices on each round
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<URecipeAsset>> Recipes;
+	TObjectPtr<URoundTree> Rounds;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int64 ScoreToSucceed;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<USectionAsset> StartingSection;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<TObjectPtr<USectionAsset>> SectionPool;
+protected:
+	
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
 };

@@ -2,7 +2,6 @@
 
 #include "AlchemyGameMode.h"
 #include "AlchemyGameState.h"
-#include <EngineUtils.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameMode, Log, All);
 
@@ -19,19 +18,6 @@ void AAlchemyGameMode::InitGameState()
 	check(IsValid(GS));
 
 	GS->SetWorldData(GetWorldDataForCurrentWorld());
-}
-
-void AAlchemyGameMode::OnPostLogin(AController* NewPlayer)
-{
-	Super::OnPostLogin(NewPlayer);
-
-	if (auto* PC = Cast<APlayerController>(NewPlayer))
-	{
-		if (auto* TargetActor = GetViewTarget())
-		{
-			PC->ClientSetViewTarget(TargetActor);
-		}
-	}
 }
 
 TSoftObjectPtr<UWorldData> AAlchemyGameMode::GetWorldDataForCurrentWorld()
@@ -51,23 +37,5 @@ TSoftObjectPtr<UWorldData> AAlchemyGameMode::GetWorldDataForCurrentWorld()
 	}
 
 	UE_LOGFMT(MS_AlchemyGameMode, Error, "Game mode is missing world data for this world ({0}).", GetWorld()->GetName());
-	return nullptr;
-}
-
-AActor* AAlchemyGameMode::GetViewTarget()
-{
-	if (CachedViewTarget.IsValid())
-		return CachedViewTarget.Get();
-
-	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
-	{
-		if (It->ActorHasTag(ViewTargetTag))
-		{
-			CachedViewTarget = *It;
-			return CachedViewTarget.Get();
-		}
-	}
-
-	UE_LOGFMT(MS_AlchemyGameMode, Error, "Could not find Actor with tag '{0}'", ViewTargetTag);
 	return nullptr;
 }

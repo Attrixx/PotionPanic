@@ -5,6 +5,7 @@
 #include "ItemTags.h"
 #include "RecipeSystem.h"
 #include "StationAsset.h"
+#include "StationVisualProvider.h"
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
@@ -13,11 +14,10 @@ AStationActor::AStationActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
-	SetRootComponent(StaticMesh);
+	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 
 	ItemHolder = CreateDefaultSubobject<UHolderComponent>(TEXT("Item Holder"));
-	ItemHolder->SetupAttachment(StaticMesh);
+	ItemHolder->SetupAttachment(RootComponent);
 
 	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
 }
@@ -32,10 +32,7 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	if (StationAsset)
-	{
-		ApplyStationAsset();
-	}
+	ApplyStationAsset();
 }
 
 void AStationActor::BeginPlay()
@@ -104,11 +101,18 @@ void AStationActor::OnRep_StationAsset()
 	ApplyStationAsset();
 }
 
+// This method MUST be callable in Editor, don't call gameplay stuff in here!!
 void AStationActor::ApplyStationAsset()
 {
-	check(IsValid(StationAsset));
-
-	StaticMesh->SetStaticMesh(StationAsset->StaticMesh);
-
-	ItemHolder->AttachToComponent(StaticMesh, FAttachmentTransformRules::SnapToTargetIncludingScale, StationAsset->HolderSocket);
+	if (AppliedStationAsset && AppliedStationAsset->VisualProvider)
+	{
+		AppliedStationAsset->VisualProvider->Teardown(this);
+		AppliedStationAsset = nullptr;
+	}
+	
+	if (StationAsset && StationAsset->VisualProvider)
+	{
+		StationAsset->VisualProvider->Apply(this);
+		AppliedStationAsset = StationAsset;
+	}
 }
