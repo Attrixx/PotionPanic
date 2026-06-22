@@ -155,7 +155,10 @@ void AAlchemistBase::Server_Interact_Implementation()
 
 void AAlchemistBase::Server_Pickup_Implementation()
 {
-	HolderComponent->TryPickup(RangeComponent->FindBestActorImplementing(UCarriable::StaticClass()));
+	if (AActor* Carriable = RangeComponent->FindBestActorImplementing(UCarriable::StaticClass()))
+	{
+		HolderComponent->TryPickup(Carriable);
+	}
 }
 
 void AAlchemistBase::Server_Drop_Implementation()
