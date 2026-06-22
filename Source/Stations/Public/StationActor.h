@@ -27,7 +27,7 @@ class UActivityExecutor;
  *  references. Think of it as the station's "address" on the map.
  *
  *  2. ItemHolder
- *  A 3D anchor point (UHolderComponent) that holds items to be consumed, 
+ *  A 3D anchor point (UHolderComponent) that holds items to be consumed,
  *  transformed, or produced by the station. This is the spatial contract between
  *  the station and the item system.
  *
@@ -48,8 +48,8 @@ class UActivityExecutor;
  * Stations must be fully swappable in-place during a game session (layout system).
  * This has a direct architectural consequence:
  *
- *   >> ALL station-specific data lives in UStationAsset. 
- *   >> There are NO subclasses of AStationActor.          
+ *   >> ALL station-specific data lives in UStationAsset.
+ *   >> There are NO subclasses of AStationActor.
  *
  * Customization is achieved entirely by assigning a different UStationAsset,
  * not by deriving a new class. This is intentional. Subclassing would break
@@ -96,14 +96,14 @@ private:
 
 private:
 
-	UPROPERTY(EditInstanceOnly, ReplicatedUsing=OnRep_StationAsset)
+	UPROPERTY(EditInstanceOnly, ReplicatedUsing = OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
 
-	UPROPERTY(Transient, NonTransactional)
-	TObjectPtr<UStationAsset> AppliedStationAsset;
-
-	/** Identifies this station's role in the layout system. */
-	UPROPERTY(EditInstanceOnly, meta=(Categories="StationSlot"))
+	/**
+	 * Identifies this station's role in the layout system.
+	 * Can be left to 'None' if this station does not need to be swapped at runtime.
+	 */
+	UPROPERTY(EditInstanceOnly, meta = (Categories = "StationSlot"))
 	FGameplayTag StationSlot;
 
 	/** 3D anchor and ownership point for items processed by this station. */
@@ -113,4 +113,8 @@ private:
 	/** Drives activity execution (QTEs, interactions, timed sequences) on this station. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UActivityExecutor> Executor;
+
+	/** Spawns and swaps the station's visual representation (AStationVisualActor) from the StationAsset. */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UChildActorComponent> VisualActor;
 };
