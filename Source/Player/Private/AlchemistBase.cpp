@@ -238,7 +238,7 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 
 UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
 {
-	return RangeComponent->FindBestActorImplementing(UInterface::StaticClass());
+	return RangeComponent->FindBestActorImplementing(UInteractable::StaticClass());
 }
 
 void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
