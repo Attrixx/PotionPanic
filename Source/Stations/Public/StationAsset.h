@@ -28,4 +28,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Activity"))
 	FGameplayTagContainer ImplementedActivities;
+	
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
 };

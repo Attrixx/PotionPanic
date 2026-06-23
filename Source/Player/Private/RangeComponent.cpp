@@ -27,27 +27,42 @@ void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 	if (bShowDebugBestActors)
 	{
 		const AActor* Owner = GetOwner();
-		if (!Owner) return;
+		if (!GEngine || !Owner) return;
 
-		for (const FInterfaceRecord& Record : InterfaceRecords)
+		const float DisplayTime = PrimaryComponentTick.TickInterval * 2.f;
+		const auto ShowDebug = [Owner, DisplayTime](const FStringView Type, const UObjectBaseUtility* Best)
 		{
-			const int32 MsgId = int32(HashCombine(Owner->GetActorGuid().A, GetTypeHash(Record.Interface)));
-			AActor* Best = Record.BestActor.Get();
-
+			const int32 MsgId = int32(HashCombine(Owner->GetActorGuid().A, GetTypeHash(Type)));
 			GEngine->AddOnScreenDebugMessage(
 				MsgId,
-				PrimaryComponentTick.TickInterval * 2.f,
+				DisplayTime,
 				FColor::Cyan,
 				FString::Format(
 					TEXT("{0} Best {1}: {2}"),
 					FStringFormatOrderedArguments{
 						Owner->GetName(),
-						Record.Interface->GetName(),
-						Best ? Best->GetName() : TEXT("None")
+						Type,
+						GetNameSafe(Best)
 					}));
+		};
+
+		ShowDebug(TEXT("Actor"), BestActor.Get());
+		for (const FInterfaceRecord& Record : InterfaceRecords)
+		{
+			ShowDebug(Record.Interface->GetName(), Record.BestActor.Get());
 		}
 	}
 #endif
+}
+
+bool URangeComponent::IsActorInRange(AActor* InActor) const
+{
+	for (const FInRangeInfo& InRange : InRangeInfos)
+	{
+		if (InRange.Actor == InActor)
+			return true;
+	}
+	return false;
 }
 
 AActor* URangeComponent::GetBestActorImplementing(TSubclassOf<UInterface> Interface) const
@@ -57,7 +72,7 @@ AActor* URangeComponent::GetBestActorImplementing(TSubclassOf<UInterface> Interf
 		if (Record.Interface == Interface)
 			return Record.BestActor.Get();
 	}
-	
+
 	UE_LOGFMT(MS_RangeComponent, Error, "GetBestActorImplementing: {0} is not tracked. Call TrackInterface first.", GetNameSafe(Interface));
 	return nullptr;
 }

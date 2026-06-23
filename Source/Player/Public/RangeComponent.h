@@ -26,6 +26,9 @@ protected:
 
 public:
 	
+	UFUNCTION(Blueprintable)
+	bool IsActorInRange(AActor* InActor) const;
+	
 	/** Returns the highest-scoring actor currently in range, regardless of interface. */
 	UFUNCTION(BlueprintCallable)
 	AActor* GetBestActor() const { return BestActor.Get(); }
