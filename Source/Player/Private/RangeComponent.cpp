@@ -16,22 +16,6 @@ URangeComponent::URangeComponent()
 	OnComponentEndOverlap.AddDynamic(this, &ThisClass::Capsule_OnEndOverlap);
 }
 
-void URangeComponent::OnRegister()
-{
-	// Force the sensor collision setup HERE (not only in the constructor): a Blueprint owning this
-	// component serializes its own collision profile, which would override constructor values.
-	// OnRegister runs after those Blueprint values are applied, so this is guaranteed to win.
-	// This is a pure detection volume: it must OVERLAP every collidable actor regardless of that
-	// actor's own collision (stations block the player, so the capsule must be the one responding
-	// Overlap, otherwise the pair resolves to a blocking hit and no overlap event ever fires).
-	SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	SetCollisionObjectType(ECC_WorldDynamic);
-	SetCollisionResponseToAllChannels(ECR_Overlap);
-	SetGenerateOverlapEvents(true);
-
-	Super::OnRegister();
-}
-
 void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);

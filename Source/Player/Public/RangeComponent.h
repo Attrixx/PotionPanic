@@ -24,7 +24,6 @@ class PLAYER_API URangeComponent : public UCapsuleComponent
 protected:
 
 	URangeComponent();
-	void OnRegister() override;
 	void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 public:

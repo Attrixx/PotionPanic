@@ -134,6 +134,7 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 	{
 		InteractionTags.AppendTags(ItemActor->GetItemTags());
 	}
+	// TODO: else if: check instigator for items (does it have a ItemHolder component?)
 	else
 	{
 		InteractionTags.AddTag(GameTags::Item_None);
