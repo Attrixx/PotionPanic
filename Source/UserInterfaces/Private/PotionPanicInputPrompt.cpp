@@ -28,6 +28,18 @@ void UPotionPanicInputPrompt::NativeConstruct()
 			this, &UPotionPanicInputPrompt::HandleInputMethodChanged);
 	}
 
+	if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput =
+		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetOwningLocalPlayer()))
+	{
+		EnhancedInput->ControlMappingsRebuiltDelegate.AddDynamic(
+			this, &UPotionPanicInputPrompt::HandleControlMappingsRebuilt);
+	}
+
+	RefreshPrompt();
+}
+
+void UPotionPanicInputPrompt::HandleControlMappingsRebuilt()
+{
 	RefreshPrompt();
 }
 
@@ -38,6 +50,13 @@ void UPotionPanicInputPrompt::NativeDestruct()
 		InputSubsystem->OnInputMethodChangedNative.Remove(InputMethodChangedHandle);
 	}
 	InputMethodChangedHandle.Reset();
+
+	if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput =
+		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetOwningLocalPlayer()))
+	{
+		EnhancedInput->ControlMappingsRebuiltDelegate.RemoveDynamic(
+			this, &UPotionPanicInputPrompt::HandleControlMappingsRebuilt);
+	}
 
 	Super::NativeDestruct();
 }

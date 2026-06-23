@@ -6,7 +6,6 @@
 
 TSharedRef<SWidget> UPotionPanicCommonButton::RebuildWidget()
 {
-
 	if (!IsDesignTime())
 	{
 		static bool bFocusRectangleCleared = false;
@@ -64,7 +63,6 @@ void UPotionPanicCommonButton::NativeOnDeselected(bool bBroadcast)
 
 void UPotionPanicCommonButton::UpdateHighlight()
 {
-
 	const bool bHighlight = IsHovered() || bIsFocusedHighlight || GetSelected();
 	SetRenderScale(bHighlight ? FVector2D(HighlightScale, HighlightScale) : FVector2D(1.0f, 1.0f));
 }

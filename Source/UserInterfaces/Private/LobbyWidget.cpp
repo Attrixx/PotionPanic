@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "LobbyWidget.h"
 #include "LobbyPlayer.h"
 #include "LobbyGameState.h"
@@ -11,8 +8,8 @@
 void ULobbyWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-	
-	for (int i = 0; i < 4; ++i)
+
+	for (int32 i = 0; i < 4; ++i)
 	{
 		if (LobbyPlayerWidgetClass)
 		{
@@ -75,6 +72,7 @@ void ULobbyWidget::UpdatePlayerWidgets()
 		}
 	}
 }
+
 void ULobbyWidget::HandlePlayerAdded(APlayerState* PlayerState)
 {
 	if (ALobbyPlayerState* LobbyPlayerState = Cast<ALobbyPlayerState>(PlayerState))

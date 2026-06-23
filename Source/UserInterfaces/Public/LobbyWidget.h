@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -10,10 +8,6 @@
 class UHorizontalBox;
 class ULobbyPlayer;
 
-
-/**
- * 
- */
 UCLASS()
 class USERINTERFACES_API ULobbyWidget : public UUserWidget
 {
@@ -27,7 +21,7 @@ public:
 
 	UFUNCTION()
 	void UpdatePlayerWidgets();
-	
+
 	UFUNCTION()
 	void HandlePlayerAdded(APlayerState* PlayerState);
 
@@ -41,5 +35,4 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby")
 	TSubclassOf<ULobbyPlayer> LobbyPlayerWidgetClass;
-	
 };

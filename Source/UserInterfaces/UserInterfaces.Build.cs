@@ -19,6 +19,7 @@ public class UserInterfaces : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"ApplicationCore",
+			"DeveloperSettings",
 			"EnhancedInput",
 			"InputCore",
 			"Slate",

@@ -40,6 +40,10 @@ protected:
 private:
 
 	void HandleInputMethodChanged(ECommonInputType NewInputType);
+
+	UFUNCTION()
+	void HandleControlMappingsRebuilt();
+
 	void RefreshPrompt();
 	FKey ResolveKeyboardKey() const;
 
