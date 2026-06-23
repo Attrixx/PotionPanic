@@ -5,7 +5,8 @@
 #include "ItemTags.h"
 #include "RecipeSystem.h"
 #include "StationAsset.h"
-#include "StationVisualProvider.h"
+#include "StationVisualActor.h"
+#include <Components/ChildActorComponent.h>
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
@@ -20,6 +21,9 @@ AStationActor::AStationActor()
 	ItemHolder->SetupAttachment(RootComponent);
 
 	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
+
+	VisualActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("Visual Actor"));
+	VisualActor->SetupAttachment(RootComponent);
 }
 
 void AStationActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -104,15 +108,22 @@ void AStationActor::OnRep_StationAsset()
 // This method MUST be callable in Editor, don't call gameplay stuff in here!!
 void AStationActor::ApplyStationAsset()
 {
-	if (AppliedStationAsset && AppliedStationAsset->VisualProvider)
+	TSubclassOf<AStationVisualActor> VisualClass = StationAsset ? StationAsset->VisualActorClass : nullptr;
+
+	if (VisualActor->GetChildActorClass() != VisualClass)
 	{
-		AppliedStationAsset->VisualProvider->Teardown(this);
-		AppliedStationAsset = nullptr;
+		ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		VisualActor->SetChildActorClass(VisualClass);
 	}
-	
-	if (StationAsset && StationAsset->VisualProvider)
+
+	if (AStationVisualActor* Visual = Cast<AStationVisualActor>(VisualActor->GetChildActor()))
 	{
-		StationAsset->VisualProvider->Apply(this);
-		AppliedStationAsset = StationAsset;
+		FName SocketName = NAME_None;
+		USceneComponent* Anchor = Visual->GetItemAnchor(SocketName);
+
+		if (ItemHolder->GetAttachParent() != Anchor || ItemHolder->GetAttachSocketName() != SocketName)
+		{
+			ItemHolder->AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+		}
 	}
 }

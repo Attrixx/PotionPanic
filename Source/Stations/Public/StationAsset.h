@@ -5,7 +5,7 @@
 #include "Engine/DataAsset.h"
 #include "StationAsset.generated.h"
 
-class UStationVisualProvider;
+class AStationVisualActor;
 
 /**
  * UStationAsset — Data definition for a station.
@@ -23,8 +23,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText StationName;
 
-	UPROPERTY(EditAnywhere, Instanced)
-	TObjectPtr<UStationVisualProvider> VisualProvider;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSubclassOf<AStationVisualActor> VisualActorClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Activity"))
 	FGameplayTagContainer ImplementedActivities;

@@ -11,6 +11,9 @@ struct GAMEFLOW_API FRoundNode
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	FText RoundName;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ShowOnlyInnerProperties))
 	FRoundContent Content;
 
