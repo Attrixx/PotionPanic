@@ -55,7 +55,7 @@ int32 FQTEAuthoritySession::Start(UQTEDefinitionDataAsset* InDefinition, AActor*
 
 	if (const APawn* OwnerPawn = Cast<APawn>(OwnerActor); OwnerPawn && !OwnerPawn->IsLocallyControlled())
 	{
-		PendingDefinition = InDefinition;
+		PendingDefinition.Reset(InDefinition);
 		PendingSourceActor = InSourceActor;
 		StartMirrorReadyTimeout(RequestId);
 		GetOwnerComponent().Client_StartAuthorityQTE(RequestId, InDefinition, InSourceActor);
@@ -65,12 +65,12 @@ int32 FQTEAuthoritySession::Start(UQTEDefinitionDataAsset* InDefinition, AActor*
 	if (!GetOwnerComponent().StartQTEInternal(InDefinition, InSourceActor, OwnerActor))
 	{
 		ActiveRequestId = INDEX_NONE;
-		PendingDefinition = nullptr;
+		PendingDefinition.Reset();
 		PendingSourceActor.Reset();
 		return INDEX_NONE;
 	}
 
-	PendingDefinition = nullptr;
+	PendingDefinition.Reset();
 	PendingSourceActor.Reset();
 	return RequestId;
 }
@@ -84,7 +84,7 @@ void FQTEAuthoritySession::Cancel(int32 RequestId)
 
 	if (const APawn* OwnerPawn = Cast<APawn>(GetOwnerComponent().GetOwner()); GetOwnerComponent().GetOwner() && GetOwnerComponent().GetOwner()->HasAuthority() && OwnerPawn && !OwnerPawn->IsLocallyControlled())
 	{
-		PendingDefinition = nullptr;
+		PendingDefinition.Reset();
 		PendingSourceActor.Reset();
 		ClearMirrorReadyTimeout();
 		GetOwnerComponent().Client_CancelAuthorityQTE(RequestId);
@@ -135,7 +135,7 @@ void FQTEAuthoritySession::Resolve(const FQTEAuthorityResult& AuthorityResult)
 			GetOwnerComponent().Client_CompleteAuthorityQTE(ResolvedRequestId, AuthorityResult);
 		}
 
-		PendingDefinition = nullptr;
+		PendingDefinition.Reset();
 		PendingSourceActor.Reset();
 		ActiveRequestId = INDEX_NONE;
 		GetOwnerComponent().OnQTEAuthorityFinished.Broadcast(ResolvedRequestId, AuthorityResult);
@@ -218,9 +218,9 @@ void FQTEAuthoritySession::HandleServerConfirmReady(int32 RequestId)
 
 	ClearMirrorReadyTimeout();
 
-	UQTEDefinitionDataAsset* DefinitionToStart = PendingDefinition;
+	UQTEDefinitionDataAsset* DefinitionToStart = PendingDefinition.Get();
 	AActor* SourceActorToStart = PendingSourceActor.Get();
-	PendingDefinition = nullptr;
+	PendingDefinition.Reset();
 	PendingSourceActor.Reset();
 
 	if (!GetOwnerComponent().StartQTEInternal(DefinitionToStart, SourceActorToStart, Cast<AActor>(GetOwnerComponent().GetOwner())))
@@ -333,7 +333,7 @@ void FQTEAuthoritySession::FailRequest(int32 RequestId, const FText& FailureMess
 	}
 
 	ClearMirrorReadyTimeout();
-	PendingDefinition = nullptr;
+	PendingDefinition.Reset();
 	PendingSourceActor.Reset();
 
 	FQTEAuthorityResult FailedResult;

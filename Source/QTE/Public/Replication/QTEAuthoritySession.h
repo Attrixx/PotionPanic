@@ -2,6 +2,8 @@
 
 #include "CoreMinimal.h"
 #include "Core/QTETypes.h"
+#include "Core/QTEDefinitionDataAsset.h"
+#include "UObject/StrongObjectPtr.h"
 
 class UQTEComponent;
 class UQTEDefinitionDataAsset;
@@ -40,7 +42,11 @@ private:
 
 private:
 	UQTEComponent* OwnerComponent = nullptr;
-	UQTEDefinitionDataAsset* PendingDefinition = nullptr;
+	// Strong ref: the session is a plain C++ object (not a UObject/USTRUCT), so the GC
+	// cannot see this pointer. Without it, a GC pass during the start round-trip
+	// (Client_StartAuthorityQTE -> Server_ConfirmAuthorityQTEReady) could collect the
+	// definition and leave a dangling pointer.
+	TStrongObjectPtr<UQTEDefinitionDataAsset> PendingDefinition;
 	TWeakObjectPtr<AActor> PendingSourceActor;
 	FTimerHandle MirrorReadyTimeoutHandle;
 	int32 NextRequestId = 1;

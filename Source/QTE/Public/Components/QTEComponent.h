@@ -144,10 +144,13 @@ private:
 	UFUNCTION(Server, Reliable)
 	void Server_NotifyAuthorityQTEStartFailed(int32 RequestId, const FText& FailureMessage);
 	
-	UFUNCTION(Server, Unreliable)
+	// Reliable: these are discrete, low-frequency input events. A dropped packet
+	// would desync the authority mirror (missed mash tick / never-registered press),
+	// causing unfair failures, so reliability is worth the negligible cost.
+	UFUNCTION(Server, Reliable)
 	void Server_SubmitAuthorityPressedInput(int32 RequestId, int32 StepIndex);
-	
-	UFUNCTION(Server, Unreliable)
+
+	UFUNCTION(Server, Reliable)
 	void Server_SubmitAuthorityReleasedInput(int32 RequestId, int32 StepIndex);
 
 private:

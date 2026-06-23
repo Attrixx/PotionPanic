@@ -141,7 +141,7 @@ const FQTEStepDefinition* FQTERuntime::ResolveInputStep(const UInputAction* Inpu
 
 	if (CurrentStep->InputAction != InputAction)
 	{
-		if (bTreatUnexpectedPressedAsMistake)
+		if (bTreatUnexpectedPressedAsMistake && Definition.Configuration.bCountUnexpectedPressedInputAsMistake)
 		{
 			HandleMistake(CurrentStep->Feedback.FailureText);
 		}
