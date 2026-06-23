@@ -43,7 +43,7 @@ void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 			if (!Overrides.Contains(Station->GetStationSlot()))
 			{
 				Modify();
-				Overrides.Add(Station->GetStationSlot(), nullptr);
+				Overrides.Add(Station->GetStationSlot(), Station->GetStationAsset());
 			}
 		}
 	}
@@ -67,7 +67,7 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 
 		if (TObjectPtr<UStationAsset>* NewAssetPtr = Overrides.Find(Station->GetStationSlot()))
 		{
-			if (*NewAssetPtr != nullptr && *NewAssetPtr != Station->GetStationAsset())
+			if (*NewAssetPtr != Station->GetStationAsset())
 			{
 				Station->Modify();
 				Station->SetStationAsset(*NewAssetPtr);

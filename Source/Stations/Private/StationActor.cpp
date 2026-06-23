@@ -110,7 +110,7 @@ void AStationActor::ApplyStationAsset()
 {
 	TSubclassOf<AStationVisualActor> VisualClass = StationAsset ? StationAsset->VisualActorClass : nullptr;
 
-	if (VisualActor->GetChildActorClass() != VisualClass || !IsValid(VisualActor->GetChildActor()))
+	if (VisualActor->GetChildActorClass() != VisualClass)
 	{
 		VisualActor->SetChildActorClass(VisualClass);
 	}
