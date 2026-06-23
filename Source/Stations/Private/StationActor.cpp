@@ -57,9 +57,6 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 {
 	if (HasAuthority())
 	{
-#if WITH_EDITOR
-		Modify();
-#endif
 		StationAsset = NewStationAsset;
 		OnRep_StationAsset();
 	}

@@ -39,7 +39,7 @@ EDataValidationResult UStationsLayoutLayer::IsDataValid(FDataValidationContext& 
 			++NullOverridesNum;
 			Context.AddWarning(FText::FromString(FString::Format(
 				TEXT("Slot '{0}' has an invalid asset override. It will be ignored when applied."),
-				{Slot.GetTagName().ToString()})));
+				{Slot.ToString()})));
 		}
 	}
 
@@ -60,8 +60,7 @@ void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 	if (!EditorWorld) return;
 
-	GEditor->BeginTransaction(FText::FromString("Harvest Station Slots"));
-
+	Modify();
 	for (TActorIterator<AStationActor> It(EditorWorld); It; ++It)
 	{
 		AStationActor* Station = *It;
@@ -69,20 +68,15 @@ void UStationsLayoutLayer::HarvestTagsFromCurrentLevel()
 		{
 			if (!Overrides.Contains(Station->GetStationSlot()))
 			{
-				Modify();
 				Overrides.Add(Station->GetStationSlot(), Station->GetStationAsset());
 			}
 		}
 	}
-
-	GEditor->EndTransaction();
 }
 
 void UStationsLayoutLayer::RemoveNullOverrides()
 {
 	if (!GEditor) return;
-
-	GEditor->BeginTransaction(FText::FromString("Remove Null Overrides"));
 
 	Modify();
 	for (auto It = Overrides.CreateIterator(); It; ++It)
@@ -92,8 +86,6 @@ void UStationsLayoutLayer::RemoveNullOverrides()
 			It.RemoveCurrent();
 		}
 	}
-
-	GEditor->EndTransaction();
 }
 
 void UStationsLayoutLayer::PreviewLayerInLevel()
@@ -102,8 +94,6 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 
 	UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
 	if (!EditorWorld) return;
-
-	GEditor->BeginTransaction(FText::FromString("Preview Station Layer"));
 
 	for (TActorIterator<AStationActor> It(EditorWorld); It; ++It)
 	{
@@ -119,8 +109,6 @@ void UStationsLayoutLayer::PreviewLayerInLevel()
 			}
 		}
 	}
-
-	GEditor->EndTransaction();
 }
 
 #endif // WITH_EDITOR
