@@ -61,6 +61,8 @@ class STATIONS_API AStationActor : public AActor, public IInteractable
 {
 	GENERATED_BODY()
 
+protected:
+
 	AStationActor();
 	void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;

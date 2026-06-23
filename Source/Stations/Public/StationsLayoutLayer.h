@@ -49,9 +49,15 @@ protected:
 
 #if WITH_EDITOR
 
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+
 	// Harvest the StationSlot from each Station in the opened level and adds it in the overrides (if not already added).
 	UFUNCTION(CallInEditor, Category = "Editor Tools", DisplayName = "Harvest Slots")
 	void HarvestTagsFromCurrentLevel();
+
+	// Remove any override that doesn't map to a valid asset.
+	UFUNCTION(CallInEditor, Category = "Editor Tools", DisplayName = "Clean Overrides")
+	void RemoveNullOverrides();
 
 	// Apply the overrides in the opened level. You can apply multiple layers on top of each other using this button.
 	// WARNING: Do not save the level during preview, or it will overwrite the default layout. Press Ctrl+Z to undo the preview.

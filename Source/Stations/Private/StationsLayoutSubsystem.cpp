@@ -19,8 +19,10 @@ void UStationsLayoutSubsystem::ApplyLayer(UStationsLayoutLayer* Layer)
 		if (AStationActor* Station = It->Get())
 		{
 			auto& Slot = Station->GetStationSlot();
-			UStationAsset* AssetOverride = Layer->GetOverride(Slot);
-			Station->SetStationAsset(AssetOverride);
+			if (UStationAsset* AssetOverride = Layer->GetOverride(Slot))
+			{
+				Station->SetStationAsset(AssetOverride);
+			}
 		}
 		else
 		{

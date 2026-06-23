@@ -57,6 +57,9 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 {
 	if (HasAuthority())
 	{
+#if WITH_EDITOR
+		Modify();
+#endif
 		StationAsset = NewStationAsset;
 		OnRep_StationAsset();
 	}
@@ -112,19 +115,18 @@ void AStationActor::ApplyStationAsset()
 
 	if (VisualActor->GetChildActorClass() != VisualClass)
 	{
+		ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		VisualActor->SetChildActorClass(VisualClass);
 	}
 
 	if (AStationVisualActor* Visual = Cast<AStationVisualActor>(VisualActor->GetChildActor()))
 	{
 		FName SocketName = NAME_None;
-		if (USceneComponent* Anchor = Visual->GetItemAnchor(SocketName))
+		USceneComponent* Anchor = Visual->GetItemAnchor(SocketName);
+
+		if (ItemHolder->GetAttachParent() != Anchor || ItemHolder->GetAttachSocketName() != SocketName)
 		{
 			ItemHolder->AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
-			return;
 		}
 	}
-
-	// No VisualActor or no Anchor
-	ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 }
