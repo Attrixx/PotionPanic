@@ -16,15 +16,16 @@ class UInputBindable : public UInterface
 };
 
 /**
- * 
+ * Implement this interface on components for a callback when an input component
+ * is set up by an Owner (PlayerController or Pawn).
  */
 class COREGAMEPLAY_API IInputBindable
 {
 	GENERATED_BODY()
-
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+	
 public:
 	
+	/** Called locally by the Owner of this component. */
 	UFUNCTION(BlueprintNativeEvent)
 	void SetupInputComponent(UEnhancedInputComponent* EIC);
 };

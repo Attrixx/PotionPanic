@@ -49,11 +49,11 @@ protected:
 	 * Notify the step executor that this step is finished.
 	 * @param Output Result to report.
 	 */
-	UFUNCTION(BlueprintPure=false)
+	UFUNCTION(BlueprintPure = false)
 	void FinishStep(const FActivityStepResult& Output) const;
-	
+
 private:
-	
+
 	friend class UActivityExecutor;
 	FActivityStepResultDelegate StepFinishedCallback;
 

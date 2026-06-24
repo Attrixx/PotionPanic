@@ -62,7 +62,7 @@ void AAlchemistBase::NotifyControllerChanged()
 			Subsystem->RemoveMappingContext(MovementMappingContext);
 		}
 	}
-	
+
 	Super::NotifyControllerChanged(); // Updates PreviousController
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -122,6 +122,7 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
+	// TODO: Disable Mapping context instead of guarding
 	if (ShouldBlockGameplayInput())
 	{
 		return;
