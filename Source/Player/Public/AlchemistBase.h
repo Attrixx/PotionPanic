@@ -19,7 +19,7 @@ class UInteractableActorFilter;
 class UInterfaceActorFilter;
 class UQTEComponent;
 class UQTEWidgetBase;
-class UWidgetComponent;
+class UQTEDisplayComponent;
 struct FInputActionValue;
 
 
@@ -88,7 +88,7 @@ protected:
 	TObjectPtr<UQTEComponent> QTEComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UWidgetComponent> QTEWidgetComponent;
+	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
@@ -111,20 +111,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE|UI")
-	TSubclassOf<UQTEWidgetBase> QTEWidgetClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE|UI")
-	FVector QTEWidgetRelativeLocation = FVector(0.f, 0.f, 180.f);
-
 public:
 
 	UFUNCTION(BlueprintPure, Category = "QTE")
 	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
 
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	UQTEDisplayComponent* GetQTEDisplayComponent() const { return QTEDisplayComponent; }
+
 	// IQTESourceProvider
 	UObject* GetQTESourceObject_Implementation() const override;
-	
+
 	// IQTEActivityDisplay
 	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
 	void HideQTEActivityStep_Implementation() override;
@@ -133,9 +130,7 @@ private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
 	bool ShouldBlockGameplayInput() const;
-	void InitializeQTEWidgetComponent();
-	UQTEWidgetBase* GetQTEWidget() const;
-	
+
 private: // Input
 	
 	void Input_Move(const FInputActionValue& Value);
@@ -156,10 +151,4 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
-
-	UFUNCTION(Client, Reliable)
-	void ClientShowQTEActivityStep(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass);
-
-	UFUNCTION(Client, Reliable)
-	void ClientHideQTEActivityStep();
 };

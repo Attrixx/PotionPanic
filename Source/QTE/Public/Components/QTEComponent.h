@@ -9,6 +9,7 @@
 #include "QTEComponent.generated.h"
 
 class UEnhancedInputComponent;
+class UEnhancedInputLocalPlayerSubsystem;
 class UInputAction;
 class UQTEDefinitionDataAsset;
 struct FInputActionInstance;
@@ -124,6 +125,7 @@ private:
 	void AddInputMappingContext();
 	void RemoveInputMappingContext();
 	bool HasEnhancedInputComponent() const;
+	UEnhancedInputLocalPlayerSubsystem* GetEnhancedInputSubsystem() const;
 
 private:
 

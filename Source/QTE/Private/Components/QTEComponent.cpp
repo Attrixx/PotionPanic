@@ -342,27 +342,14 @@ void UQTEComponent::AddInputMappingContext()
 		return;
 	}
 
-	const APawn* Pawn = Cast<APawn>(GetOwner());
-	if (!Pawn) return;
-
-	APlayerController* PC = Cast<APlayerController>(Pawn->GetController());
-	if (!PC)
-	{
-		UE_LOG(MS_QTEComponent, Warning, TEXT("Cannot add QTE mapping context on '%s': no PlayerController."), *GetNameSafe(GetOwner()));
-		return;
-	}
-
-	ULocalPlayer* LP = PC->GetLocalPlayer();
-	if (!LP)
-	{
-		UE_LOG(MS_QTEComponent, Warning, TEXT("Cannot add QTE mapping context on '%s': no LocalPlayer."), *GetNameSafe(GetOwner()));
-		return;
-	}
-
-	if (UEnhancedInputLocalPlayerSubsystem* Sub = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+	if (UEnhancedInputLocalPlayerSubsystem* Sub = GetEnhancedInputSubsystem())
 	{
 		Sub->AddMappingContext(MappingContext, 100);
 		bAddedMappingContext = true;
+	}
+	else
+	{
+		UE_LOG(MS_QTEComponent, Warning, TEXT("Cannot add QTE mapping context on '%s': no input subsystem available."), *GetNameSafe(GetOwner()));
 	}
 }
 
@@ -374,28 +361,7 @@ void UQTEComponent::RemoveInputMappingContext()
 		return;
 	}
 
-	const APawn* Pawn = Cast<APawn>(GetOwner());
-	if (!Pawn)
-	{
-		bAddedMappingContext = false;
-		return;
-	}
-
-	APlayerController* PC = Cast<APlayerController>(Pawn->GetController());
-	if (!PC)
-	{
-		bAddedMappingContext = false;
-		return;
-	}
-
-	ULocalPlayer* LP = PC->GetLocalPlayer();
-	if (!LP)
-	{
-		bAddedMappingContext = false;
-		return;
-	}
-
-	if (UEnhancedInputLocalPlayerSubsystem* Sub = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+	if (UEnhancedInputLocalPlayerSubsystem* Sub = GetEnhancedInputSubsystem())
 	{
 		Sub->RemoveMappingContext(MappingContext);
 	}
@@ -405,6 +371,20 @@ void UQTEComponent::RemoveInputMappingContext()
 bool UQTEComponent::HasEnhancedInputComponent() const
 {
 	return EnhancedInputComponent.IsValid();
+}
+
+UEnhancedInputLocalPlayerSubsystem* UQTEComponent::GetEnhancedInputSubsystem() const
+{
+	const APawn* Pawn = Cast<APawn>(GetOwner());
+	if (!Pawn) return nullptr;
+
+	const APlayerController* PC = Cast<APlayerController>(Pawn->GetController());
+	if (!PC) return nullptr;
+
+	const ULocalPlayer* LP = PC->GetLocalPlayer();
+	if (!LP) return nullptr;
+
+	return LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>();
 }
 
 // ============================================================

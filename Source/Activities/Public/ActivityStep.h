@@ -20,19 +20,20 @@ class ACTIVITIES_API UActivityStep : public UObject
 	GENERATED_BODY()
 
 public:
+
 	/**
 	 * Starts the step
 	 * @param LastInstigator The actor which last interacted with the activity this step is part of.
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void StartStep(AActor *LastInstigator);
+	void StartStep(AActor* LastInstigator);
 
 	/**
 	 *
 	 * @param Instigator Actor triggering the interaction.
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void OnInteract(AActor *Instigator);
+	void OnInteract(AActor* Instigator);
 
 	/**
 	 * Cancels the step.
@@ -43,6 +44,7 @@ public:
 	void CancelStep();
 
 protected:
+
 	/**
 	 * Notify the step executor that this step is finished.
 	 * @param Output Result to report.
@@ -56,7 +58,7 @@ private:
 	FActivityStepResultDelegate StepFinishedCallback;
 
 protected: // Default implementations
-	virtual void StartStep_Implementation(AActor *LastInstigator);
-	virtual void OnInteract_Implementation(AActor *Instigator);
+	virtual void StartStep_Implementation(AActor* LastInstigator);
+	virtual void OnInteract_Implementation(AActor* Instigator);
 	virtual void CancelStep_Implementation();
 };
