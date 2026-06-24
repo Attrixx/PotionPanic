@@ -122,12 +122,6 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
-	{
-		return;
-	}
-
 	if (RangeComponent->FindBestActorImplementing(UInteractable::StaticClass()))
 		Server_Interact();
 }

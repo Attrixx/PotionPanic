@@ -10,7 +10,7 @@ public class Player : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
 
 			"CoreGameplay",
 		});
