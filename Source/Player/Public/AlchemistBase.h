@@ -10,6 +10,8 @@ class UHolderComponent;
 class URangeComponent;
 class UInputMappingContext;
 class UInputAction;
+class UInteractableActorFilter;
+class UInterfaceActorFilter;
 struct FInputActionValue;
 
 UCLASS(Abstract)
@@ -37,6 +39,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<URangeComponent> RangeComponent;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UInteractableActorFilter> InteractableFilter;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UInterfaceActorFilter> CarriableFilter;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
@@ -69,14 +77,14 @@ private: // Input
 	void Input_Throw();
 
 	UFUNCTION(Server, Reliable)
-	void Server_Interact();
+	void Server_Interact(AActor* Interactable);
 
 	UFUNCTION(Server, Reliable)
-	void Server_Pickup();
+	void Server_Pickup(AActor* Carriable);
 
 	UFUNCTION(Server, Reliable)
 	void Server_Drop();
 
 	UFUNCTION(Server, Reliable)
-	void Server_Throw();
+	void Server_Throw(FVector Direction);
 };

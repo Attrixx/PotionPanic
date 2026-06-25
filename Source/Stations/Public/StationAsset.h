@@ -29,6 +29,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Activity"))
 	FGameplayTagContainer ImplementedActivities;
 	
+	/** If false the station will never take from the instigator, even if the activity allows it. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanEverTakeItemFromInstigator = true;
+	
 #if WITH_EDITOR
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif

@@ -10,6 +10,7 @@ class AItemActor;
 class UStationAsset;
 class UHolderComponent;
 class UActivityExecutor;
+class UActivityAsset;
 
 /**
  * AStationActor — Base class for all interactable station actors.
@@ -69,6 +70,7 @@ protected:
 	void BeginPlay() override;
 
 	void Interact_Implementation(AActor* InInstigator) override;
+	bool CanInteract_Implementation(AActor* InInstigator) const override;
 
 public:
 
@@ -86,7 +88,14 @@ public:
 
 private:
 
-	void FetchInstructions(AActor* InInstigator);
+	void TryStartMatchingActivity(AActor* InInstigator);
+
+	/**
+	 * Finds the activity matching this station's current state.
+	 * @param OutSourceHolder The holder the matched item is currently on, if it's not already
+	 *        this station's ItemHolder (i.e. it came from InInstigator). Null otherwise.
+	 */
+	UActivityAsset* FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const;
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);

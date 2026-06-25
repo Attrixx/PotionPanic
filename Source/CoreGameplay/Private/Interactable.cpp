@@ -3,4 +3,7 @@
 
 #include "Interactable.h"
 
-// Add default functionality here for any IInteractable functions that are not pure virtual.
+bool IInteractable::CanInteract_Implementation(AActor* InInstigator) const
+{
+	return true;
+}

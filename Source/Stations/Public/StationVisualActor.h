@@ -28,6 +28,7 @@ public:
 	USceneComponent* GetItemAnchor(FName& OutSocketName) const;
 	
 protected:
-	
+
 	void Interact_Implementation(AActor* InInstigator) override;
+	bool CanInteract_Implementation(AActor* InInstigator) const override;
 };

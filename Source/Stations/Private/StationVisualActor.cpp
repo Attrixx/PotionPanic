@@ -18,3 +18,14 @@ void AStationVisualActor::Interact_Implementation(AActor* InInstigator)
 		Execute_Interact(Parent, InInstigator);
 	}
 }
+
+bool AStationVisualActor::CanInteract_Implementation(AActor* InInstigator) const
+{
+	// Relay to the parent, same as Interact_Implementation.
+	AActor* Parent = GetAttachParentActor();
+	if (Parent && Parent->Implements<UInteractable>())
+	{
+		return Execute_CanInteract(Parent, InInstigator);
+	}
+	return false;
+}

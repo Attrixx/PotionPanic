@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "RangeComponent.h"
+#include "ActorFilters/ActorFilter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_RangeComponent, Log, All);
 
@@ -21,7 +22,7 @@ void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 
 	SortInRangeInfos();
 	NotifyIfBestActorChanged();
-	NotifyIfBestActorForInterfacesChanged();
+	NotifyIfBestMatchingActorsChanged();
 
 #if WITH_EDITOR
 	if (bShowDebugBestActors)
@@ -47,9 +48,9 @@ void URangeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 		};
 
 		ShowDebug(TEXT("Actor"), BestActor.Get());
-		for (const FInterfaceRecord& Record : InterfaceRecords)
+		for (const FFilterRecord& Record : FilterRecords)
 		{
-			ShowDebug(Record.Interface->GetName(), Record.BestActor.Get());
+			ShowDebug(GetNameSafe(Record.Filter.Get()), Record.BestActor.Get());
 		}
 	}
 #endif
@@ -65,29 +66,29 @@ bool URangeComponent::IsActorInRange(AActor* InActor) const
 	return false;
 }
 
-AActor* URangeComponent::GetBestActorImplementing(TSubclassOf<UInterface> Interface) const
+AActor* URangeComponent::GetBestMatchingActor(UActorFilter* Filter) const
 {
-	for (const FInterfaceRecord& Record : InterfaceRecords)
+	for (const FFilterRecord& Record : FilterRecords)
 	{
-		if (Record.Interface == Interface)
+		if (Record.Filter == Filter)
 			return Record.BestActor.Get();
 	}
 
-	UE_LOGFMT(MS_RangeComponent, Error, "GetBestActorImplementing: {0} is not tracked. Call TrackInterface first.", GetNameSafe(Interface));
+	UE_LOGFMT(MS_RangeComponent, Error, "GetBestActorForFilter: {0} is not tracked. Call TrackFilter first.", GetNameSafe(Filter));
 	return nullptr;
 }
 
-AActor* URangeComponent::FindBestActorImplementing(TSubclassOf<UInterface> Interface) const
+AActor* URangeComponent::FindBestMatchingActor(UActorFilter* Filter) const
 {
 	// There should never be more than a few actors in range if the capsule is 
 	// set up correctly, iterating is the best option.
 
+	if (!Filter) return nullptr;
 	for (const FInRangeInfo& Info : InRangeInfos)
 	{
 		if (AActor* InfoActor = Info.Actor.Get())
 		{
-			UClass* InfoActorClass = InfoActor->GetClass();
-			if (InfoActorClass && InfoActorClass->ImplementsInterface(Interface))
+			if (Filter->Matches(InfoActor))
 			{
 				return InfoActor;
 			}
@@ -96,33 +97,32 @@ AActor* URangeComponent::FindBestActorImplementing(TSubclassOf<UInterface> Inter
 	return nullptr;
 }
 
-void URangeComponent::TrackInterface(TSubclassOf<UInterface> Interface)
+void URangeComponent::TrackFilter(UActorFilter* Filter)
 {
-	FInterfaceRecord* FoundRecord = InterfaceRecords.FindByPredicate([Interface](const FInterfaceRecord& Record)
+	if (!Filter) return;
+	for (FFilterRecord& Record : FilterRecords)
 	{
-		return Record.Interface == Interface;
-	});
-
-	if (!FoundRecord)
-		FoundRecord = &InterfaceRecords.Emplace_GetRef(Interface, FindBestActorImplementing(Interface));
-
-	++FoundRecord->NbOccurrences;
+		if (Record.Filter == Filter)
+		{
+			++Record.NbOccurrences;
+			return;
+		}
+	}
+	FilterRecords.Emplace(Filter, FindBestMatchingActor(Filter));
 }
 
-void URangeComponent::UntrackInterface(TSubclassOf<UInterface> Interface)
+void URangeComponent::UntrackFilter(UActorFilter* Filter)
 {
-	int32 RecordIndex = InterfaceRecords.IndexOfByPredicate([Interface](const FInterfaceRecord& Record)
+	for (auto It = FilterRecords.CreateIterator(); It; ++It)
 	{
-		return Record.Interface == Interface;
-	});
-
-	if (RecordIndex == INDEX_NONE)
-		return;
-
-	auto& FoundRecord = InterfaceRecords[RecordIndex];
-	if (--FoundRecord.NbOccurrences == 0)
-	{
-		InterfaceRecords.RemoveAt(RecordIndex);
+		if (It->Filter == Filter)
+		{
+			if (--It->NbOccurrences == 0)
+			{
+				It.RemoveCurrentSwap();
+			}
+			break;
+		}
 	}
 }
 
@@ -131,7 +131,7 @@ void URangeComponent::SortInRangeInfos()
 	if (InRangeInfos.IsEmpty())
 		return;
 
-	const float MyCapsuleRadius = GetScaledCapsuleRadius();
+	const float MyCapsuleRadius = FMath::Max(GetScaledCapsuleRadius(), UE_KINDA_SMALL_NUMBER); // Avoid div by 0
 	const FVector MyLocation = GetComponentLocation();
 	const FVector MyForward = GetComponentQuat().GetForwardVector();
 
@@ -170,17 +170,25 @@ void URangeComponent::NotifyIfBestActorChanged()
 	}
 }
 
-void URangeComponent::NotifyIfBestActorForInterfacesChanged()
+void URangeComponent::NotifyIfBestMatchingActorsChanged()
 {
-	for (FInterfaceRecord& Record : InterfaceRecords)
+	for (auto It = FilterRecords.CreateIterator(); It; ++It)
 	{
-		AActor* OldBest = Record.BestActor.Get();
-		AActor* NewBest = FindBestActorImplementing(Record.Interface);
+		UActorFilter* Filter = It->Filter.Get();
+		if (!Filter)
+		{
+			// The caller dropped its reference to a tracked filter without calling UntrackFilter first.
+			It.RemoveCurrentSwap();
+			continue;
+		}
+
+		AActor* OldBest = It->BestActor.Get();
+		AActor* NewBest = FindBestMatchingActor(Filter);
 
 		if (NewBest != OldBest)
 		{
-			Record.BestActor = NewBest;
-			OnBestActorImplementingChanged.Broadcast(Record.Interface, NewBest, OldBest);
+			It->BestActor = NewBest;
+			OnBestMatchingActorChanged.Broadcast(Filter, NewBest, OldBest);
 		}
 	}
 }
@@ -188,40 +196,38 @@ void URangeComponent::NotifyIfBestActorForInterfacesChanged()
 void URangeComponent::Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
                                              bool bFromSweep, const FHitResult& SweepResult)
 {
-	FInRangeInfo* InRangeInfo = InRangeInfos.FindByPredicate([OtherActor](const FInRangeInfo& Info)
+	for (FInRangeInfo& InRangeInfo : InRangeInfos)
 	{
-		return Info.Actor == OtherActor;
-	});
-
-	if (!InRangeInfo)
-		InRangeInfo = &InRangeInfos.Emplace_GetRef(OtherActor);
-
-	++InRangeInfo->NbOccurrences;
+		if (InRangeInfo.Actor == OtherActor)
+		{
+			++InRangeInfo.NbOccurrences;
+			return;
+		}
+	}
+	InRangeInfos.Emplace(OtherActor);
 }
 
 void URangeComponent::Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	int32 InfoIndex = InRangeInfos.IndexOfByPredicate([OtherActor](const FInRangeInfo& Info)
+	for (auto It = InRangeInfos.CreateIterator(); It; ++It)
 	{
-		return Info.Actor == OtherActor;
-	});
-
-	if (InfoIndex == INDEX_NONE)
-		return;
-
-	auto& InRangeInfo = InRangeInfos[InfoIndex];
-	if (--InRangeInfo.NbOccurrences == 0)
-	{
-		InRangeInfos.RemoveAt(InfoIndex);
+		if (It->Actor == OtherActor)
+		{
+			if (--It->NbOccurrences == 0)
+			{
+				It.RemoveCurrentSwap();
+			}
+			break;
+		}
 	}
 }
 
 URangeComponent::FInRangeInfo::FInRangeInfo(AActor* Actor)
-	: Actor(Actor), NbOccurrences(0), Score(TNumericLimits<float>::Lowest())
+	: Actor(Actor), NbOccurrences(1), Score(TNumericLimits<float>::Lowest())
 {
 }
 
-URangeComponent::FInterfaceRecord::FInterfaceRecord(TSubclassOf<UInterface> Interface, AActor* BestActor)
-	: Interface(Interface), NbOccurrences(0), BestActor(BestActor)
+URangeComponent::FFilterRecord::FFilterRecord(UActorFilter* Filter, AActor* BestActor)
+	: Filter(Filter), NbOccurrences(1), BestActor(BestActor)
 {
 }

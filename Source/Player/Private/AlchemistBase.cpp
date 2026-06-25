@@ -7,6 +7,8 @@
 #include "Interactable.h"
 #include "InputBindable.h"
 #include "Carriable.h"
+#include "ActorFilters/InteractableActorFilter.h"
+#include "ActorFilters/InterfaceActorFilter.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 
@@ -23,12 +25,18 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-
+	
 	HolderComponent = CreateDefaultSubobject<UHolderComponent>(TEXT("Holder Component"));
 	HolderComponent->SetupAttachment(GetMesh());
 
 	RangeComponent = CreateDefaultSubobject<URangeComponent>(TEXT("Range Component"));
 	RangeComponent->SetupAttachment(RootComponent);
+
+	InteractableFilter = CreateDefaultSubobject<UInteractableActorFilter>(TEXT("Interactable Filter"));
+	InteractableFilter->Instigator = this;
+
+	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
+	CarriableFilter->Interface = UCarriable::StaticClass();
 }
 
 void AAlchemistBase::OnConstruction(const FTransform& Transform)
@@ -122,35 +130,35 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	if (RangeComponent->FindBestActorImplementing(UInteractable::StaticClass()))
-		Server_Interact();
+	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
+		Server_Interact(Interactable);
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
 {
 	if (HolderComponent->GetCarriable())
 		Server_Drop();
-	else if (RangeComponent->FindBestActorImplementing(UCarriable::StaticClass()))
-		Server_Pickup();
+	else if (AActor* Carriable = RangeComponent->FindBestMatchingActor(CarriableFilter))
+		Server_Pickup(Carriable);
 }
 
 void AAlchemistBase::Input_Throw()
 {
 	if (HolderComponent->GetCarriable())
-		Server_Throw();
+		Server_Throw(GetActorForwardVector());
 }
 
-void AAlchemistBase::Server_Interact_Implementation()
+void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 {
-	if (AActor* Interactable = RangeComponent->FindBestActorImplementing(UInteractable::StaticClass()))
+	if (Interactable && Interactable->Implements<UInteractable>() && RangeComponent->IsActorInRange(Interactable))
 	{
 		IInteractable::Execute_Interact(Interactable, this);
 	}
 }
 
-void AAlchemistBase::Server_Pickup_Implementation()
+void AAlchemistBase::Server_Pickup_Implementation(AActor* Carriable)
 {
-	if (AActor* Carriable = RangeComponent->FindBestActorImplementing(UCarriable::StaticClass()))
+	if (Carriable && Carriable->Implements<UCarriable>() && RangeComponent->IsActorInRange(Carriable))
 	{
 		HolderComponent->TryPickup(Carriable);
 	}
@@ -161,7 +169,7 @@ void AAlchemistBase::Server_Drop_Implementation()
 	HolderComponent->Release();
 }
 
-void AAlchemistBase::Server_Throw_Implementation()
+void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 {
-	HolderComponent->Release(GetActorForwardVector() * ThrowForce);
+	HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
 }
