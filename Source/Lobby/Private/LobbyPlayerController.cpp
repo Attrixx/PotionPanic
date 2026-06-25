@@ -147,41 +147,59 @@ void ALobbyPlayerController::TransitionToArea(ECameraPosition TargetCameraPositi
 	ALobbyGameState* LobbyGameState = GetWorld()->GetGameState<ALobbyGameState>();
 	if (!LobbyGameState) return;
 
-	ULevelSequencePlayer* PlayedSequence = nullptr;
+	const ECameraPosition PreviousCameraPosition = CurrentLocalCameraPosition;
+	CurrentLocalCameraPosition = TargetCameraPosition;
+
+	ALevelSequenceActor* TargetSequenceActor = nullptr;
+	bool bPlayForward = true;
 
 	for (const FLevelSequenceInfo& SeqInfo : LobbyGameState->GetRegisteredLevelSequences())
 	{
-		if (SeqInfo.FromArea == CurrentLocalCameraPosition && SeqInfo.ToArea == TargetCameraPosition)
+		if (SeqInfo.FromArea == PreviousCameraPosition && SeqInfo.ToArea == TargetCameraPosition)
 		{
-			PlayedSequence = PlaySequenceActor(SeqInfo.SequenceActor, true);
+			TargetSequenceActor = SeqInfo.SequenceActor;
+			bPlayForward = true;
 			break;
 		}
-		else if (SeqInfo.FromArea == TargetCameraPosition && SeqInfo.ToArea == CurrentLocalCameraPosition)
+		else if (SeqInfo.FromArea == TargetCameraPosition && SeqInfo.ToArea == PreviousCameraPosition)
 		{
-			PlayedSequence = PlaySequenceActor(SeqInfo.SequenceActor, false);
+			TargetSequenceActor = SeqInfo.SequenceActor;
+			bPlayForward = false;
 			break;
 		}
 	}
 
-	if (!PlayedSequence)
-	{
-		FString CurrentName = StaticEnum<ECameraPosition>()->GetNameStringByValue((int64)CurrentLocalCameraPosition);
-		FString TargetName = StaticEnum<ECameraPosition>()->GetNameStringByValue((int64)TargetCameraPosition);
+	ULevelSequencePlayer* NextSequencePlayer = IsValid(TargetSequenceActor) ? TargetSequenceActor->GetSequencePlayer() : nullptr;
 
-		UE_LOGFMT(MS_LobbyPlayerController, Warning, "No Sequence found in ALobbyGameState for transition from {Current} to {Target}",
-			("Current", *CurrentName),
-			("Target", *TargetName));
+	if (IsValid(ActiveSequencePlayer) && ActiveSequencePlayer->IsPlaying())
+	{
+		if (ActiveSequencePlayer != NextSequencePlayer)
+		{
+			FQualifiedFrameTime EndTime = ActiveSequencePlayer->GetEndTime();
+			FMovieSceneSequencePlaybackParams PlaybackParams;
+			PlaybackParams.Frame = EndTime.Time;
+			PlaybackParams.UpdateMethod = EUpdatePositionMethod::Jump;
+			ActiveSequencePlayer->SetPlaybackPosition(PlaybackParams);
+		}
+		else
+		{
+			ActiveSequencePlayer->Pause();
+		}
+		ActiveSequencePlayer->OnFinished.RemoveAll(this);
 	}
-	
-	CurrentLocalCameraPosition = TargetCameraPosition;
 
-	if (PlayedSequence)
+	if (TargetSequenceActor)
 	{
-		PlayedSequence->OnFinished.RemoveAll(this);
+		ActiveSequencePlayer = PlaySequenceActor(TargetSequenceActor, bPlayForward);
+	}
+
+	if (ActiveSequencePlayer)
+	{
+		ActiveSequencePlayer->OnFinished.RemoveAll(this);
 
 		if (TargetCameraPosition == ECameraPosition::LobbyInterface)
 		{
-			PlayedSequence->OnFinished.AddDynamic(this, &ALobbyPlayerController::OnLobbyInterfaceSequenceFinished);
+			ActiveSequencePlayer->OnFinished.AddDynamic(this, &ALobbyPlayerController::OnLobbyInterfaceSequenceFinished);
 		}
 	}
 }

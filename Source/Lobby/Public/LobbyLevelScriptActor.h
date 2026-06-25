@@ -9,6 +9,9 @@
 DEFINE_LOG_CATEGORY_STATIC(MS_LobbyLevelScriptActor, Log, All);
 
 class ATriggerBox;
+class ALevelSelectorActor;
+class ALevelHolographicProjectionActor;
+struct FLevelData;
 
 /**
  * 
@@ -33,6 +36,12 @@ public:
 
 	bool IsActorInTriggerBox(AActor* Actor, ECameraPosition TriggerBoxType) const;
 
+	UFUNCTION(BlueprintCallable)
+	void RegisterLevelSelectors(const TArray<ALevelSelectorActor*>& LevelSelectors);
+
+	UFUNCTION(BlueprintCallable)
+	void CheckLevelsToUnlock();
+
 private:
 
 	UFUNCTION()
@@ -41,8 +50,17 @@ private:
 	void OnTriggerBoxEndOverlap(AActor* TriggerBox, AActor* OtherActor);
 	bool IsAnyActorInTriggerBox(TSubclassOf<AActor> ClassToSearch, ECameraPosition TriggerBoxType) const;
 
+	UFUNCTION()
+	void OnLevelSelectorDoorZoneOccupancyChanged(FLevelData LevelData, bool bHasPlayers);
+
+protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Progression")
+	class UDataTable* LevelDataTable;
+
 private:
 
 	TMap<ECameraPosition, ATriggerBox*> RegisteredTriggerBoxes;
-	
+	TArray<ALevelSelectorActor*> RegisteredLevelSelectors;
+
 };

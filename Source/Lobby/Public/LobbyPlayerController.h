@@ -13,6 +13,7 @@ DEFINE_LOG_CATEGORY_STATIC(MS_LobbyPlayerController, Log, All);
 class ULobby;
 class UUserWidget;
 class ULevelSequencePlayer;
+class ALevelSequenceActor;
 class UDataTable;
 class ULocalPlayerRegistrationComponent;
 class UInputMappingContext;
@@ -50,6 +51,9 @@ public:
 protected:
 
 	ECameraPosition CurrentLocalCameraPosition = ECameraPosition::Exterior;
+
+	UPROPERTY()
+	TObjectPtr<ULevelSequencePlayer> ActiveSequencePlayer = nullptr;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Lobby|UI")
 	TSubclassOf<UUserWidget> LobbyInterfaceWidgetClass;

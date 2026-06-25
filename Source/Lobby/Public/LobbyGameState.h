@@ -15,6 +15,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerAdded, APlayerState*, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerRemoved, APlayerState*, PlayerState);
 
 class ALevelSequenceActor;
+class ALevelHolographicProjectionActor;
 
 UENUM()
 enum class ECameraPosition : uint8
@@ -73,6 +74,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Lobby")
 	const TArray<FLevelSequenceInfo>& GetRegisteredLevelSequences() const { return RegisteredLevelSequences; }
 
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
+	void RegisterLevelHolographicProjection(ALevelHolographicProjectionActor* Hologram) { LevelHolographicProjectionActor = Hologram; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Lobby")
+	ALevelHolographicProjectionActor* GetLevelHolographicProjection() const { return LevelHolographicProjectionActor; }
+
 	UFUNCTION(BlueprintPure, Category = "Lobby")
 	bool AreAllPlayersReady() const;
 
@@ -125,5 +132,8 @@ private:
 
 	UPROPERTY(Replicated)
 	TArray<FLevelSequenceInfo> RegisteredLevelSequences;
+
+	UPROPERTY()
+	TObjectPtr<ALevelHolographicProjectionActor> LevelHolographicProjectionActor;
 
 };

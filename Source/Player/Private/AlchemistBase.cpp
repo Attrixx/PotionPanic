@@ -57,12 +57,40 @@ bool AAlchemistBase::IsCarrying() const
 	return HolderComponent->GetCarriable() != nullptr;
 }
 
+void AAlchemistBase::ApplyStunRagdoll()
+{
+	// TODO: Temporary for testing
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->DisableMovement();
+	}
+
+	if (GetMesh())
+	{
+		GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+		GetMesh()->SetSimulatePhysics(true);
+
+		GetMesh()->AddImpulse(FVector(0.f, 0.f, -1000.f), NAME_None, true);
+	}
+}
+
 void AAlchemistBase::SetPlayerStencilIndex(int32 StencilValue)
 {
 	if (USkeletalMeshComponent* MeshComp = GetMesh())
 	{
 		MeshComp->SetRenderCustomDepth(StencilValue > 0);
 		MeshComp->SetCustomDepthStencilValue(StencilValue);
+
+		if (StencilValue > 0 && PlayerMeshes.Num() > 0)
+		{
+			// Stencil is 1-4 for in-game, 5-8 for lobby preview.
+			// Subtracting 1 and modulo 4 gives the correct player index (0-3).
+			int32 PlayerIndex = (StencilValue - 1) % 4;
+			if (PlayerMeshes.IsValidIndex(PlayerIndex) && PlayerMeshes[PlayerIndex])
+			{
+				MeshComp->SetSkeletalMesh(PlayerMeshes[PlayerIndex]);
+			}
+		}
 	}
 }
 
@@ -83,9 +111,16 @@ void AAlchemistBase::BeginPlay()
 	Super::BeginPlay();
 
 	// Setup physical animation for ragdolling
-	PhysicalAnimationComponent->SetSkeletalMeshComponent(GetMesh());
-	PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
-	GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
+	if (!RagdollRootBoneName.IsValid() || RagdollRootBoneName.IsNone())
+	{
+		UE_LOGFMT(MS_AlchemistBase, Warning, "RagdollRootBoneName is not set for {0}. Physical animation will not be applied.", *GetName());
+	}
+	else
+	{
+		PhysicalAnimationComponent->SetSkeletalMeshComponent(GetMesh());
+		PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
+		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
+	}
 
 	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
 		[this]
@@ -112,7 +147,7 @@ void AAlchemistBase::BeginPlay()
 			}
 			if (BestCarriable)
 			{
-				SetActorCustomDepthEnabled(BestCarriable, true, 6);
+				SetActorCustomDepthEnabled(BestCarriable, true);
 				LastBestCarriable = BestCarriable;
 			}
 		},
@@ -194,6 +229,20 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 			PrimComp->SetRenderCustomDepth(bEnabled);
 			PrimComp->SetCustomDepthStencilValue(StencilValue);
 			PrimComp->MarkRenderStateDirty();
+		}
+	}
+
+	TArray<UChildActorComponent*> ChildActorComponents;
+	TargetActor->GetComponents<UChildActorComponent>(ChildActorComponents);
+
+	for (UChildActorComponent* ChildActorComp : ChildActorComponents)
+	{
+		if (ChildActorComp)
+		{
+			if (AActor* ChildActor = ChildActorComp->GetChildActor())
+			{
+				SetActorCustomDepthEnabled(ChildActor, bEnabled, StencilValue);
+			}
 		}
 	}
 }

@@ -7,6 +7,9 @@
 #include "LobbyPlayerController.h"
 #include "LobbyAreaTriggerBox.h"
 #include "AlchemistBase.h"
+#include "LevelSelectorActor.h"
+#include "LevelHolographicProjectionActor.h"
+#include "LevelProgressionSubsystem.h"
 
 #include "Engine/TriggerBox.h"
 #include "Components/ShapeComponent.h"
@@ -130,6 +133,20 @@ bool ALobbyLevelScriptActor::IsAnyActorInTriggerBox(TSubclassOf<AActor> ClassToS
 	return false;
 }
 
+void ALobbyLevelScriptActor::OnLevelSelectorDoorZoneOccupancyChanged(FLevelData LevelData, bool bHasPlayers)
+{
+	if (!HasAuthority()) return;
+	ALobbyGameState* GameState = GetWorld()->GetGameState<ALobbyGameState>();
+	if (!IsValid(GameState)) return;
+
+	ALevelHolographicProjectionActor* HolographicProjection = GameState->GetLevelHolographicProjection();
+	if (bHasPlayers)
+	{
+		HolographicProjection->SetLevelData(LevelData);
+	}
+	HolographicProjection->SetIsShowing(bHasPlayers);
+}
+
 bool ALobbyLevelScriptActor::IsActorInTriggerBox(AActor* Actor, ECameraPosition TriggerBoxType) const
 {
 	if (!IsValid(Actor)) return false;
@@ -146,4 +163,54 @@ bool ALobbyLevelScriptActor::IsActorInTriggerBox(AActor* Actor, ECameraPosition 
 		UE_LOGFMT(MS_LobbyLevelScriptActor, Warning, "The trigger box {0} is not registered. (Register it in Editor via ALobbyLevelScriptActor::RegisterTriggerBoxes)", BoxType);
 	}
 	return false;
+}
+
+void ALobbyLevelScriptActor::RegisterLevelSelectors(const TArray<ALevelSelectorActor*>& LevelSelectors)
+{
+	RegisteredLevelSelectors = LevelSelectors;
+
+	for (ALevelSelectorActor* Selector : RegisteredLevelSelectors)
+	{
+		if (IsValid(Selector))
+		{
+			Selector->OnDoorZoneOccupancyChanged.AddDynamic(this, &ThisClass::OnLevelSelectorDoorZoneOccupancyChanged);
+		}
+	}
+}
+
+void ALobbyLevelScriptActor::CheckLevelsToUnlock()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	ULevelProgressionSubsystem* Subsystem = GetGameInstance()->GetSubsystem<ULevelProgressionSubsystem>();
+	
+	if (!IsValid(Subsystem))
+	{
+		UE_LOG(MS_LobbyLevelScriptActor, Warning, TEXT("LevelProgressionSubsystem is not available. Please ensure it is properly initialized."));
+		return;
+	}
+
+	if (!IsValid(LevelDataTable))
+	{
+		UE_LOG(MS_LobbyLevelScriptActor, Warning, TEXT("LevelDataTable is not set. Please assign a valid DataTable in the Editor."));
+		return;
+	}
+
+	TArray<FName> LevelsToUnlock = Subsystem->CheckLevelsToUnlock(LevelDataTable);
+	Subsystem->UnlockLevels(LevelsToUnlock);
+
+	// Find corresponding LevelSelectorActors and unlock them
+	for (FName LevelID : LevelsToUnlock)
+	{
+		for (ALevelSelectorActor* Selector : RegisteredLevelSelectors)
+		{
+			if (IsValid(Selector) && Selector->GetLevelID() == LevelID)
+			{
+				Selector->UnlockLevel();
+			}
+		}
+	}
 }

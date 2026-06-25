@@ -20,9 +20,11 @@ public class Lobby : ModuleRules
 			"InputCore",
 			"LevelSequence",
 			"MovieScene",
+			"Niagara",
 
 			"CoreGameplay",
-			"Player"
+			"Player",
+			"GameFlow",
 		});
 	}
 }

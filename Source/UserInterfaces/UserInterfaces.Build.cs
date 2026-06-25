@@ -31,6 +31,7 @@ public class UserInterfaces : ModuleRules
 
 			"HidApi",
 			"Lobby"
+			"GameFlow",
 		});
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)

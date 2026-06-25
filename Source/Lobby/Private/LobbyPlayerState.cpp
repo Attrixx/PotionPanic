@@ -69,7 +69,7 @@ void ALobbyPlayerState::OnRep_PreviewActor()
 	if (IsValid(PreviewActor))
 	{
 		PreviewActor->SetColor(PlayerInfo.PlayerColor);
-		PreviewActor->SetPlayerStencilIndex(PlayerInfo.PlayerIndex + 1);
+		PreviewActor->SetPlayerStencilIndex(PlayerInfo.PlayerIndex + 1 + 4); // Stencil from 5 to 8 are player colors, but without "x-ray"
 	}
 }
 

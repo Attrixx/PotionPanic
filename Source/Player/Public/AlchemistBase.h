@@ -34,7 +34,11 @@ public:
 	 */
 	void SetPlayerStencilIndex(int32 StencilValue);
 
+	UFUNCTION(BlueprintCallable)
 	bool IsCarrying() const;
+
+	UFUNCTION(BlueprintCallable)
+	void ApplyStunRagdoll();
 
 protected:
 
@@ -63,6 +67,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mesh")
+	TArray<TObjectPtr<USkeletalMesh>> PlayerMeshes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FName RagdollRootBoneName = NAME_None;
@@ -97,7 +104,7 @@ protected:
 
 private:
 
-	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 5);
+	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
 
 private: // Input
 	

@@ -176,7 +176,6 @@ bool ALobbyGameMode::IsHost(AActor* Actor) const
 
 void ALobbyGameMode::SwitchCameraForAllPlayers(ECameraPosition NewCameraPosition)
 {
-	UE_LOG(LogTemp, Warning, TEXT("SWITCHING TO %d"), static_cast<int32>(NewCameraPosition));
 	CurrentCameraPosition = NewCameraPosition;
 	if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
 	{
@@ -357,6 +356,13 @@ void ALobbyGameMode::OnPlayerEnterArea(ACharacter* PlayerCharacter, ECameraPosit
 			TeleportPlayersToArea(ECameraPosition::Interior);
 		}
 		break;
+	case ECameraPosition::Exterior:
+		if (IsHost(PlayerCharacter))
+		{
+			SwitchCameraForAllPlayers(ECameraPosition::Exterior);
+			TeleportPlayersToArea(ECameraPosition::Exterior);
+		}
+		break;
 	}
 }
 
@@ -367,23 +373,12 @@ void ALobbyGameMode::OnPlayerLeaveArea(ACharacter* PlayerCharacter, ECameraPosit
 	case ECameraPosition::LobbyInterface:
 		break;
 	case ECameraPosition::Entrance:
-		UE_LOG(MS_LobbyGameMode, Log, TEXT("Leaving Entrance: %d"), static_cast<int32>(bIsAnyCharacterInArea));
 		if (bDoorsOpen && !bIsAnyCharacterInArea)
 		{
-			UE_LOG(MS_LobbyGameMode, Log, TEXT("Closing doors as last player left the entrance area"));
 			bDoorsOpen = false;
 			if (ALobbyGameState* LobbyGameState = GetGameState<ALobbyGameState>())
 			{
 				LobbyGameState->SetDoorsOpen(false);
-			}
-		}
-
-		if (IsHost(PlayerCharacter))
-		{
-			if (CurrentCameraPosition == ECameraPosition::Interior || CurrentCameraPosition == ECameraPosition::Entrance)
-			{
-				SwitchCameraForAllPlayers(ECameraPosition::Exterior);
-				TeleportPlayersToArea(ECameraPosition::Exterior);
 			}
 		}
 		break;
