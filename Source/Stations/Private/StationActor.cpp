@@ -1,4 +1,5 @@
 #include "StationActor.h"
+#include "ActivityAsset.h"
 #include "ActivityExecutor.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
@@ -49,8 +50,15 @@ void AStationActor::BeginPlay()
 
 void AStationActor::Interact_Implementation(AActor* InInstigator)
 {
-	FetchInstructions(InInstigator);
+	TryStartMatchingActivity(InInstigator);
 	Executor->Interact(InInstigator);
+}
+
+bool AStationActor::CanInteract_Implementation(AActor* InInstigator) const
+{
+	UHolderComponent* UnusedSourceHolder = nullptr;
+	return Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing
+		|| FindMatchingActivity(InInstigator, UnusedSourceHolder) != nullptr;
 }
 
 void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
@@ -62,7 +70,7 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 	}
 }
 
-void AStationActor::FetchInstructions(AActor* InInstigator)
+void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 {
 	if (Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing)
 	{
@@ -70,11 +78,51 @@ void AStationActor::FetchInstructions(AActor* InInstigator)
 		return;
 	}
 
+	UHolderComponent* SourceHolder = nullptr;
+	UActivityAsset* Activity = FindMatchingActivity(InInstigator, SourceHolder);
+	if (!Activity)
+	{
+		return;
+	}
+
+	// Activities operate on this station's own ItemHolder. If the item that determined the
+	// match is the instigator's rather than the station's, move it here before starting.
+	if (SourceHolder)
+	{
+		auto* Item = SourceHolder->Release();
+		ItemHolder->TryPickup(Item);
+	}
+
+	Executor->StartActivity(Activity, InInstigator);
+}
+
+UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const
+{
+	OutSourceHolder = nullptr;
+
+	if (!StationAsset)
+	{
+		return nullptr;
+	}
+
 	URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
 	check(RecipeSystem);
 
+	AItemActor* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable());
+	if (!ItemActor && InInstigator && StationAsset->bCanEverTakeItemFromInstigator)
+	{
+		if (UHolderComponent* InstigatorHolder = InInstigator->FindComponentByClass<UHolderComponent>())
+		{
+			if (AItemActor* InstigatorItem = Cast<AItemActor>(InstigatorHolder->GetCarriable()))
+			{
+				ItemActor = InstigatorItem;
+				OutSourceHolder = InstigatorHolder;
+			}
+		}
+	}
+
 	FGameplayTagContainer InteractionTags = StationAsset->ImplementedActivities;
-	if (auto* ItemActor = Cast<AItemActor>(ItemHolder->GetCarriable()))
+	if (ItemActor)
 	{
 		InteractionTags.AppendTags(ItemActor->GetItemTags());
 	}
@@ -83,10 +131,13 @@ void AStationActor::FetchInstructions(AActor* InInstigator)
 		InteractionTags.AddTag(GameTags::Item_None);
 	}
 
-	if (UActivityAsset* Activity = RecipeSystem->FindActivityByInputTags(InteractionTags))
+	UActivityAsset* FoundActivity = RecipeSystem->FindActivityByInputTags(InteractionTags);
+	if (FoundActivity && !FoundActivity->bCanTakeItemFromInstigator && OutSourceHolder)
 	{
-		Executor->StartActivity(Activity, InInstigator);
+		// Cancel, we can't use this activity by taking the item from instigator
+		return nullptr;
 	}
+	return FoundActivity;
 }
 
 void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
@@ -96,7 +147,7 @@ void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 	// Only fetch if an item was put on the holder
 	if (Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
-		FetchInstructions(nullptr);
+		TryStartMatchingActivity(nullptr);
 	}
 }
 

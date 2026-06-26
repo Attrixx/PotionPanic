@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Interactable.h"
 #include "StationVisualActor.generated.h"
 
 /**
@@ -14,7 +15,7 @@
  * Subclass in Blueprint to compose any combination of meshes, Niagara, etc.
  */
 UCLASS(Abstract, Blueprintable)
-class STATIONS_API AStationVisualActor : public AActor
+class STATIONS_API AStationVisualActor : public AActor, public IInteractable
 {
 	GENERATED_BODY()
 	
@@ -25,4 +26,9 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = "Stations")
 	USceneComponent* GetItemAnchor(FName& OutSocketName) const;
+	
+protected:
+
+	void Interact_Implementation(AActor* InInstigator) override;
+	bool CanInteract_Implementation(AActor* InInstigator) const override;
 };

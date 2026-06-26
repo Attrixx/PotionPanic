@@ -28,6 +28,10 @@ public:
 	// Tags that must be present on the item or the station's implemented activities.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Activity,Item"))
 	FGameplayTagContainer InputTags;
+	
+	// If true the activity can be started by taking the input item from the instigator's hands.
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanTakeItemFromInstigator;
 
 	// Steps to execute after starting the activity.
 	// If there is none, starting this activity instantly concludes it with success.

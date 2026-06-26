@@ -23,9 +23,13 @@ class COREGAMEPLAY_API IInteractable
 public:
 
 	UFUNCTION(BlueprintNativeEvent)
-	void Interact(AActor* Instigator);
+	void Interact(AActor* InInstigator);
+
+	UFUNCTION(BlueprintNativeEvent)
+	bool CanInteract(AActor* InInstigator) const;
 
 protected:
 
-	virtual void Interact_Implementation(AActor* Instigator) PURE_VIRTUAL(IInteractable::Interact,)
+	virtual void Interact_Implementation(AActor* InInstigator) PURE_VIRTUAL(IInteractable::Interact,)
+	virtual bool CanInteract_Implementation(AActor* InInstigator) const;
 };

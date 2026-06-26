@@ -25,7 +25,7 @@ void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		Cancel();
 		State.Holder->OnCarriableChanged.RemoveAll(this);
 	}
-	
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -128,7 +128,10 @@ void UActivityExecutor::Cancel()
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
-		Steps[CurrentStepIndex]->CancelStep();
+		if (bCurrentStepStarted)
+		{
+			Steps[CurrentStepIndex]->CancelStep();
+		}
 		Reset(EActivityExecutionStatus::Canceled);
 	}
 }
@@ -154,6 +157,7 @@ void UActivityExecutor::ContinueExecution()
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
+		bCurrentStepStarted = true;
 		Steps[CurrentStepIndex]->StartStep(State.LastInstigator.Get());
 	}
 }
@@ -173,6 +177,7 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 	switch (EvalResult.FlowDecision)
 	{
 	case EActivityFlowDecision::Continue:
+		bCurrentStepStarted = false;
 		if (++CurrentStepIndex >= Steps.Num())
 		{
 			Conclude(EActivityExecutionStatus::Success);
@@ -209,6 +214,7 @@ void UActivityExecutor::Reset(EActivityExecutionStatus Status)
 	State.Status = Status;
 	State.Score = 0;
 	CurrentStepIndex = 0;
+	bCurrentStepStarted = false;
 	OnExecutionStatusChanged.Broadcast(this, Status);
 }
 

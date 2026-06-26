@@ -10,15 +10,15 @@ public class Player : ModuleRules
 		{
 			"Core",
 			"CoreUObject",
-			"Engine"
+			"Engine",
+
+			"CoreGameplay",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EnhancedInput",
-			"InputCore",
-
-			"CoreGameplay"
+			"InputCore"
 		});
 	}
 }

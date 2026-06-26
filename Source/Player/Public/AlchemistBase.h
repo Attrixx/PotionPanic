@@ -7,9 +7,11 @@
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
-class UCapsuleComponent;
+class URangeComponent;
 class UInputMappingContext;
 class UInputAction;
+class UInteractableActorFilter;
+class UInterfaceActorFilter;
 struct FInputActionValue;
 
 UCLASS(Abstract)
@@ -26,14 +28,6 @@ protected:
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	void NotifyControllerChanged() override;
 	void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
-	
-public:
-	
-	UFUNCTION(BlueprintCallable)
-	AActor* GetBestActorImplementing(TSubclassOf<UInterface> Interface) const;
-	
-	template <std::derived_from<UInterface> T>
-	AActor* GetBestActorImplementing() const { return GetBestActorImplementing(T::StaticClass()); }
 
 protected:
 
@@ -44,10 +38,16 @@ protected:
 	FName HolderParentSocket = NAME_None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UCapsuleComponent> CapsuleOverlapComponent;
+	TObjectPtr<URangeComponent> RangeComponent;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UInteractableActorFilter> InteractableFilter;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UInterfaceActorFilter> CarriableFilter;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	TObjectPtr<UInputMappingContext> MappingContext;
+	TObjectPtr<UInputMappingContext> MovementMappingContext;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> MoveAction;
@@ -67,53 +67,24 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
-	// Timer interval for sorting items in range (computes difference in locations)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
-	float InRangeInfosSortInterval = 0.1f;
-
-private:
-
-	void SortInRangeInfos();
-
-	UFUNCTION()
-	void Capsule_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
-	                            bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void Capsule_OnEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
 private: // Input
-
+	
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Dash();
+	
 	void Input_Interact();
 	void Input_PickupOrDrop();
 	void Input_Throw();
 
 	UFUNCTION(Server, Reliable)
-	void Server_Interact();
+	void Server_Interact(AActor* Interactable);
 
 	UFUNCTION(Server, Reliable)
-	void Server_Pickup();
+	void Server_Pickup(AActor* Carriable);
 
 	UFUNCTION(Server, Reliable)
 	void Server_Drop();
 
 	UFUNCTION(Server, Reliable)
-	void Server_Throw();
-
-private:
-	
-	FTimerHandle InRangeSortTimerHandle;
-
-	struct FInRangeInfo
-	{
-		FInRangeInfo(AActor* Actor);
-
-		TWeakObjectPtr<AActor> Actor;
-		uint32 NbOccurrences;
-		float Score;
-	};
-
-	TArray<FInRangeInfo> InRangeInfos;
+	void Server_Throw(FVector Direction);
 };

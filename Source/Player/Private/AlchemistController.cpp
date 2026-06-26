@@ -1,7 +1,9 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AlchemistController.h"
+#include "InputBindable.h"
 #include <EngineUtils.h>
+#include <EnhancedInputComponent.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistController, Log, All);
 
@@ -21,6 +23,20 @@ void AAlchemistController::BeginPlay()
 	else
 	{
 		UE_LOGFMT(MS_AlchemistController, Error, "Could not find view target actor with tag '{0}'", ViewTargetTag);
+	}
+}
+
+void AAlchemistController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+		
+	auto* EIC = CastChecked<UEnhancedInputComponent>(InputComponent);
+	for (auto* Component : GetComponents())
+	{
+		if (Component && Component->Implements<UInputBindable>())
+		{
+			IInputBindable::Execute_SetupInputComponent(Component, EIC);
+		}
 	}
 }
 
