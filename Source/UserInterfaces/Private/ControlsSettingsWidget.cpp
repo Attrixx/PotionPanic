@@ -12,6 +12,7 @@
 #include "Components/PanelWidget.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "Misc/ScopeExit.h"
 
 class FRebindKeyPreprocessor : public IInputProcessor
 {
@@ -183,17 +184,22 @@ void UControlsSettingsWidget::FocusListDeferred()
 {
 	if (UWorld* World = GetWorld())
 	{
-		FTimerHandle Handle;
-		World->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this]()
-		{
-			FocusListNow();
-		}), 0.05f, false);
+		World->GetTimerManager().SetTimerForNextTick(this, &ThisClass::FocusListNow);
 	}
 }
 
 void UControlsSettingsWidget::FocusListNow()
 {
-	const bool bGamepad = IsUsingGamepad();
+	ON_SCOPE_EXIT
+	{
+		PendingFocusActionName   = NAME_None;
+		PendingFocusMappingIndex = 0;
+	};
+
+	if (!IsUsingGamepad())
+	{
+		return;
+	}
 
 	UWidget* Target = nullptr;
 	if (!PendingFocusActionName.IsNone())
@@ -203,14 +209,6 @@ void UControlsSettingsWidget::FocusListNow()
 	if (!Target)
 	{
 		Target = FindFirstRowFocusWidget();
-	}
-
-	PendingFocusActionName   = NAME_None;
-	PendingFocusMappingIndex = 0;
-
-	if (!bGamepad)
-	{
-		return;
 	}
 
 	if (Target)
@@ -391,7 +389,7 @@ void UControlsSettingsWidget::Apply()
 	if (!Subsystem || !InputMappingContext || !KeybindManager) return;
 
 	UInputMappingContext* TargetContext = InputMappingContext;
-	if (UPotionPanicKeybindSubsystem* KeybindSubsystem = LocalPlayer ? LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>() : nullptr)
+	if (UPotionPanicKeybindSubsystem* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
 	{
 		TargetContext = KeybindSubsystem->GetRuntimeContext(InputMappingContext);
 	}

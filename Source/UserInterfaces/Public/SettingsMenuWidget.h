@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "PotionPanicActivatableWidget.h"
+#include "Input/UIActionBindingHandle.h"
 #include "SettingsMenuWidget.generated.h"
 
 class UWidgetSwitcher;
@@ -9,6 +10,8 @@ class UVideoSettingsWidget;
 class UAudioSettingsWidget;
 class UControlsSettingsWidget;
 class UCommonButtonBase;
+class UInputAction;
+class UInputMappingContext;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBackClicked);
 
@@ -32,8 +35,17 @@ protected:
 
 	virtual void NativeOnInitialized() override;
 	virtual void NativeOnActivated() override;
+	virtual void NativeOnDeactivated() override;
 	virtual bool NativeOnBackAction() override;
-	virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> TabNextAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputAction> TabPrevAction;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	TObjectPtr<UInputMappingContext> MenuInputContext;
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UWidgetSwitcher> WS_ContentSwitcher;
@@ -58,11 +70,16 @@ protected:
 
 private:
 
+	void HandleTabNext();
+	void HandleTabPrev();
+
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UCommonButtonBase>> Tabs;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UCommonActivatableWidget>> Contents;
+
+	TArray<FUIActionBindingHandle> TabActionBindings;
 
 	int32 CurrentTabIndex = 0;
 };

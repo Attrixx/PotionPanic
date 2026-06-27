@@ -22,14 +22,15 @@ void UPotionPanicInputPrompt::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	if (UCommonInputSubsystem* InputSubsystem = UCommonInputSubsystem::Get(GetOwningLocalPlayer()))
+	ULocalPlayer* LP = GetOwningLocalPlayer();
+
+	if (UCommonInputSubsystem* InputSubsystem = UCommonInputSubsystem::Get(LP))
 	{
 		InputMethodChangedHandle = InputSubsystem->OnInputMethodChangedNative.AddUObject(
 			this, &UPotionPanicInputPrompt::HandleInputMethodChanged);
 	}
 
-	if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput =
-		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetOwningLocalPlayer()))
+	if (auto* EnhancedInput = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
 	{
 		EnhancedInput->ControlMappingsRebuiltDelegate.AddDynamic(
 			this, &UPotionPanicInputPrompt::HandleControlMappingsRebuilt);
@@ -45,14 +46,15 @@ void UPotionPanicInputPrompt::HandleControlMappingsRebuilt()
 
 void UPotionPanicInputPrompt::NativeDestruct()
 {
-	if (UCommonInputSubsystem* InputSubsystem = UCommonInputSubsystem::Get(GetOwningLocalPlayer()))
+	ULocalPlayer* LP = GetOwningLocalPlayer();
+
+	if (UCommonInputSubsystem* InputSubsystem = UCommonInputSubsystem::Get(LP))
 	{
 		InputSubsystem->OnInputMethodChangedNative.Remove(InputMethodChangedHandle);
 	}
 	InputMethodChangedHandle.Reset();
 
-	if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput =
-		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetOwningLocalPlayer()))
+	if (auto* EnhancedInput = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LP))
 	{
 		EnhancedInput->ControlMappingsRebuiltDelegate.RemoveDynamic(
 			this, &UPotionPanicInputPrompt::HandleControlMappingsRebuilt);

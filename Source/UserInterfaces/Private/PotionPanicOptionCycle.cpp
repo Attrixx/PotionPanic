@@ -33,20 +33,3 @@ UWidget* UPotionPanicOptionCycle::HandleCycleNavigation(EUINavigation Direction)
 
 	return this;
 }
-
-void UPotionPanicOptionCycle::NativeOnAddedToFocusPath(const FFocusEvent& InFocusEvent)
-{
-	Super::NativeOnAddedToFocusPath(InFocusEvent);
-	SetHighlighted(true);
-}
-
-void UPotionPanicOptionCycle::NativeOnRemovedFromFocusPath(const FFocusEvent& InFocusEvent)
-{
-	Super::NativeOnRemovedFromFocusPath(InFocusEvent);
-	SetHighlighted(false);
-}
-
-void UPotionPanicOptionCycle::SetHighlighted(bool bHighlighted)
-{
-	SetRenderScale(bHighlighted ? FVector2D(HighlightScale, HighlightScale) : FVector2D(1.0f, 1.0f));
-}

@@ -26,43 +26,57 @@ TSharedRef<SWidget> UPotionPanicCommonButton::RebuildWidget()
 void UPotionPanicCommonButton::NativeOnHovered()
 {
 	Super::NativeOnHovered();
-	UpdateHighlight();
+	bIsHoveredHighlight = true;
+	RefreshHighlight();
 }
 
 void UPotionPanicCommonButton::NativeOnUnhovered()
 {
 	Super::NativeOnUnhovered();
-	UpdateHighlight();
+	bIsHoveredHighlight = false;
+	RefreshHighlight();
 }
 
 void UPotionPanicCommonButton::HandleFocusReceived()
 {
 	Super::HandleFocusReceived();
 	bIsFocusedHighlight = true;
-	UpdateHighlight();
+	RefreshHighlight();
 }
 
 void UPotionPanicCommonButton::HandleFocusLost()
 {
 	Super::HandleFocusLost();
 	bIsFocusedHighlight = false;
-	UpdateHighlight();
+	RefreshHighlight();
 }
 
 void UPotionPanicCommonButton::NativeOnSelected(bool bBroadcast)
 {
 	Super::NativeOnSelected(bBroadcast);
-	UpdateHighlight();
+	RefreshHighlight();
 }
 
 void UPotionPanicCommonButton::NativeOnDeselected(bool bBroadcast)
 {
 	Super::NativeOnDeselected(bBroadcast);
-	UpdateHighlight();
+	RefreshHighlight();
 }
 
-void UPotionPanicCommonButton::UpdateHighlight()
+void UPotionPanicCommonButton::RefreshHighlight()
 {
-	const bool bHighlight = IsHovered() || bIsFocusedHighlight || GetSelected();
-	SetRenderScale(bHighlight ? FVector2D(HighlightScale, HighlightScale) : FVector2D(1.0f, 1.0f));
+	// Selection only pins the highlight for toggle buttons (e.g. the active settings tab).
+	// A regular action button must not stay highlighted after a click once the mouse leaves.
+	const bool bSelectedHighlight = bToggleable && GetSelected();
+	const bool bHighlighted = bIsHoveredHighlight || bIsFocusedHighlight || bSelectedHighlight;
+
+	// Only drive the visual on an actual state change, otherwise hovering an already-highlighted
+	// (e.g. selected) button would replay the animation from the start.
+	if (bHighlighted == bIsHighlighted)
+	{
+		return;
+	}
+
+	bIsHighlighted = bHighlighted;
+	UpdateHighlight(bHighlighted);
 }

@@ -3,6 +3,8 @@
 #include "Blueprint/WidgetTree.h"
 #include "Components/PanelWidget.h"
 #include "CommonAnimatedSwitcher.h"
+#include "CommonInputSubsystem.h"
+#include "CommonInputBaseTypes.h"
 
 namespace
 {
@@ -28,21 +30,7 @@ namespace
 
 		if (const UUserWidget* AsUserWidget = Cast<UUserWidget>(Widget))
 		{
-			UWidget* Match = nullptr;
-			if (AsUserWidget->WidgetTree)
-			{
-				AsUserWidget->WidgetTree->ForEachWidget([&Match, AsUserWidget](UWidget* Child)
-				{
-					if (!Match && Child != AsUserWidget)
-					{
-						if (UWidget* Found = FindFirstFocusableWidget(Child))
-						{
-							Match = Found;
-						}
-					}
-				});
-			}
-			return Match;
+			return AsUserWidget->WidgetTree ? FindFirstFocusableWidget(AsUserWidget->WidgetTree->RootWidget) : nullptr;
 		}
 
 		if (const UPanelWidget* Panel = Cast<UPanelWidget>(Widget))
@@ -59,34 +47,35 @@ namespace
 		return nullptr;
 	}
 
-	UWidget* FindWidgetByNameRecursive(const UUserWidget* Root, const FName& WidgetName)
+	UWidget* FindWidgetByName(UWidget* Widget, const FName& WidgetName)
 	{
-		if (!Root || !Root->WidgetTree)
+		if (!Widget)
 		{
 			return nullptr;
 		}
 
-		UWidget* Match = nullptr;
-		Root->WidgetTree->ForEachWidget([&Match, &WidgetName](UWidget* Widget)
+		if (Widget->GetFName() == WidgetName)
 		{
-			if (Match || !Widget)
+			return Widget;
+		}
+
+		if (const UUserWidget* AsUserWidget = Cast<UUserWidget>(Widget))
+		{
+			return AsUserWidget->WidgetTree ? FindWidgetByName(AsUserWidget->WidgetTree->RootWidget, WidgetName) : nullptr;
+		}
+
+		if (const UPanelWidget* Panel = Cast<UPanelWidget>(Widget))
+		{
+			for (int32 i = 0; i < Panel->GetChildrenCount(); ++i)
 			{
-				return;
-			}
-			if (Widget->GetFName() == WidgetName)
-			{
-				Match = Widget;
-				return;
-			}
-			if (const UUserWidget* Nested = Cast<UUserWidget>(Widget))
-			{
-				if (UWidget* NestedMatch = FindWidgetByNameRecursive(Nested, WidgetName))
+				if (UWidget* Found = FindWidgetByName(Panel->GetChildAt(i), WidgetName))
 				{
-					Match = NestedMatch;
+					return Found;
 				}
 			}
-		});
-		return Match;
+		}
+
+		return nullptr;
 	}
 }
 
@@ -120,9 +109,19 @@ TOptional<FUIInputConfig> UPotionPanicActivatableWidget::GetDesiredInputConfig()
 
 UWidget* UPotionPanicActivatableWidget::NativeGetDesiredFocusTarget() const
 {
+	// Only hand CommonUI an initial focus target when navigating with a gamepad. With mouse/keyboard
+	// we don't want the first element auto-focused (and highlighted) when the screen activates.
+	if (const UCommonInputSubsystem* InputSubsystem = UCommonInputSubsystem::Get(GetOwningLocalPlayer()))
+	{
+		if (InputSubsystem->GetCurrentInputType() != ECommonInputType::Gamepad)
+		{
+			return nullptr;
+		}
+	}
+
 	if (!DesiredFocusWidgetName.IsNone())
 	{
-		if (UWidget* ByName = FindWidgetByNameRecursive(this, DesiredFocusWidgetName))
+		if (UWidget* ByName = FindWidgetByName(GetRootWidget(), DesiredFocusWidgetName))
 		{
 			return ByName;
 		}

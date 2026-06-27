@@ -2,11 +2,7 @@
 #include "CommonInputSubsystem.h"
 #include "Engine/LocalPlayer.h"
 
-#if PLATFORM_WINDOWS
-#include "Windows/AllowWindowsPlatformTypes.h"
-#include <Windows.h>
-#include "Windows/HideWindowsPlatformTypes.h"
-#endif
+#include "hidapi.h"
 
 namespace
 {
@@ -18,8 +14,8 @@ namespace
 	{
 		switch (Vid)
 		{
-		case VID_Microsoft: return TEXT("XBoxOne");
-		case VID_Sony:      return TEXT("PS5");
+		case VID_Microsoft: return TEXT("XBox");
+		case VID_Sony:      return TEXT("PlayStation");
 		default:            return NAME_None;
 		}
 	}
@@ -43,6 +39,9 @@ void UPotionPanicInputDetectionSubsystem::Deinitialize()
 		IPlatformInputDeviceMapper::Get().GetOnInputDeviceConnectionChange().Remove(ConnectionDelegateHandle);
 		ConnectionDelegateHandle.Reset();
 	}
+
+	hid_exit();
+
 	Super::Deinitialize();
 }
 
@@ -71,46 +70,32 @@ void UPotionPanicInputDetectionSubsystem::RefreshGamepadType() const
 
 FName UPotionPanicInputDetectionSubsystem::DetectConnectedGamepadName()
 {
-#if PLATFORM_WINDOWS
-	UINT NumDevices = 0;
-	if (GetRawInputDeviceList(nullptr, &NumDevices, sizeof(RAWINPUTDEVICELIST)) != 0 || NumDevices == 0)
+	if (hid_init() != 0)
 	{
 		return NAME_None;
 	}
 
-	TArray<RAWINPUTDEVICELIST> Devices;
-	Devices.SetNum(NumDevices);
-	if (GetRawInputDeviceList(Devices.GetData(), &NumDevices, sizeof(RAWINPUTDEVICELIST)) == static_cast<UINT>(-1))
+	FName Result = NAME_None;
+
+	if (hid_device_info* Devices = hid_enumerate(0x0, 0x0))
 	{
-		return NAME_None;
+		for (const hid_device_info* Device = Devices; Device != nullptr; Device = Device->next)
+		{
+			const uint16 Vid = static_cast<uint16>(Device->vendor_id);
+			const uint16 Pid = static_cast<uint16>(Device->product_id);
+
+			UE_LOG(LogTemp, Verbose, TEXT("[InputDetection] HID device VID=0x%04X PID=0x%04X"), Vid, Pid);
+
+			const FName Resolved = ResolveGamepadName(Vid, Pid);
+			if (!Resolved.IsNone())
+			{
+				Result = Resolved;
+				break;
+			}
+		}
+
+		hid_free_enumeration(Devices);
 	}
 
-	for (const RAWINPUTDEVICELIST& Device : Devices)
-	{
-		if (Device.dwType != RIM_TYPEHID)
-		{
-			continue;
-		}
-
-		RID_DEVICE_INFO Info = {};
-		Info.cbSize = sizeof(Info);
-		UINT InfoSize = sizeof(Info);
-		if (GetRawInputDeviceInfo(Device.hDevice, RIDI_DEVICEINFO, &Info, &InfoSize) <= 0)
-		{
-			continue;
-		}
-
-		const uint16 Vid = static_cast<uint16>(Info.hid.dwVendorId);
-		const uint16 Pid = static_cast<uint16>(Info.hid.dwProductId);
-
-		UE_LOG(LogTemp, Verbose, TEXT("[InputDetection] HID device VID=0x%04X PID=0x%04X"), Vid, Pid);
-
-		const FName Resolved = ResolveGamepadName(Vid, Pid);
-		if (!Resolved.IsNone())
-		{
-			return Resolved;
-		}
-	}
-#endif
-	return NAME_None;
+	return Result;
 }

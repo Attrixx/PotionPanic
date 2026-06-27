@@ -7,6 +7,8 @@
 #include "Engine/World.h"
 #include "Engine/LocalPlayer.h"
 #include "Input/CommonUIActionRouterBase.h"
+#include "Input/CommonUIInputTypes.h"
+#include "EnhancedInputSubsystems.h"
 #include "TimerManager.h"
 
 void USettingsMenuWidget::NativeOnInitialized()
@@ -37,7 +39,65 @@ void USettingsMenuWidget::NativeOnInitialized()
 void USettingsMenuWidget::NativeOnActivated()
 {
 	Super::NativeOnActivated();
+
+	if (const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			if (MenuInputContext && !EnhancedInput->HasMappingContext(MenuInputContext))
+			{
+				EnhancedInput->AddMappingContext(MenuInputContext, 0);
+			}
+		}
+	}
+
+	if (TabNextAction)
+	{
+		FBindUIActionArgs Args(TabNextAction, false, FSimpleDelegate::CreateUObject(this, &USettingsMenuWidget::HandleTabNext));
+		TabActionBindings.Add(RegisterUIActionBinding(Args));
+	}
+	if (TabPrevAction)
+	{
+		FBindUIActionArgs Args(TabPrevAction, false, FSimpleDelegate::CreateUObject(this, &USettingsMenuWidget::HandleTabPrev));
+		TabActionBindings.Add(RegisterUIActionBinding(Args));
+	}
+
 	SelectTab(0);
+}
+
+void USettingsMenuWidget::NativeOnDeactivated()
+{
+	for (FUIActionBindingHandle& Handle : TabActionBindings)
+	{
+		if (Handle.IsValid())
+		{
+			Handle.Unregister();
+		}
+	}
+	TabActionBindings.Reset();
+
+	if (const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* EnhancedInput = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+		{
+			if (MenuInputContext && EnhancedInput->HasMappingContext(MenuInputContext))
+			{
+				EnhancedInput->RemoveMappingContext(MenuInputContext);
+			}
+		}
+	}
+
+	Super::NativeOnDeactivated();
+}
+
+void USettingsMenuWidget::HandleTabNext()
+{
+	SelectTab(CurrentTabIndex + 1);
+}
+
+void USettingsMenuWidget::HandleTabPrev()
+{
+	SelectTab(CurrentTabIndex - 1);
 }
 
 void USettingsMenuWidget::ApplyAndClose()
@@ -87,8 +147,7 @@ void USettingsMenuWidget::SelectTab(int32 Index)
 
 	if (UWorld* World = GetWorld())
 	{
-		FTimerHandle Handle;
-		World->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(this, [this]()
+		World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this, [this]()
 		{
 			if (const ULocalPlayer* LocalPlayer = GetOwningLocalPlayer())
 			{
@@ -97,7 +156,7 @@ void USettingsMenuWidget::SelectTab(int32 Index)
 					Router->RefreshUIInputConfig();
 				}
 			}
-		}), 0.01f, false);
+		}));
 	}
 }
 
@@ -105,22 +164,4 @@ bool USettingsMenuWidget::NativeOnBackAction()
 {
 	ApplyAndClose();
 	return true;
-}
-
-FReply USettingsMenuWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent)
-{
-	const FKey Key = InKeyEvent.GetKey();
-
-	if (Key == EKeys::Gamepad_RightShoulder)
-	{
-		SelectTab(CurrentTabIndex + 1);
-		return FReply::Handled();
-	}
-	if (Key == EKeys::Gamepad_LeftShoulder)
-	{
-		SelectTab(CurrentTabIndex - 1);
-		return FReply::Handled();
-	}
-
-	return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }

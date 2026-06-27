@@ -19,12 +19,14 @@ protected:
 	virtual void NativeOnSelected(bool bBroadcast) override;
 	virtual void NativeOnDeselected(bool bBroadcast) override;
 
-	UPROPERTY(EditAnywhere, Category = "PotionPanic|Highlight", meta = (ClampMin = "1.0", UIMin = "1.0", UIMax = "1.3"))
-	float HighlightScale = 1.1f;
+	UFUNCTION(BlueprintImplementableEvent)
+	void UpdateHighlight(bool bHighlighted);
 
 private:
 
-	void UpdateHighlight();
+	void RefreshHighlight();
 
+	bool bIsHoveredHighlight = false;
 	bool bIsFocusedHighlight = false;
+	bool bIsHighlighted = false;
 };
