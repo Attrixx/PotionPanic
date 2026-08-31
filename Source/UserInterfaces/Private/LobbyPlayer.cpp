@@ -10,6 +10,7 @@ void ULobbyPlayer::UpdatePlayerInfo(int32 PlayerId, FString PlayerName, bool bIs
 	Overlay_HostCrown->SetVisibility(bIsHost ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 	Overlay_IsReady->SetVisibility(bIsReady ? ESlateVisibility::Visible : ESlateVisibility::Hidden);
 	Text_PlayerName->SetText(FText::FromString(PlayerName));
+	Text_PlayerName->SetColorAndOpacity(FSlateColor(PlayerColor));
 }
 
 void ULobbyPlayer::OnPlayerLeave()

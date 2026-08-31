@@ -1,4 +1,4 @@
-﻿using UnrealBuildTool;
+using UnrealBuildTool;
 
 public class CoreGameplay : ModuleRules
 {
@@ -13,7 +13,7 @@ public class CoreGameplay : ModuleRules
             "Engine",
             "OnlineSubsystem",
             "EnhancedInput",
-            "UMG"
+            "CommonUI"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
@@ -21,9 +21,6 @@ public class CoreGameplay : ModuleRules
             "OnlineSubsystemSteam",
             "SteamSockets",
             "InputCore",
-            "LevelSequence",
-            "MovieScene",
-            "CommonUI",
         });
     }
 }

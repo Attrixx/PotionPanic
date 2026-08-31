@@ -38,6 +38,61 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
 	CarriableFilter->Interface = UCarriable::StaticClass();
+	
+
+	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
+	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
+
+	// Useful for physical animation (ragdoll)
+	GetMesh()->SetCollisionProfileName(TEXT("Pawn"));
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("IgnoreOnlyPawn"));
+
+	// Enable CustomDepth to have player color and outline when behing walls
+	GetMesh()->SetRenderCustomDepth(true);
+	GetMesh()->SetCustomDepthStencilValue(1);
+}
+
+bool AAlchemistBase::IsCarrying() const
+{
+	return HolderComponent->GetCarriable() != nullptr;
+}
+
+void AAlchemistBase::ApplyStunRagdoll()
+{
+	// TODO: Temporary for testing
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->DisableMovement();
+	}
+
+	if (GetMesh())
+	{
+		GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+		GetMesh()->SetSimulatePhysics(true);
+
+		GetMesh()->AddImpulse(FVector(0.f, 0.f, -1000.f), NAME_None, true);
+	}
+}
+
+void AAlchemistBase::SetPlayerStencilIndex(int32 StencilValue)
+{
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		MeshComp->SetRenderCustomDepth(StencilValue > 0);
+		MeshComp->SetCustomDepthStencilValue(StencilValue);
+	}
+}
+
+void AAlchemistBase::ApplyCustomization(USkeletalMesh* NewMesh, FColor NewColor)
+{
+	if (NewMesh)
+	{
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
+		{
+			MeshComp->SetSkeletalMesh(NewMesh);
+		}
+	}
+	SetColor(NewColor);
 }
 
 void AAlchemistBase::OnConstruction(const FTransform& Transform)
@@ -55,6 +110,50 @@ void AAlchemistBase::OnConstruction(const FTransform& Transform)
 void AAlchemistBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// Setup physical animation for ragdolling
+	if (!RagdollRootBoneName.IsValid() || RagdollRootBoneName.IsNone())
+	{
+		UE_LOGFMT(MS_AlchemistBase, Warning, "RagdollRootBoneName is not set for {0}. Physical animation will not be applied.", *GetName());
+	}
+	else
+	{
+		PhysicalAnimationComponent->SetSkeletalMeshComponent(GetMesh());
+		PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
+		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
+	}
+
+	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
+		[this]
+		{
+			if (!IsLocallyControlled())
+				return;
+
+			// TODO: Use filter callbacks instead
+			AActor* BestInteractable = RangeComponent->FindBestMatchingActor(InteractableFilter);
+			if (!BestInteractable || BestInteractable != LastBestInteractable)
+			{
+				SetActorCustomDepthEnabled(LastBestInteractable, false);
+			}
+			if (BestInteractable)
+			{
+				SetActorCustomDepthEnabled(BestInteractable, true);
+				LastBestInteractable = BestInteractable;
+			}
+
+			AActor* BestCarriable = RangeComponent->FindBestMatchingActor(CarriableFilter);
+			if (!BestCarriable || BestCarriable != LastBestCarriable)
+			{
+				SetActorCustomDepthEnabled(LastBestCarriable, false);
+			}
+			if (BestCarriable)
+			{
+				SetActorCustomDepthEnabled(BestCarriable, true);
+				LastBestCarriable = BestCarriable;
+			}
+		},
+		InRangeInfosSortInterval,
+		true);
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -112,6 +211,41 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
+}
+
+void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
+{
+	if (!TargetActor)
+	{
+		return;
+	}
+
+	TArray<UPrimitiveComponent*> PrimitiveComponents;
+	TargetActor->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+
+	for (UPrimitiveComponent* PrimComp : PrimitiveComponents)
+	{
+		if (PrimComp)
+		{
+			PrimComp->SetRenderCustomDepth(bEnabled);
+			PrimComp->SetCustomDepthStencilValue(StencilValue);
+			PrimComp->MarkRenderStateDirty();
+		}
+	}
+
+	TArray<UChildActorComponent*> ChildActorComponents;
+	TargetActor->GetComponents<UChildActorComponent>(ChildActorComponents);
+
+	for (UChildActorComponent* ChildActorComp : ChildActorComponents)
+	{
+		if (ChildActorComp)
+		{
+			if (AActor* ChildActor = ChildActorComp->GetChildActor())
+			{
+				SetActorCustomDepthEnabled(ChildActor, bEnabled, StencilValue);
+			}
+		}
+	}
 }
 
 void AAlchemistBase::Input_Move(const FInputActionValue& Value)
