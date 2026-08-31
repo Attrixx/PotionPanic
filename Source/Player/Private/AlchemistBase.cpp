@@ -187,7 +187,6 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
-	QTEComponent->InitializeEnhancedInput(EIC);
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -227,7 +226,7 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 
 UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
 {
-	return RangeComponent->FindBestActorImplementing(UInteractable::StaticClass());
+	return RangeComponent->FindBestMatchingActor(InteractableFilter);
 }
 
 void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
