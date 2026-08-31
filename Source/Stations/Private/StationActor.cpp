@@ -37,7 +37,10 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 
-	ApplyStationAsset();
+	if (StationAsset)
+	{
+		ApplyStationAsset();
+	}
 }
 
 void AStationActor::BeginPlay()
@@ -68,6 +71,11 @@ void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
 		StationAsset = NewStationAsset;
 		OnRep_StationAsset();
 	}
+}
+
+UActivityExecutor* AStationActor::GetActivityExecutor() const
+{
+	return Executor;
 }
 
 void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
@@ -126,6 +134,7 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 	{
 		InteractionTags.AppendTags(ItemActor->GetItemTags());
 	}
+	// TODO: else if: check instigator for items (does it have a ItemHolder component?)
 	else
 	{
 		InteractionTags.AddTag(GameTags::Item_None);

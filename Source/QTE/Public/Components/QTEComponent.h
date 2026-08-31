@@ -1,0 +1,193 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Components/ActorComponent.h"
+#include "InputBindable.h"
+#include "Replication/QTEAuthoritySession.h"
+#include "Runtime/QTERuntime.h"
+#include "Core/QTETypes.h"
+#include "QTEComponent.generated.h"
+
+class UEnhancedInputComponent;
+class UEnhancedInputLocalPlayerSubsystem;
+class UInputAction;
+class UQTEDefinitionDataAsset;
+struct FInputActionInstance;
+class UInputMappingContext;
+class AActor;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQTEStateChanged, const FQTERuntimeState&, State);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQTEFinished, const FQTEResult&, Result);
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnQTEAuthorityFinished, int32, const FQTEAuthorityResult&);
+
+UCLASS(ClassGroup = (Gameplay), meta = (BlueprintSpawnableComponent))
+class QTE_API UQTEComponent : public UActorComponent, public IInputBindable
+{
+	GENERATED_BODY()
+
+public:
+
+	UQTEComponent();
+	~UQTEComponent() override;
+
+	void SetupInputComponent_Implementation(UEnhancedInputComponent* EIC) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "QTE")
+	int32 StartAuthorityQTE(UQTEDefinitionDataAsset* InDefinition, AActor* InSourceActor = nullptr);
+
+	void CancelAuthorityQTE(int32 RequestId);
+
+	UFUNCTION(BlueprintCallable, Category = "QTE")
+	void CancelQTE();
+
+	UFUNCTION(BlueprintCallable, Category = "QTE")
+	void InterruptQTE();
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	bool IsQTERunning() const;
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	FQTERuntimeState GetCurrentQTEState() const;
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	FQTEStepDefinition GetCurrentQTEStep() const;
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	UQTEDefinitionDataAsset* GetCurrentQTEDefinition() const;
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	FQTEResult GetLastQTEResult() const;
+
+	UFUNCTION(BlueprintCallable, Category = "QTE|Input")
+	bool SubmitInputPressed(const UInputAction* InputAction);
+
+	UFUNCTION(BlueprintCallable, Category = "QTE|Input")
+	bool SubmitInputReleased(const UInputAction* InputAction);
+
+	UFUNCTION(BlueprintCallable, Category = "QTE|Input")
+	bool SubmitInputTriggered(const UInputAction* InputAction);
+
+	UPROPERTY(BlueprintAssignable, Category = "QTE")
+	FOnQTEStateChanged OnQTEStarted;
+
+	UPROPERTY(BlueprintAssignable, Category = "QTE")
+	FOnQTEStateChanged OnQTEStepChanged;
+
+	UPROPERTY(BlueprintAssignable, Category = "QTE")
+	FOnQTEStateChanged OnQTEUpdated;
+
+	UPROPERTY(BlueprintAssignable, Category = "QTE")
+	FOnQTEFinished OnQTEFinished;
+
+	FOnQTEAuthorityFinished OnQTEAuthorityFinished;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputMappingContext> MappingContext;
+
+	// Semi-public interface (used by FQTEAuthoritySession / FQTERuntime)
+	bool StartQTEInternal(UQTEDefinitionDataAsset* InDefinition, UObject* InSourceObject = nullptr, AActor* InInstigator = nullptr);
+	const FQTEStepDefinition* GetCurrentStep() const;
+	UQTEDefinitionDataAsset* GetActiveDefinition() const;
+	UInputMappingContext* GetInputMappingContext() const;
+	FQTERuntimeState& GetMutableRuntimeState();
+	const FQTERuntimeState& GetRuntimeState() const;
+	float& GetMutableHoldStartTime();
+	void FinishQTE(EQTEState FinalState, const FText& OverrideMessage = FText());
+	void RefreshRuntimeState();
+	void BroadcastQTEStepChanged();
+	void BroadcastQTEUpdated();
+	void ApplyAuthorityCompletionToLocalMirror(const FQTEAuthorityResult& AuthorityResult);
+	float GetAuthorityMirrorReadyTimeoutSeconds() const;
+	void HandleAuthorityMirrorReadyTimeout();
+	void HandleEnhancedInputStarted(const FInputActionInstance& Instance);
+	void HandleEnhancedInputTriggered(const FInputActionInstance& Instance);
+	void HandleEnhancedInputCompleted(const FInputActionInstance& Instance);
+	void HandleEnhancedInputCanceled(const FInputActionInstance& Instance);
+
+protected:
+
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+private:
+
+	UObject* ResolveSourceObject(UObject* InSourceObject) const;
+	bool ShouldBindLocalInput() const;
+	bool ShouldForwardAuthorityInput() const;
+	bool ShouldDeferFinishToAuthority() const;
+	void DrawMashDebugFeedback() const;
+	void ClearActiveSessionReferences();
+
+	void BindInputForDefinition();
+	void UnbindInput();
+	void AddInputMappingContext();
+	void RemoveInputMappingContext();
+	bool HasEnhancedInputComponent() const;
+	UEnhancedInputLocalPlayerSubsystem* GetEnhancedInputSubsystem() const;
+
+private:
+
+	friend FQTEAuthoritySession;
+
+	UFUNCTION(Client, Reliable)
+	void Client_StartAuthorityQTE(int32 RequestId, UQTEDefinitionDataAsset* InDefinition, AActor* InSourceActor);
+	
+	UFUNCTION(Client, Reliable)
+	void Client_CancelAuthorityQTE(int32 RequestId);
+	
+	UFUNCTION(Client, Reliable)
+	void Client_CompleteAuthorityQTE(int32 RequestId, const FQTEAuthorityResult& AuthorityResult);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_ConfirmAuthorityQTEReady(int32 RequestId);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_NotifyAuthorityQTEStartFailed(int32 RequestId, const FText& FailureMessage);
+	
+	// Reliable: these are discrete, low-frequency input events. A dropped packet
+	// would desync the authority mirror (missed mash tick / never-registered press),
+	// causing unfair failures, so reliability is worth the negligible cost.
+	UFUNCTION(Server, Reliable)
+	void Server_SubmitAuthorityPressedInput(int32 RequestId, int32 StepIndex);
+
+	UFUNCTION(Server, Reliable)
+	void Server_SubmitAuthorityReleasedInput(int32 RequestId, int32 StepIndex);
+
+private:
+
+	struct FBoundInputHandles
+	{
+		uint32 StartedHandle = 0;
+		uint32 TriggeredHandle = 0;
+		uint32 CompletedHandle = 0;
+		uint32 CanceledHandle = 0;
+	};
+
+	TObjectPtr<UQTEDefinitionDataAsset> ActiveDefinition = nullptr;
+	FQTERuntimeState RuntimeState;
+	FQTEResult LastResult;
+	FQTEAuthoritySession AuthoritySession;
+	TUniquePtr<FQTERuntime> ActiveQTERuntime;
+	TWeakObjectPtr<UObject> SourceObject;
+	TWeakObjectPtr<AActor> InstigatorActor;
+
+	TWeakObjectPtr<UEnhancedInputComponent> EnhancedInputComponent;
+	TMap<TObjectPtr<UInputAction>, FBoundInputHandles> BoundInputHandles;
+	bool bAddedMappingContext = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "QTE|Authority", meta = (ClampMin = 0.1))
+	float AuthorityMirrorReadyTimeoutSeconds = 1.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "QTE|Debug")
+	bool bDrawMashDebugFeedback = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "QTE|UI", meta = (ClampMin = 0.0))
+	float MashDebugBarWidth = 90.f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "QTE|UI", meta = (ClampMin = 0.0))
+	float MashDebugBarHeightOffset = 110.f;
+
+	float HoldStartTime = 0.f;
+};

@@ -8,7 +8,7 @@
 
 struct FActivityStepResult;
 
-DECLARE_DELEGATE_OneParam(FActivityStepResultDelegate, const FActivityStepResult&);
+DECLARE_DELEGATE_OneParam(FActivityStepResultDelegate, const FActivityStepResult &);
 
 /**
  * Abstract base class representing a single modular step within an Activity.
@@ -29,7 +29,7 @@ public:
 	void StartStep(AActor* LastInstigator);
 
 	/**
-	 * 
+	 *
 	 * @param Instigator Actor triggering the interaction.
 	 */
 	UFUNCTION(BlueprintNativeEvent)
@@ -42,7 +42,7 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void CancelStep();
-	
+
 protected:
 
 	/**
@@ -58,7 +58,6 @@ private:
 	FActivityStepResultDelegate StepFinishedCallback;
 
 protected: // Default implementations
-
 	virtual void StartStep_Implementation(AActor* LastInstigator);
 	virtual void OnInteract_Implementation(AActor* Instigator);
 	virtual void CancelStep_Implementation();

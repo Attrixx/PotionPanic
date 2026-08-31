@@ -9,6 +9,8 @@
 #include "Carriable.h"
 #include "ActorFilters/InteractableActorFilter.h"
 #include "ActorFilters/InterfaceActorFilter.h"
+#include "Components/QTEComponent.h"
+#include "Components/QTEDisplayComponent.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 #include "PotionPanicKeybindSubsystem.h"
@@ -39,7 +41,6 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
 	CarriableFilter->Interface = UCarriable::StaticClass();
 	
-
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
 
@@ -50,6 +51,11 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	// Enable CustomDepth to have player color and outline when behing walls
 	GetMesh()->SetRenderCustomDepth(true);
 	GetMesh()->SetCustomDepthStencilValue(1);
+
+	QTEComponent = CreateDefaultSubobject<UQTEComponent>(TEXT("QTE Component"));
+
+	QTEDisplayComponent = CreateDefaultSubobject<UQTEDisplayComponent>(TEXT("QTE Display"));
+	QTEDisplayComponent->SetupAttachment(RootComponent);
 }
 
 bool AAlchemistBase::IsCarrying() const
@@ -123,37 +129,7 @@ void AAlchemistBase::BeginPlay()
 		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
 	}
 
-	GetWorldTimerManager().SetTimer(InRangeSortTimerHandle,
-		[this]
-		{
-			if (!IsLocallyControlled())
-				return;
-
-			// TODO: Use filter callbacks instead
-			AActor* BestInteractable = RangeComponent->FindBestMatchingActor(InteractableFilter);
-			if (!BestInteractable || BestInteractable != LastBestInteractable)
-			{
-				SetActorCustomDepthEnabled(LastBestInteractable, false);
-			}
-			if (BestInteractable)
-			{
-				SetActorCustomDepthEnabled(BestInteractable, true);
-				LastBestInteractable = BestInteractable;
-			}
-
-			AActor* BestCarriable = RangeComponent->FindBestMatchingActor(CarriableFilter);
-			if (!BestCarriable || BestCarriable != LastBestCarriable)
-			{
-				SetActorCustomDepthEnabled(LastBestCarriable, false);
-			}
-			if (BestCarriable)
-			{
-				SetActorCustomDepthEnabled(BestCarriable, true);
-				LastBestCarriable = BestCarriable;
-			}
-		},
-		InRangeInfosSortInterval,
-		true);
+	// TODO: Register SetActorCustomDepthEnabled on RangeComponent
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -248,8 +224,34 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 	}
 }
 
+UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
+{
+	return RangeComponent->FindBestMatchingActor(InteractableFilter);
+}
+
+void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
+{
+	QTEDisplayComponent->ShowQTEActivityStep(InQTEComponent, InWidgetClass);
+}
+
+void AAlchemistBase::HideQTEActivityStep_Implementation()
+{
+	QTEDisplayComponent->HideQTEActivityStep();
+}
+
+bool AAlchemistBase::ShouldBlockGameplayInput() const
+{
+	return QTEComponent && QTEComponent->IsQTERunning();
+}
+
 void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 {
+	// TODO: Disable Mapping context instead of guarding
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	auto Axis2D = Value.Get<FInputActionValue::Axis2D>();
 
 	FRotator CamRotation;
@@ -269,6 +271,12 @@ void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 
 void AAlchemistBase::Input_Dash()
 {
+	// TODO: Disable Mapping context instead of guarding
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (auto* AMC = Cast<UAlchemistMovementComponent>(GetCharacterMovement()))
 	{
 		AMC->Dash();
@@ -277,12 +285,24 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
+	// TODO: Disable Mapping context instead of guarding
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
 		Server_Interact(Interactable);
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
 {
+	// TODO: Disable Mapping context instead of guarding
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (HolderComponent->GetCarriable())
 		Server_Drop();
 	else if (AActor* Carriable = RangeComponent->FindBestMatchingActor(CarriableFilter))
@@ -291,12 +311,23 @@ void AAlchemistBase::Input_PickupOrDrop()
 
 void AAlchemistBase::Input_Throw()
 {
+	// TODO: Disable Mapping context instead of guarding
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (HolderComponent->GetCarriable())
 		Server_Throw(GetActorForwardVector());
 }
 
 void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (Interactable && Interactable->Implements<UInteractable>() && RangeComponent->IsActorInRange(Interactable))
 	{
 		IInteractable::Execute_Interact(Interactable, this);
@@ -305,6 +336,11 @@ void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 
 void AAlchemistBase::Server_Pickup_Implementation(AActor* Carriable)
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	if (Carriable && Carriable->Implements<UCarriable>() && RangeComponent->IsActorInRange(Carriable))
 	{
 		HolderComponent->TryPickup(Carriable);
@@ -313,10 +349,18 @@ void AAlchemistBase::Server_Pickup_Implementation(AActor* Carriable)
 
 void AAlchemistBase::Server_Drop_Implementation()
 {
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
 	HolderComponent->Release();
 }
 
 void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 {
-	HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
+	if (!ShouldBlockGameplayInput())
+	{
+		HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
+	}
 }

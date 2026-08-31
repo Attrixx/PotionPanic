@@ -14,7 +14,7 @@ class PLAYER_API AAlchemistController : public APlayerController
 {
 	GENERATED_BODY()
 
-protected:
+public:
 
 	AAlchemistController();
 	void BeginPlay() override;

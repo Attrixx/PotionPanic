@@ -60,6 +60,16 @@
 			]
 		},
 		{
+			"Name": "QTE",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"EnhancedInput",
+				"UMG"
+			]
+		},
+		{
 			"Name": "Recipes",
 			"Type": "Runtime",
 			"LoadingPhase": "Default",

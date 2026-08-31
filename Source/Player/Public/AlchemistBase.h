@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistCustomizationAsset.h"
+#include "Core/QTESourceProvider.h"
+#include "Widgets/QTEActivityDisplay.h"
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
@@ -15,11 +17,14 @@ class UInputMappingContext;
 class UInputAction;
 class UInteractableActorFilter;
 class UInterfaceActorFilter;
+class UQTEComponent;
+class UQTEWidgetBase;
+class UQTEDisplayComponent;
 struct FInputActionValue;
 
 
 UCLASS(Abstract)
-class PLAYER_API AAlchemistBase : public ACharacter
+class PLAYER_API AAlchemistBase : public ACharacter, public IQTESourceProvider, public IQTEActivityDisplay
 {
 	GENERATED_BODY()
 
@@ -73,13 +78,17 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
 
-
-
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FName RagdollRootBoneName = NAME_None;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FPhysicalAnimationData PhysicalAnimationData;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UQTEComponent> QTEComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
@@ -102,13 +111,25 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
-	// Timer interval for sorting items in range (computes difference in locations)
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay", meta=(ClampMin=0, UIMax=1))
-	float InRangeInfosSortInterval = 0.1f;
+public:
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "QTE")
+	UQTEDisplayComponent* GetQTEDisplayComponent() const { return QTEDisplayComponent; }
+
+	// IQTESourceProvider
+	UObject* GetQTESourceObject_Implementation() const override;
+
+	// IQTEActivityDisplay
+	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
+	void HideQTEActivityStep_Implementation() override;
 
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
+	bool ShouldBlockGameplayInput() const;
 
 private: // Input
 	
@@ -130,12 +151,4 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
-
-private:
-	
-	FTimerHandle InRangeSortTimerHandle;
-
-	AActor* LastBestInteractable;
-	AActor* LastBestCarriable;
-
 };
