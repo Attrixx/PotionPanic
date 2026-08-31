@@ -1,4 +1,4 @@
-﻿using UnrealBuildTool;
+using UnrealBuildTool;
 
 public class Lobby : ModuleRules
 {
@@ -12,6 +12,7 @@ public class Lobby : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"UMG",
+			"Player"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
@@ -23,7 +24,6 @@ public class Lobby : ModuleRules
 			"Niagara",
 
 			"CoreGameplay",
-			"Player",
 			"GameFlow",
 		});
 	}

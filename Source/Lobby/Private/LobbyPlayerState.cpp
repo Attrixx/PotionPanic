@@ -31,7 +31,7 @@ void ALobbyPlayerState::OnRep_PlayerName()
 	OnPlayerInfoChanged.Broadcast();
 }
 
-void ALobbyPlayerState::Server_SetPlayerColor_Implementation(FColor NewColor)
+void ALobbyPlayerState::Server_SetPlayerColor_Implementation(EAlchemistColor NewColor)
 {
 	PlayerInfo.PlayerColor = NewColor;
 	OnRep_PlayerInfo();
@@ -39,8 +39,44 @@ void ALobbyPlayerState::Server_SetPlayerColor_Implementation(FColor NewColor)
 	// Notify the MPC on the server so all materials using it update immediately.
 	if (ALobbyGameState* LobbyGS = GetWorld()->GetGameState<ALobbyGameState>())
 	{
-		LobbyGS->UpdatePlayerColorInMPC(PlayerInfo.PlayerIndex, FLinearColor(NewColor));
+		LobbyGS->UpdatePlayerColorInMPC(PlayerInfo.PlayerIndex, NewColor);
 	}
+}
+
+FColor ALobbyPlayerState::GetPlayerColor() const
+{
+	FColor PlayerColor = FColor::White;
+
+	UWorld* World = GetWorld();
+	if (!IsValid(World)) return PlayerColor;
+
+	ALobbyGameState* LobbyGS = World->GetGameState<ALobbyGameState>();
+	if (!IsValid(LobbyGS)) return PlayerColor;
+
+	if (UAlchemistCustomizationAsset* CustomizationData = LobbyGS->GetCustomizationData())
+	{
+		PlayerColor = CustomizationData->GetColor(PlayerInfo.PlayerColor);
+	}
+	return PlayerColor;
+}
+
+void ALobbyPlayerState::ApplyColorToCharacter(AAlchemistBase* Character) const
+{
+	if (!IsValid(Character)) return;
+
+	USkeletalMesh* MeshToUse = nullptr;
+	FColor ColorToUse = FColor::White;
+
+	if (ALobbyGameState* LobbyGS = GetWorld()->GetGameState<ALobbyGameState>())
+	{
+		if (UAlchemistCustomizationAsset* CustomizationData = LobbyGS->GetCustomizationData())
+		{
+			MeshToUse = CustomizationData->GetMesh(PlayerInfo.PlayerColor);
+			ColorToUse = CustomizationData->GetColor(PlayerInfo.PlayerColor);
+		}
+	}
+
+	Character->ApplyCustomization(MeshToUse, ColorToUse);
 }
 
 void ALobbyPlayerState::SetPlayerIndex(int32 Index)
@@ -68,7 +104,7 @@ void ALobbyPlayerState::OnRep_PreviewActor()
 {
 	if (IsValid(PreviewActor))
 	{
-		PreviewActor->SetColor(PlayerInfo.PlayerColor);
+		ApplyColorToCharacter(PreviewActor);
 		PreviewActor->SetPlayerStencilIndex(PlayerInfo.PlayerIndex + 1 + 4); // Stencil from 5 to 8 are player colors, but without "x-ray"
 	}
 }
@@ -97,20 +133,20 @@ void ALobbyPlayerState::OnRep_PlayerInfo()
 
 	if (AAlchemistBase* Character = Cast<AAlchemistBase>(GetPawn()))
 	{
-		Character->SetColor(PlayerInfo.PlayerColor);
+		ApplyColorToCharacter(Character);
 		Character->SetPlayerStencilIndex(StencilValue);
 	}
 
 	if (IsValid(PreviewActor))
 	{
-		PreviewActor->SetColor(PlayerInfo.PlayerColor);
+		ApplyColorToCharacter(PreviewActor);
 		PreviewActor->SetPlayerStencilIndex(StencilValue);
 	}
 
 	// Update the MPC on clients as well (OnRep is called on clients; UpdatePlayerColorInMPC works with local MPCI)
 	if (ALobbyGameState* LobbyGS = GetWorld()->GetGameState<ALobbyGameState>())
 	{
-		LobbyGS->UpdatePlayerColorInMPC(PlayerInfo.PlayerIndex, FLinearColor(PlayerInfo.PlayerColor));
+		LobbyGS->UpdatePlayerColorInMPC(PlayerInfo.PlayerIndex, PlayerInfo.PlayerColor);
 	}
 }
 
@@ -118,7 +154,7 @@ void ALobbyPlayerState::HandlePawnSet(APlayerState* Player, APawn* NewPawn, APaw
 {
 	if (AAlchemistBase* Character = Cast<AAlchemistBase>(NewPawn))
 	{
-		Character->SetColor(PlayerInfo.PlayerColor);
+		ApplyColorToCharacter(Character);
 		Character->SetPlayerStencilIndex(PlayerInfo.PlayerIndex + 1);
 	}
 }

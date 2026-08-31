@@ -10,7 +10,7 @@
 class AAlchemistBase;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLobbyPlayerStateUpdated);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerColorChanged, FColor, NewColor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLobbyPlayerColorChanged, EAlchemistColor, NewColor);
 
 
 USTRUCT(BlueprintType)
@@ -19,7 +19,7 @@ struct FLobbyPlayerInfo
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FColor PlayerColor = FColor::Black;
+	EAlchemistColor PlayerColor = EAlchemistColor::Blue;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 PlayerIndex = 0;
@@ -54,10 +54,10 @@ protected:
 public:
 
 	UFUNCTION(Server, Reliable)
-	void Server_SetPlayerColor(FColor NewColor);
+	void Server_SetPlayerColor(EAlchemistColor NewColor);
 
 	UFUNCTION(BlueprintCallable, Category = "Lobby")
-	FColor GetPlayerColor() const { return PlayerInfo.PlayerColor; }
+	FColor GetPlayerColor() const;
 
 	// Not an RPC: only the server should call this directly.
 	void SetPlayerIndex(int32 Index);
@@ -110,4 +110,6 @@ public:
 protected:
 	UFUNCTION()
 	void HandlePawnSet(APlayerState* Player, APawn* NewPawn, APawn* OldPawn);
+	
+	void ApplyColorToCharacter(AAlchemistBase* Character) const;
 };

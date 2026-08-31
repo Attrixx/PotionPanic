@@ -80,18 +80,19 @@ void AAlchemistBase::SetPlayerStencilIndex(int32 StencilValue)
 	{
 		MeshComp->SetRenderCustomDepth(StencilValue > 0);
 		MeshComp->SetCustomDepthStencilValue(StencilValue);
+	}
+}
 
-		if (StencilValue > 0 && PlayerMeshes.Num() > 0)
+void AAlchemistBase::ApplyCustomization(USkeletalMesh* NewMesh, FColor NewColor)
+{
+	if (NewMesh)
+	{
+		if (USkeletalMeshComponent* MeshComp = GetMesh())
 		{
-			// Stencil is 1-4 for in-game, 5-8 for lobby preview.
-			// Subtracting 1 and modulo 4 gives the correct player index (0-3).
-			int32 PlayerIndex = (StencilValue - 1) % 4;
-			if (PlayerMeshes.IsValidIndex(PlayerIndex) && PlayerMeshes[PlayerIndex])
-			{
-				MeshComp->SetSkeletalMesh(PlayerMeshes[PlayerIndex]);
-			}
+			MeshComp->SetSkeletalMesh(NewMesh);
 		}
 	}
+	SetColor(NewColor);
 }
 
 void AAlchemistBase::OnConstruction(const FTransform& Transform)

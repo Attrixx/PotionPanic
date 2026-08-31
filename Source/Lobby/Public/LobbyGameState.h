@@ -6,6 +6,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "Engine/DataTable.h"
 #include "Materials/MaterialParameterCollection.h"
+#include "AlchemistCustomizationAsset.h"
 #include "LobbyGameState.generated.h"
 
 /**
@@ -88,7 +89,8 @@ public:
 
 	ALevelSequenceActor* GetLevelSequenceActor(ELevelSequenceType SequenceType) const;
 
-	void UpdatePlayerColorInMPC(int32 PlayerIndex, FLinearColor NewColor);
+	UAlchemistCustomizationAsset* GetCustomizationData() const { return CustomizationData; }
+	void UpdatePlayerColorInMPC(int32 PlayerIndex, EAlchemistColor NewColor);
 
 protected:
 
@@ -120,13 +122,16 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Visuals")
 	TObjectPtr<UMaterialParameterCollection> PlayerColorMPC;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Visuals")
+	TObjectPtr<UAlchemistCustomizationAsset> CustomizationData;
+
 private:
 
-	TArray<FColor> DefaultColors = {
-		FColor::Yellow,
-		FColor::Red,
-		FColor::Green,
-		FColor::Blue
+	TArray<EAlchemistColor> DefaultColors = {
+		EAlchemistColor::Yellow,
+		EAlchemistColor::Orange,
+		EAlchemistColor::Green,
+		EAlchemistColor::Blue
 	};
 	TArray<bool> AvailableColors = { true, true, true, true };
 

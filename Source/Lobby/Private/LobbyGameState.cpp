@@ -88,7 +88,7 @@ void ALobbyGameState::AddPlayerState(APlayerState* PlayerState)
 				}
 			}
 
-			LobbyPS->Server_SetPlayerColor(FColor::MakeRandomColor());
+			LobbyPS->Server_SetPlayerColor(EAlchemistColor(FMath::RandRange(0, (int32)EAlchemistColor::Count - 1)));
 		}
 	}
 }
@@ -111,15 +111,15 @@ void ALobbyGameState::RemovePlayerState(APlayerState* PlayerState)
 	}
 }
 
-void ALobbyGameState::UpdatePlayerColorInMPC(int32 PlayerIndex, FLinearColor NewColor)
+void ALobbyGameState::UpdatePlayerColorInMPC(int32 PlayerIndex, EAlchemistColor NewColor)
 {
-	if (!IsValid(PlayerColorMPC)) return;
+	if (!IsValid(PlayerColorMPC) || !IsValid(CustomizationData)) return;
 
 	UMaterialParameterCollectionInstance* MPCI = GetWorld()->GetParameterCollectionInstance(PlayerColorMPC);
 	if (!IsValid(MPCI)) return;
 
 	FName ParameterName = FName(*FString::Printf(TEXT("Player%d_Color"), PlayerIndex + 1));
-	MPCI->SetVectorParameterValue(ParameterName, NewColor);
+	MPCI->SetVectorParameterValue(ParameterName, CustomizationData->GetLinearColor(NewColor));
 }
 
 void ALobbyGameState::OnRep_GlobalArea()

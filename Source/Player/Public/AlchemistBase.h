@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
+#include "AlchemistCustomizationAsset.h"
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
@@ -15,6 +16,7 @@ class UInputAction;
 class UInteractableActorFilter;
 class UInterfaceActorFilter;
 struct FInputActionValue;
+
 
 UCLASS(Abstract)
 class PLAYER_API AAlchemistBase : public ACharacter
@@ -33,6 +35,9 @@ public:
 	 * Convention: 0 = disabled, 1-4 = Player 0-3.
 	 */
 	void SetPlayerStencilIndex(int32 StencilValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Customization")
+	void ApplyCustomization(USkeletalMesh* NewMesh, FColor NewColor);
 
 	UFUNCTION(BlueprintCallable)
 	bool IsCarrying() const;
@@ -68,8 +73,7 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Mesh")
-	TArray<TObjectPtr<USkeletalMesh>> PlayerMeshes;
+
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FName RagdollRootBoneName = NAME_None;
