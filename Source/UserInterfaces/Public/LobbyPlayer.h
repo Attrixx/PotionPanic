@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -10,17 +8,10 @@ class UWidgetSwitcher;
 class UOverlay;
 class UTextBlock;
 
-/**
- * 
- */
 UCLASS()
 class USERINTERFACES_API ULobbyPlayer : public UUserWidget
 {
 	GENERATED_BODY()
-
-protected:
-
-	void NativeConstruct() override;
 
 public:
 
@@ -42,5 +33,4 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> Text_PlayerName;
-	
 };

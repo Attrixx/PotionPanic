@@ -12,14 +12,31 @@ public class UserInterfaces : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"UMG",
+			"CommonUI",
+			"CommonInput",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-            "EnhancedInput",
+			"ApplicationCore",
+			"DeveloperSettings",
+			"EnhancedInput",
+			"GameplayTags",
 			"InputCore",
-			
+			"Slate",
+			"SlateCore",
+
 			"CoreGameplay",
+
+			"HidApi",
 		});
+
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			// hidapi.h defaults its export macro to dllexport; as a consumer of HidApi.dll we
+			// need the hid_* symbols declared as dllimport instead.
+			PrivateDefinitions.Add("HID_API_NO_EXPORT_DEFINE=1");
+			PrivateDefinitions.Add("HID_API_EXPORT=__declspec(dllimport)");
+		}
 	}
 }

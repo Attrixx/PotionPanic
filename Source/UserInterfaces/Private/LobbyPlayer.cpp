@@ -1,16 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "LobbyPlayer.h"
 
 #include "Components/WidgetSwitcher.h"
 #include "Components/Overlay.h"
 #include "Components/TextBlock.h"
-
-void ULobbyPlayer::NativeConstruct()
-{
-	Super::NativeConstruct();
-}
 
 void ULobbyPlayer::UpdatePlayerInfo(int32 PlayerId, FString PlayerName, bool bIsHost, bool bIsCouchCoopPlayer, bool bIsReady, FColor PlayerColor)
 {

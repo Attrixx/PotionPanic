@@ -1,16 +1,20 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Blueprint/UserWidget.h"
+#include "PotionPanicActivatableWidget.h"
 #include "AudioSettingsWidget.generated.h"
 
 class USoundClass;
 class USoundMix;
 
 UCLASS()
-class USERINTERFACES_API UAudioSettingsWidget : public UUserWidget
+class USERINTERFACES_API UAudioSettingsWidget : public UPotionPanicActivatableWidget
 {
 	GENERATED_BODY()
+
+protected:
+
+	virtual void NativeOnInitialized() override;
 
 public:
 

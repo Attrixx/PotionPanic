@@ -232,13 +232,47 @@ void UKeybindManager::Load()
 TArray<FKeybindEntry> UKeybindManager::GetBindingsForDevice(bool bGamepad) const
 {
 	TArray<FKeybindEntry> Result;
+
+	TSet<FName> AxisActions;
+	if (bGamepad)
+	{
+		for (const FKeybindEntry& E : Bindings)
+		{
+			if (E.GamepadKey.IsValid() && E.GamepadKey.IsAxis2D())
+			{
+				AxisActions.Add(E.InputActionName);
+			}
+		}
+	}
+
 	for (const FKeybindEntry& Entry : Bindings)
 	{
 		const FKey& Key = bGamepad ? Entry.GamepadKey : Entry.KeyboardKey;
-		if (Key.IsValid())
+		if (!Key.IsValid())
 		{
-			Result.Add(Entry);
+			continue;
 		}
+
+		if (bGamepad && AxisActions.Contains(Entry.InputActionName))
+		{
+			if (!Key.IsAxis2D())
+			{
+				continue;
+			}
+			FKeybindEntry Out = Entry;
+			if (const FText* Override = DisplayNameOverrides.Find(Entry.InputActionName))
+			{
+				Out.DisplayName = *Override;
+			}
+			else
+			{
+				Out.DisplayName = FText::FromName(Entry.InputActionName);
+			}
+			Result.Add(Out);
+			continue;
+		}
+
+		Result.Add(Entry);
 	}
 	return Result;
 }

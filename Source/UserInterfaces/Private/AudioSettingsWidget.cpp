@@ -4,6 +4,14 @@
 #include "Sound/SoundMix.h"
 #include "Kismet/GameplayStatics.h"
 
+void UAudioSettingsWidget::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+
+	bAutoActivate = false;
+	bIsBackHandler = false;
+}
+
 void UAudioSettingsWidget::LoadCurrentSettings()
 {
 	UPotionPanicUserSettings* Settings = UPotionPanicUserSettings::GetPotionPanicUserSettings();
