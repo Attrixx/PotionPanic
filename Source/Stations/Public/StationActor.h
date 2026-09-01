@@ -72,7 +72,7 @@ protected:
 
 	void Interact_Implementation(AActor* InInstigator) override;
 	bool CanInteract_Implementation(AActor* InInstigator) const override;
-
+	
 public:
 	UFUNCTION(BlueprintCallable)
 	void SetStationAsset(UStationAsset* NewStationAsset);
@@ -137,4 +137,6 @@ private:
 
 	/** Guards TryStartMatchingActivity against the re-entrancy caused by moving an item onto ItemHolder. */
 	bool bStartingActivity = false;
+	
+	int32 OnActivityGoindSoundHandle;
 };

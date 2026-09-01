@@ -7,6 +7,8 @@
 #include "RecipeSystem.h"
 #include "StationAsset.h"
 #include "StationVisualActor.h"
+#include "NetworkSoundSubsystem.h"
+
 #include <Components/ChildActorComponent.h>
 #include <Net/UnrealNetwork.h>
 
@@ -170,6 +172,53 @@ void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 
 void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecutor, EActivityExecutionStatus NewStatus)
 {
+	UNetworkSoundSubsystem* SoundSubsystem = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>();
+	check(SoundSubsystem);
+
+	switch (NewStatus)
+	{
+	case EActivityExecutionStatus::Ongoing:
+		if (StationAsset)
+		{
+			if (StationAsset->OnInteractSound)
+			{
+				SoundSubsystem->PlayNetworkedSound(StationAsset->OnInteractSound, GetActorLocation(), this);
+			}
+			if (StationAsset->OnActivityGoingSound)
+			{
+				OnActivityGoindSoundHandle = SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivityGoingSound, GetActorLocation(), this);
+			}
+		}
+		break;
+	case EActivityExecutionStatus::Success:
+		if (StationAsset)
+		{
+			if (StationAsset->OnActivitySuccessSound)
+			{
+				SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivitySuccessSound, GetActorLocation(), this);
+			}
+			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
+			{
+				SoundSubsystem->StopNetworkedSound(OnActivityGoindSoundHandle);
+			}
+		}
+		break;
+	case EActivityExecutionStatus::Failed:
+	case EActivityExecutionStatus::Canceled:
+		if (StationAsset)
+		{
+			if (StationAsset->OnActivityFailedSound)
+			{
+				SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivityFailedSound, GetActorLocation(), this);
+			}
+			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
+			{
+				SoundSubsystem->StopNetworkedSound(OnActivityGoindSoundHandle);
+			}
+		}
+		break;
+	}
+	
 	if (NewStatus == EActivityExecutionStatus::Ongoing || !HasAuthority())
 	{
 		return;

@@ -245,6 +245,19 @@ bool AAlchemistBase::ShouldBlockGameplayInput() const
 	return QTEComponent && QTEComponent->IsQTERunning();
 }
 
+int32 AAlchemistBase::PlayNetworkedSound(USoundBase* Sound)
+{
+	if (Sound)
+	{
+		if (UNetworkSoundSubsystem* SoundSys = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>())
+		{
+			// The handle can be stored and passed to StopNetworkedSound() for looping sounds.
+			return SoundSys->PlayNetworkedSound(Sound, GetActorLocation(), this);
+		}
+	}
+	return -1;
+}
+
 void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 {
 	// TODO: Disable Mapping context instead of guarding
@@ -287,13 +300,7 @@ void AAlchemistBase::Input_Dash()
 
 		AMC->Dash();
 
-		if (DashSound)
-		{
-			if (UNetworkSoundSubsystem* SoundSys = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>())
-			{
-				SoundSys->PlayNetworkedSound(DashSound, GetActorLocation(), this);
-			}
-		}
+		PlayNetworkedSound(DashSound);
 	}
 }
 
@@ -318,9 +325,15 @@ void AAlchemistBase::Input_PickupOrDrop()
 	}
 
 	if (HolderComponent->GetCarriable())
+	{
 		Server_Drop();
+		PlayNetworkedSound(DropSound);
+	}
 	else if (AActor* Carriable = RangeComponent->FindBestMatchingActor(CarriableFilter))
+	{
 		Server_Pickup(Carriable);
+		PlayNetworkedSound(PickupSound);
+	}
 }
 
 void AAlchemistBase::Input_Throw()
@@ -332,7 +345,10 @@ void AAlchemistBase::Input_Throw()
 	}
 
 	if (HolderComponent->GetCarriable())
+	{
 		Server_Throw(GetActorForwardVector());
+		PlayNetworkedSound(ThrowSound);
+	}
 }
 
 void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)

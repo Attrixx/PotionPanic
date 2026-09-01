@@ -40,5 +40,8 @@ public:
 	TObjectPtr<UNiagaraSystem> NiagaraSystem = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<USoundBase> Sound = nullptr;
+	TObjectPtr<USoundBase> LoopSound = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
+	TObjectPtr<USoundBase> BreakSound = nullptr;
 };
