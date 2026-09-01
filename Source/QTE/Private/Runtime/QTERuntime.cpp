@@ -34,6 +34,7 @@ void FQTERuntime::RefreshRuntimeState()
 		RuntimeState.EffectiveTolerance = 0.f;
 		RuntimeState.StepTimeRemaining = 0.f;
 		const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
+		RuntimeState.EffectiveGlobalTimeout = GlobalTimeout;
 		RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 			? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)
 			: 0.f;
@@ -49,6 +50,7 @@ void FQTERuntime::RefreshRuntimeState()
 	RuntimeState.EffectiveMashTarget = Definition.GetEffectiveMashTarget(*CurrentStep);
 	RuntimeState.EffectiveStepTimeout = Definition.GetEffectiveStepTimeout(*CurrentStep);
 	const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
+	RuntimeState.EffectiveGlobalTimeout = GlobalTimeout;
 	RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 		? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)
 		: 0.f;

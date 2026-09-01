@@ -3,15 +3,19 @@
 
 void UQTEWidgetBase::BindToQTEComponent(UQTEComponent* InQTEComponent)
 {
-	if (BoundQTEComponent == InQTEComponent)
-	{
-		return;
-	}
-
+	// No early-out when rebinding the same component: QTEDisplayComponent reuses a
+	// single widget instance across QTEs, so returning here would leave the UI showing
+	// the previous QTE's final state. Unbinding first keeps the delegates single-bound.
 	UQTEComponent* PreviousQTEComponent = BoundQTEComponent.Get();
+	const bool bComponentChanged = PreviousQTEComponent != InQTEComponent;
+
 	UnbindFromCurrentComponent();
 	BoundQTEComponent = InQTEComponent;
-	OnBoundQTEComponentChanged(PreviousQTEComponent, BoundQTEComponent.Get());
+
+	if (bComponentChanged)
+	{
+		OnBoundQTEComponentChanged(PreviousQTEComponent, BoundQTEComponent.Get());
+	}
 
 	if (!BoundQTEComponent)
 	{
