@@ -8,7 +8,7 @@
 
 DECLARE_DYNAMIC_DELEGATE(FOnRoundAppliedDelegate);
 
-struct FRoundContent;
+struct FRound;
 struct FStreamableHandle;
 
 /**
@@ -21,16 +21,20 @@ class GAMEFLOW_API URoundLoader : public UObject
 
 public:
 
+	/**
+	 * Loads the round assets, then makes the round current: the station layout and the recipe pool
+	 * are reset to their default state before the round layers and recipes are applied.
+	 */
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
-	static URoundLoader* LoadAndApplyRound(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete);
+	static URoundLoader* LoadAndApplyRound(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete);
 		
 	UFUNCTION(BlueprintCallable)
 	void Cancel() const;
 	
 private:
 	
-	void StartLoading(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete);
-	void OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRoundContent RoundContent, FOnRoundAppliedDelegate OnComplete);
+	void StartLoading(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete);
+	void OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRound Round, FOnRoundAppliedDelegate OnComplete);
 	
 	TSharedPtr<FStreamableHandle> StreamableHandle;
 };

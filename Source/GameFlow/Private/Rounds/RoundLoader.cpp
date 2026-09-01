@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Rounds/RoundLoader.h"
-#include "Rounds/RoundContent.h"
+#include "Rounds/Round.h"
 #include "Engine/AssetManager.h"
 #include "StationsLayoutSubsystem.h"
 #include "RecipeSystem.h"
@@ -10,7 +10,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(MS_RoundLoader, Log, All);
 
-URoundLoader* URoundLoader::LoadAndApplyRound(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete)
+URoundLoader* URoundLoader::LoadAndApplyRound(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete)
 {
 	if (!IsValid(WorldContextObject))
 	{
@@ -21,7 +21,7 @@ URoundLoader* URoundLoader::LoadAndApplyRound(UObject* WorldContextObject, const
 	if (URoundLoader* Loader = NewObject<URoundLoader>())
 	{
 		Loader->AddToRoot();
-		Loader->StartLoading(WorldContextObject, RoundContent, OnComplete);
+		Loader->StartLoading(WorldContextObject, Round, OnComplete);
 		return Loader;
 	}
 
@@ -34,38 +34,38 @@ void URoundLoader::Cancel() const
 		StreamableHandle->CancelHandle();
 }
 
-void URoundLoader::StartLoading(UObject* WorldContextObject, const FRoundContent& RoundContent, FOnRoundAppliedDelegate OnComplete)
+void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete)
 {
 	TArray<FSoftObjectPath> Paths;
-	Paths.Reserve(RoundContent.NewLayers.Num() + RoundContent.NewRecipes.Num());
+	Paths.Reserve(Round.Layers.Num() + Round.Recipes.Num());
 
-	for (const TSoftObjectPtr<UStationsLayoutLayer>& Layer : RoundContent.NewLayers)
+	for (const TSoftObjectPtr<UStationsLayoutLayer>& Layer : Round.Layers)
 	{
 		if (!Layer.IsNull())
 			Paths.Add(Layer.ToSoftObjectPath());
 	}
 
-	for (const TSoftObjectPtr<URecipeAsset>& Recipe : RoundContent.NewRecipes)
+	for (const FRoundRecipe& RoundRecipe : Round.Recipes)
 	{
-		if (!Recipe.IsNull())
-			Paths.Add(Recipe.ToSoftObjectPath());
+		if (!RoundRecipe.Asset.IsNull())
+			Paths.Add(RoundRecipe.Asset.ToSoftObjectPath());
 	}
 
 	if (Paths.IsEmpty())
 	{
-		OnAssetsLoaded(WorldContextObject, RoundContent, OnComplete);
+		OnAssetsLoaded(WorldContextObject, Round, OnComplete);
 		return;
 	}
 
 	FStreamableManager& Streamable = UAssetManager::GetStreamableManager();
 	StreamableHandle = Streamable.RequestAsyncLoad(
 		MoveTemp(Paths),
-		FStreamableDelegate::CreateUObject(this, &ThisClass::OnAssetsLoaded, TWeakObjectPtr(WorldContextObject), RoundContent, OnComplete),
+		FStreamableDelegate::CreateUObject(this, &ThisClass::OnAssetsLoaded, TWeakObjectPtr(WorldContextObject), Round, OnComplete),
 		FStreamableManager::AsyncLoadHighPriority
 	);
 }
 
-void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRoundContent RoundContent, FOnRoundAppliedDelegate OnComplete)
+void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRound Round, FOnRoundAppliedDelegate OnComplete)
 {
 	ON_SCOPE_EXIT
 	{
@@ -88,8 +88,10 @@ void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRoundContent Ro
 
 	if (UStationsLayoutSubsystem* LayoutSubsystem = World->GetSubsystem<UStationsLayoutSubsystem>())
 	{
-		UE_LOGFMT(MS_RoundLoader, Log, "Applying {0} layers.", RoundContent.NewLayers.Num());
-		for (auto& LayerPtr : RoundContent.NewLayers)
+		UE_LOGFMT(MS_RoundLoader, Log, "Applying {0} layers.", Round.Layers.Num());
+		LayoutSubsystem->ResetToDefaultLayout();
+
+		for (auto& LayerPtr : Round.Layers)
 		{
 			if (UStationsLayoutLayer* Layer = LayerPtr.Get())
 			{
@@ -104,16 +106,18 @@ void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRoundContent Ro
 
 	if (URecipeSystem* RecipeSystem = World->GetSubsystem<URecipeSystem>())
 	{
-		UE_LOGFMT(MS_RoundLoader, Log, "Adding {0} recipes.", RoundContent.NewRecipes.Num());
-		for (auto& RecipePtr : RoundContent.NewRecipes)
+		UE_LOGFMT(MS_RoundLoader, Log, "Adding {0} recipes.", Round.Recipes.Num());
+		RecipeSystem->ClearRecipes();
+
+		for (auto& RoundRecipe : Round.Recipes)
 		{
-			if (URecipeAsset* Recipe = RecipePtr.Get())
+			if (URecipeAsset* Recipe = RoundRecipe.Asset.Get())
 			{
 				RecipeSystem->AddRecipe(Recipe);
 			}
 			else
 			{
-				UE_LOGFMT(MS_RoundLoader, Warning, "Failed to resolve recipe: {0}", RecipePtr.ToString());
+				UE_LOGFMT(MS_RoundLoader, Warning, "Failed to resolve recipe: {0}", RoundRecipe.Asset.ToString());
 			}
 		}
 	}

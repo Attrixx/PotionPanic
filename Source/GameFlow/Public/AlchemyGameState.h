@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
+#include "Order.h"
+#include "Rounds/Round.h"
 #include "AlchemyGameState.generated.h"
 
 class UWorldData;
@@ -22,13 +24,16 @@ public:
 
 	void SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData);
 
-	// Beware, this must be compared using `GetServerWorldTimeSeconds()`, not the local time.
-	// You probably want to use `GetRoundRemainingTime()` instead.
 	UFUNCTION(BlueprintCallable)
-	float GetRoundEndTime() const { return RoundEndTime; }
+	float GetRoundTime() const;
 
 	UFUNCTION(BlueprintCallable)
 	float GetRoundRemainingTime() const;
+	
+	UFUNCTION(BlueprintCallable)
+	const TArray<FOrder>& GetRoundOrders() const { return RoundOrders; }
+
+	FOrderDelegate OnOrderChanged;
 
 private:
 
@@ -37,8 +42,17 @@ private:
 	
 	void OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPath, UObject* InLoadedObject);
 		
+	void SetCurrentRound(int32 Index);
+	const FRound* GetCurrentRound() const;
+	
 	UFUNCTION()
-	void OnRootRoundApplied();
+	void OnCurrentRoundApplied();
+	
+	void CreateOrders();
+	void StartRound();
+	
+	UFUNCTION()
+	void OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders);
 	
 private:
 
@@ -49,5 +63,17 @@ private:
 	TObjectPtr<UWorldData> WorldData;
 
 	UPROPERTY(Replicated)
+	int32 CurrentRound = 0;
+	
+	UPROPERTY(Replicated)
+	float RoundStartTime;
+	
+	UPROPERTY(Replicated)
 	float RoundEndTime;
+
+	UPROPERTY(ReplicatedUsing=OnRep_RoundOrders)
+	TArray<FOrder> RoundOrders;
+	
+	uint32 GenOrderId() { return OrderIdCounter++; }
+	uint32 OrderIdCounter;
 };

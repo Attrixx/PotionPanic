@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
+#include "Rounds/Round.h"
 #include "WorldData.generated.h"
 
 class URecipeAsset;
-class URoundTree;
 
 /**
  * 
@@ -19,11 +19,18 @@ class GAMEFLOW_API UWorldData : public UPrimaryDataAsset
 
 public:
 	
+	/** Rounds making up this world, the run starting at index 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TObjectPtr<URoundTree> Rounds;
+	TArray<FRound> Rounds;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int64 ScoreToSucceed;
+	
+	/** @return The round at Index, or nullptr if there is none (past the last round included). */
+	const FRound* GetRoundAt(int32 Index) const
+	{
+		return Rounds.IsValidIndex(Index) ? &Rounds[Index] : nullptr;
+	}
 	
 protected:
 	

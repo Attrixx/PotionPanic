@@ -1,47 +1,58 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "RecipeOrderQueueWidget.h"
-#include "RecipeOrderWidget.h"
+#include "AlchemyGameState.h"
 #include "Components/PanelWidget.h"
 
-uint32 URecipeOrderQueueWidget::AddOrder(URecipeAsset* Recipe, double TimeToComplete)
-{	
-	check(Recipe && TimeToComplete > 0.0);
-	
-	auto* Child = CreateWidget<URecipeOrderWidget>(this);
-	check(Child);
-	
-	Child->BeginTime = GetWorld()->GetTimeSeconds();
-	Child->CurrentTime = Child->BeginTime;
-	Child->EndTime = Child->BeginTime + TimeToComplete;
-	
-	Children.Add(Child);
-	OrdersContainer->AddChild(Child);
-	
-	++OrderIdCounter;
-	Child->OrderId = OrderIdCounter;
-	
-	return OrderIdCounter;
+void URecipeOrderQueueWidget::NativeOnInitialized()
+{
+	Super::NativeOnInitialized();
+
+	auto* GameState = GetWorld()->GetGameState<AAlchemyGameState>();
+	GameState->OnOrderChanged.AddUObject(this, &ThisClass::OnOrderChanged);
 }
 
-void URecipeOrderQueueWidget::RemoveOrder(uint32 InOrderId)
+void URecipeOrderQueueWidget::NativeDestruct()
 {
-	int32 RemovedCount = Children.RemoveAllSwap([InOrderId](URecipeOrderWidget* Child)
-	{
-		return Child->OrderId == InOrderId;
-	});
-	
-	check(RemovedCount == 1);
+	Super::NativeDestruct();
+
+	auto* GameState = GetWorld()->GetGameState<AAlchemyGameState>();
+	GameState->OnOrderChanged.RemoveAll(this);
 }
 
-void URecipeOrderQueueWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+void URecipeOrderQueueWidget::OnOrderChanged(const FOrder& Order)
 {
-	Super::NativeTick(MyGeometry, InDeltaTime);
-	
-	double CurrentTime = GetWorld()->GetTimeSeconds();
-	
-	for (auto* Child : Children)
+	switch (Order.State)
 	{
-		Child->CurrentTime = CurrentTime;
+	case EOrderState::Pending:
+	{
+		// Order is not placed yet...
+	}
+	break;
+
+	case EOrderState::Placed:
+	{
+		check(!OrderWidgetByOrderId.Contains(Order.OrderId));
+		UWidget* Widget = CreateOrderWidget(Order);
+		OrderWidgetByOrderId.Add(Order.OrderId, Widget);
+	}
+	break;
+
+	case EOrderState::Cancelled:
+	{
+		UWidget* Widget = OrderWidgetByOrderId.FindAndRemoveChecked(Order.OrderId);
+		CancelOrderWidget(Widget);
+	}
+	break;
+
+	case EOrderState::Completed:
+	{
+		UWidget* Widget = OrderWidgetByOrderId.FindAndRemoveChecked(Order.OrderId);
+		CompleteOrderWidget(Widget);
+	}
+	break;
+
+	default:
+		checkNoEntry();
 	}
 }

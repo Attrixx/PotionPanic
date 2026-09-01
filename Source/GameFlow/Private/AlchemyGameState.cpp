@@ -2,7 +2,6 @@
 
 #include "AlchemyGameState.h"
 #include "WorldData.h"
-#include "Rounds/RoundTree.h"
 #include "Rounds/RoundLoader.h"
 #include <Net/UnrealNetwork.h>
 
@@ -12,6 +11,9 @@ void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AAlchemyGameState, SoftWorldData);
+	DOREPLIFETIME(AAlchemyGameState, CurrentRound);
+	DOREPLIFETIME(AAlchemyGameState, RoundEndTime);
+	DOREPLIFETIME(AAlchemyGameState, RoundOrders);
 }
 
 void AAlchemyGameState::SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData)
@@ -21,6 +23,11 @@ void AAlchemyGameState::SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldD
 		SoftWorldData = NewWorldData;
 		OnRep_SoftWorldData();
 	}
+}
+
+float AAlchemyGameState::GetRoundTime() const
+{
+	return GetServerWorldTimeSeconds() - RoundStartTime;
 }
 
 float AAlchemyGameState::GetRoundRemainingTime() const
@@ -59,16 +66,74 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	if (!HasAuthority())
 		return;
 
-	if (URoundTree* Rounds = WorldData->Rounds)
+	SetCurrentRound(0);
+}
+
+void AAlchemyGameState::SetCurrentRound(int32 Index)
+{
+	if (!WorldData)
 	{
-		auto& SetupData = Rounds->GetRoot().Content;
-		FOnRoundAppliedDelegate OnRoundApplied;
-		OnRoundApplied.BindDynamic(this, &ThisClass::OnRootRoundApplied);
-		URoundLoader::LoadAndApplyRound(this, SetupData, OnRoundApplied);
+		UE_LOGFMT(MS_AlchemyGameState, Error, "No world data to pull rounds from.");
+		return;
+	}
+
+	const FRound* Round = WorldData->GetRoundAt(Index);
+	if (!Round)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Error, "No round at index {0} (round count: {1}).", CurrentRound, WorldData->Rounds.Num());
+		return;
+	}
+
+	CurrentRound = Index;
+	FOnRoundAppliedDelegate OnRoundApplied;
+	OnRoundApplied.BindDynamic(this, &ThisClass::OnCurrentRoundApplied);
+	URoundLoader::LoadAndApplyRound(this, *Round, OnRoundApplied);
+	// TODO: Fix load twice without guard
+}
+
+const FRound* AAlchemyGameState::GetCurrentRound() const
+{
+	return WorldData ? WorldData->GetRoundAt(CurrentRound) : nullptr;
+}
+
+void AAlchemyGameState::OnCurrentRoundApplied()
+{
+	CreateOrders();
+}
+
+void AAlchemyGameState::CreateOrders()
+{
+	const FRound* Round = GetCurrentRound();
+	check(Round);
+	
+	float RecipeInterval = Round->Duration / Round->OrderCount;
+
+	RoundOrders.SetNumUninitialized(Round->OrderCount);
+	for (int32 i = 0; i < Round->OrderCount; ++i)
+	{
+		RoundOrders[i] =
+		{
+			.OrderId = GenOrderId(),
+			.Recipe = nullptr, // TODO(francois): probability
+			.State = EOrderState::Pending,
+			.StartTime = RecipeInterval * i,
+			.MaxDuration = 30.f, // TODO: Parameter this (nb of steps x difficulty?)
+		};
 	}
 }
 
-void AAlchemyGameState::OnRootRoundApplied()
+void AAlchemyGameState::StartRound()
 {
-	// TODO: Start match
+	const FRound* Round = GetCurrentRound();
+	check(Round);
+	
+	RoundStartTime = GetServerWorldTimeSeconds();
+	RoundEndTime = RoundStartTime + Round->Duration;
+	// TODO: Start Round
+}
+
+void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldLiveOrders)
+{
+	// If status changed:
+	// OnOrderChanged.Broadcast
 }

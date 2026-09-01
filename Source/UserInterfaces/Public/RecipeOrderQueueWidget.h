@@ -6,29 +6,38 @@
 #include "CommonUserWidget.h"
 #include "RecipeOrderQueueWidget.generated.h"
 
-class UPanelWidget;
-class URecipeAsset;
-class URecipeOrderWidget;
+struct FOrder;
 
 /**
  * 
  */
-UCLASS()
+UCLASS(Abstract)
 class USERINTERFACES_API URecipeOrderQueueWidget : public UCommonUserWidget
 {
 	GENERATED_BODY()
 	
-public:
-	uint32 AddOrder(URecipeAsset* Recipe, double TimeToComplete);
-	void RemoveOrder(uint32 InOrderId);
+protected:
 	
-	void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+	void NativeOnInitialized() override;
+	void NativeDestruct() override;
 	
 private:
-	TArray<URecipeOrderWidget*> Children;
 	
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> OrdersContainer;
+	void OnOrderChanged(const FOrder& Order);
 	
-	uint32 OrderIdCounter = 0;
+protected:
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	UWidget* CreateOrderWidget(const FOrder& Order);
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void CancelOrderWidget(UWidget* Widget);
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void CompleteOrderWidget(UWidget* Widget);
+	
+private:
+	
+	UPROPERTY()
+	TMap<uint32, UWidget*> OrderWidgetByOrderId;
 };
