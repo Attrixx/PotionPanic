@@ -20,6 +20,7 @@ class UInterfaceActorFilter;
 class UQTEComponent;
 class UQTEWidgetBase;
 class UQTEDisplayComponent;
+class USoundBase;
 struct FInputActionValue;
 
 
@@ -110,6 +111,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> DashSound;
 
 public:
 

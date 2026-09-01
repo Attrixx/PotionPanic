@@ -13,7 +13,8 @@ public class CoreGameplay : ModuleRules
             "Engine",
             "OnlineSubsystem",
             "EnhancedInput",
-            "CommonUI"
+            "CommonUI",
+            "AudioMixer"
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]

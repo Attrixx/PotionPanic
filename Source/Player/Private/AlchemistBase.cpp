@@ -11,6 +11,7 @@
 #include "ActorFilters/InterfaceActorFilter.h"
 #include "Components/QTEComponent.h"
 #include "Components/QTEDisplayComponent.h"
+#include "NetworkSoundSubsystem.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 #include "PotionPanicKeybindSubsystem.h"
@@ -279,7 +280,20 @@ void AAlchemistBase::Input_Dash()
 
 	if (auto* AMC = Cast<UAlchemistMovementComponent>(GetCharacterMovement()))
 	{
+		if (!AMC->CanDash())
+		{
+			return;
+		}
+
 		AMC->Dash();
+
+		if (DashSound)
+		{
+			if (UNetworkSoundSubsystem* SoundSys = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>())
+			{
+				SoundSys->PlayNetworkedSound(DashSound, GetActorLocation(), this);
+			}
+		}
 	}
 }
 
