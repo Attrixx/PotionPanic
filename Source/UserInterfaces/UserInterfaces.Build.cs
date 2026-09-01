@@ -22,7 +22,7 @@ public class UserInterfaces : ModuleRules
 			"DeveloperSettings",
 			"GameplayTags",
 			"AudioMixer",
-      		"EnhancedInput",
+			"EnhancedInput",
 			"InputCore",
 			"Slate",
 			"SlateCore",
