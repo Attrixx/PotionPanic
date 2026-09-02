@@ -4,9 +4,37 @@
 
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
+#include "RecipeAsset.h"
+#include "ActivityAsset.h"
+#include "ActivityConclusion.h"
+#include "ItemAsset.h"
 
 namespace
 {
+/**
+ * Collects every item the round's recipes can leave in the players' hands.
+ * Intermediate items count: the walk cannot tell a recipe's final output from its middle steps.
+ */
+TSet<const UItemAsset*> GatherCraftableItems(const FRound& Round)
+{
+	TSet<const UItemAsset*> CraftableItems;
+
+	for (const FRoundRecipe& RoundRecipe : Round.Recipes)
+	{
+		const URecipeAsset* Recipe = RoundRecipe.Asset.LoadSynchronous();
+		if (!Recipe)
+			continue;
+
+		for (const UActivityAsset* Step : Recipe->Steps)
+		{
+			if (IsValid(Step) && IsValid(Step->Conclusion))
+				Step->Conclusion->GatherItemsProducedOnSuccess(CraftableItems);
+		}
+	}
+
+	return CraftableItems;
+}
+
 enum class EVisitState : uint8
 {
 	White, // Not processed
@@ -85,7 +113,7 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 
 		if (Round.Recipes.IsEmpty())
 		{
-			Error(i, TEXT("Has no recipe: orders cannot be generated."));
+			Error(i, TEXT("Has no recipe: nothing can be crafted."));
 		}
 
 		for (const FRoundRecipe& Recipe : Round.Recipes)
@@ -97,9 +125,37 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 			}
 		}
 
-		if (!Round.Recipes.ContainsByPredicate([](const FRoundRecipe& R) { return R.BaseProbability > 0.f; }))
+		if (Round.Orderables.IsEmpty())
 		{
-			Error(i, TEXT("Every recipe has a zero probability."));
+			Error(i, TEXT("Has no orderable item: orders cannot be generated."));
+		}
+
+		for (const FRoundOrderable& Orderable : Round.Orderables)
+		{
+			if (Orderable.Asset.IsNull())
+			{
+				Error(i, TEXT("Contains a null orderable item."));
+				break;
+			}
+		}
+
+		if (!Round.Orderables.ContainsByPredicate([](const FRoundOrderable& O) { return O.BaseProbability > 0.f; }))
+		{
+			Error(i, TEXT("Every orderable item has a zero probability."));
+		}
+
+		const TSet<const UItemAsset*> CraftableItems = GatherCraftableItems(Round);
+		for (const FRoundOrderable& Orderable : Round.Orderables)
+		{
+			const UItemAsset* Item = Orderable.Asset.LoadSynchronous();
+			if (Item && !CraftableItems.Contains(Item))
+			{
+				// A warning, not an error: Blueprint conclusions cannot report what they produce,
+				// so a round relying on one would be flagged despite being valid.
+				Context.AddWarning(FText::FromString(FString::Printf(
+					TEXT("Round [%d]: orderable item '%s' is not produced by any of its recipes."),
+					i, *Item->GetName())));
+			}
 		}
 
 		for (const int32 NextIndex : Round.NextRounds)

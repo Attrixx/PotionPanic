@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Order.generated.h"
 
-class URecipeAsset;
+class UItemAsset;
 
 UENUM()
 enum class EOrderState
@@ -24,8 +24,9 @@ struct GAMEFLOW_API FOrder
 
 	uint32 OrderId;
 
+	/** The item that has to be delivered to complete this order. */
 	UPROPERTY(BlueprintReadOnly)
-	TObjectPtr<URecipeAsset> Recipe;
+	TObjectPtr<UItemAsset> Item;
 	
 	UPROPERTY(BlueprintReadOnly)
 	EOrderState State;

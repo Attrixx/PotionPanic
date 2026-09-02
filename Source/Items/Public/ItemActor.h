@@ -29,6 +29,10 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SetItemAsset(UItemAsset* NewItemAsset);
 
+	/** @return The asset this item currently is, identifying it against recipes and orders. */
+	UFUNCTION(BlueprintCallable)
+	UItemAsset* GetItemAsset() const { return ItemAsset; }
+
 	UFUNCTION(BlueprintCallable)
 	const FGameplayTagContainer& GetItemTags() const { return ItemTags; }
 

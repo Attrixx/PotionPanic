@@ -38,12 +38,13 @@ public:
 	const TArray<FOrder>& GetRoundOrders() const { return RoundOrders; }
 
 	/**
-	 * Completes the placed order expiring the soonest among those asking for Recipe. Server only.
-	 * @param Recipe The recipe that was just completed.
-	 * @return False when no placed order is waiting for that recipe.
+	 * Completes the placed order expiring the soonest among those asking for the delivered item.
+	 * Server only.
+	 * @param DeliveredOrder The object handed over, expected to be an AItemActor.
+	 * @return False when the object is not an item, or when no placed order is waiting for it.
 	 */
 	UFUNCTION(BlueprintCallable)
-	bool SubmitRecipe(URecipeAsset* Recipe);
+	bool SubmitOrderObject(UObject* DeliveredOrder);
 
 	FOrderDelegate OnOrderChanged;
 

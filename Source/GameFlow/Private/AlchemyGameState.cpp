@@ -3,27 +3,28 @@
 #include "AlchemyGameState.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
-#include "RecipeAsset.h"
+#include "ItemActor.h"
+#include "ItemAsset.h"
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
 namespace
 {
-	URecipeAsset* PickNextOrderRecipe(TArray<FRoundRecipe>& RecipeBag, const TArray<FRoundRecipe>& AllRecipes, URecipeAsset* LastPickedRecipe)
+	UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRoundOrderable>& AllItems, UItemAsset* LastPickedItem)
 	{
-		if (RecipeBag.IsEmpty())
-			RecipeBag = AllRecipes;
+		if (ItemBag.IsEmpty())
+			ItemBag = AllItems;
 
 		float TotalWeight = 0.f;
-		for (const FRoundRecipe& Recipe : RecipeBag)
-			TotalWeight += Recipe.BaseProbability;
+		for (const FRoundOrderable& Orderable : ItemBag)
+			TotalWeight += Orderable.BaseProbability;
 
 		float Roll = FMath::FRandRange(0.f, TotalWeight);
-		int32 PickedIndex = RecipeBag.Num() - 1;
-		for (int32 i = 0; i < RecipeBag.Num(); ++i)
+		int32 PickedIndex = ItemBag.Num() - 1;
+		for (int32 i = 0; i < ItemBag.Num(); ++i)
 		{
-			Roll -= RecipeBag[i].BaseProbability;
+			Roll -= ItemBag[i].BaseProbability;
 			if (Roll <= 0.f)
 			{
 				PickedIndex = i;
@@ -31,12 +32,12 @@ namespace
 			}
 		}
 
-		if (RecipeBag.Num() > 1 && RecipeBag[PickedIndex].Asset.Get() == LastPickedRecipe)
-			PickedIndex = (PickedIndex + 1) % RecipeBag.Num();
+		if (ItemBag.Num() > 1 && ItemBag[PickedIndex].Asset.Get() == LastPickedItem)
+			PickedIndex = (PickedIndex + 1) % ItemBag.Num();
 
-		URecipeAsset* PickedRecipe = RecipeBag[PickedIndex].Asset.Get();
-		RecipeBag.RemoveAtSwap(PickedIndex);
-		return PickedRecipe;
+		UItemAsset* PickedItem = ItemBag[PickedIndex].Asset.Get();
+		ItemBag.RemoveAtSwap(PickedIndex);
+		return PickedItem;
 	}
 }
 
@@ -84,15 +85,21 @@ float AAlchemyGameState::GetRoundRemainingTime() const
 	return RoundEndTime - GetServerWorldTimeSeconds();
 }
 
-bool AAlchemyGameState::SubmitRecipe(URecipeAsset* Recipe)
+bool AAlchemyGameState::SubmitOrderObject(UObject* DeliveredOrder)
 {
 	if (!HasAuthority())
 	{
-		UE_LOGFMT(MS_AlchemyGameState, Warning, "Recipe submitted without authority.");
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Item submitted without authority.");
 		return false;
 	}
 
-	if (!Recipe)
+	// Only item actors carry the asset identifying what they are, and orders ask for that asset.
+	const AItemActor* DeliveredItem = Cast<AItemActor>(DeliveredOrder);
+	if (!DeliveredItem)
+		return false;
+
+	UItemAsset* DeliveredAsset = DeliveredItem->GetItemAsset();
+	if (!DeliveredAsset)
 		return false;
 
 	const float RoundTime = GetRoundTime();
@@ -101,7 +108,7 @@ bool AAlchemyGameState::SubmitRecipe(URecipeAsset* Recipe)
 
 	for (FOrder& Order : RoundOrders)
 	{
-		if (Order.State != EOrderState::Placed || Order.Recipe != Recipe)
+		if (Order.State != EOrderState::Placed || Order.Item != DeliveredAsset)
 			continue;
 
 		const double RemainingTime = Order.StartTime + Order.MaxDuration - RoundTime;
@@ -193,20 +200,20 @@ void AAlchemyGameState::CreateOrders()
 	
 	float RecipeInterval = Round->Duration / Round->OrderCount;
 
-	TArray<FRoundRecipe> WeightedRecipes = Round->Recipes.FilterByPredicate(
-		[](const FRoundRecipe& Recipe) { return Recipe.BaseProbability > 0.f; });
-	TArray<FRoundRecipe> RecipeBag;
-	URecipeAsset* LastPickedRecipe = nullptr;
+	TArray<FRoundOrderable> WeightedItems = Round->Orderables.FilterByPredicate(
+		[](const FRoundOrderable& Orderable) { return Orderable.BaseProbability > 0.f; });
+	TArray<FRoundOrderable> ItemBag;
+	UItemAsset* LastPickedItem = nullptr;
 
 	RoundOrders.SetNumUninitialized(Round->OrderCount);
 	for (int32 i = 0; i < Round->OrderCount; ++i)
 	{
-		LastPickedRecipe = PickNextOrderRecipe(RecipeBag, WeightedRecipes, LastPickedRecipe);
+		LastPickedItem = PickNextOrderItem(ItemBag, WeightedItems, LastPickedItem);
 
 		RoundOrders[i] =
 		{
 			.OrderId = GenOrderId(),
-			.Recipe = LastPickedRecipe,
+			.Item = LastPickedItem,
 			.State = EOrderState::Pending,
 			.StartTime = RecipeInterval * i,
 			.MaxDuration = 30.f, // TODO: Parameter this (nb of steps x difficulty?)

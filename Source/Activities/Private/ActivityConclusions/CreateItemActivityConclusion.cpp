@@ -36,6 +36,14 @@ EDataValidationResult UCreateItemActivityConclusion::IsDataValid(FDataValidation
 }
 #endif
 
+#if WITH_EDITOR
+void UCreateItemActivityConclusion::GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const
+{
+	if (bCreateOnSuccess && OnActivitySuccess)
+		OutItems.Add(OnActivitySuccess);
+}
+#endif
+
 void UCreateItemActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {
 	UItemAsset* ItemAsset = nullptr;

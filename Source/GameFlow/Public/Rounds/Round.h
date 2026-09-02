@@ -7,6 +7,7 @@
 
 class UStationsLayoutLayer;
 class URecipeAsset;
+class UItemAsset;
 
 USTRUCT(BlueprintType)
 struct GAMEFLOW_API FRoundRecipe
@@ -15,8 +16,21 @@ struct GAMEFLOW_API FRoundRecipe
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSoftObjectPtr<URecipeAsset> Asset;
+};
 
-	// Probability that this recipe will be picked as an order
+/** An item customers may ask for during the round, and how often they ask for it. */
+USTRUCT(BlueprintType)
+struct GAMEFLOW_API FRoundOrderable
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSoftObjectPtr<UItemAsset> Asset;
+
+	/**
+	 * Weight of this item relative to the round's other orderables, not a percentage:
+	 * items weighted 4 and 10 are ordered 4 and 10 times per 14 orders.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float BaseProbability = 0.f;
 };
@@ -36,9 +50,13 @@ struct GAMEFLOW_API FRound
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<TSoftObjectPtr<UStationsLayoutLayer>> Layers;
 
-	/** Every recipe available during this round. */
+	/** Every recipe available during this round: what the players are able to craft. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<FRoundRecipe> Recipes;
+
+	/** Every item this round may order, weighted. Each one should be craftable through Recipes. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TArray<FRoundOrderable> Orderables;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float Duration = 60.f;

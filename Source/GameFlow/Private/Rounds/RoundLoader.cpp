@@ -37,7 +37,7 @@ void URoundLoader::Cancel() const
 void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete)
 {
 	TArray<FSoftObjectPath> Paths;
-	Paths.Reserve(Round.Layers.Num() + Round.Recipes.Num());
+	Paths.Reserve(Round.Layers.Num() + Round.Recipes.Num() + Round.Orderables.Num());
 
 	for (const TSoftObjectPtr<UStationsLayoutLayer>& Layer : Round.Layers)
 	{
@@ -49,6 +49,13 @@ void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round
 	{
 		if (!RoundRecipe.Asset.IsNull())
 			Paths.Add(RoundRecipe.Asset.ToSoftObjectPath());
+	}
+
+	// Orders resolve their item straight from the round data, so it has to be loaded by then.
+	for (const FRoundOrderable& Orderable : Round.Orderables)
+	{
+		if (!Orderable.Asset.IsNull())
+			Paths.Add(Orderable.Asset.ToSoftObjectPath());
 	}
 
 	if (Paths.IsEmpty())

@@ -12,13 +12,16 @@ public class GameFlow : ModuleRules
 			"CoreUObject",
 			"Engine",
 			
-			"Stations"
+			"Stations",
+			"CoreGameplay"
 		});
 
 
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
-			"Recipes"
+			"Recipes",
+			"Items",
+			"Activities"
 		});
 	}
 }
