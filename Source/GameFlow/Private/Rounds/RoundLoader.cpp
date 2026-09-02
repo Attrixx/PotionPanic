@@ -45,10 +45,10 @@ void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round
 			Paths.Add(Layer.ToSoftObjectPath());
 	}
 
-	for (const FRoundRecipe& RoundRecipe : Round.Recipes)
+	for (const TSoftObjectPtr<URecipeAsset>& RoundRecipe : Round.Recipes)
 	{
-		if (!RoundRecipe.Asset.IsNull())
-			Paths.Add(RoundRecipe.Asset.ToSoftObjectPath());
+		if (!RoundRecipe.IsNull())
+			Paths.Add(RoundRecipe.ToSoftObjectPath());
 	}
 
 	// Orders resolve their item straight from the round data, so it has to be loaded by then.
@@ -116,15 +116,15 @@ void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRound Round, FO
 		UE_LOGFMT(MS_RoundLoader, Log, "Adding {0} recipes.", Round.Recipes.Num());
 		RecipeSystem->ClearRecipes();
 
-		for (auto& RoundRecipe : Round.Recipes)
+		for (const TSoftObjectPtr<URecipeAsset>& RoundRecipe : Round.Recipes)
 		{
-			if (URecipeAsset* Recipe = RoundRecipe.Asset.Get())
+			if (URecipeAsset* Recipe = RoundRecipe.Get())
 			{
 				RecipeSystem->AddRecipe(Recipe);
 			}
 			else
 			{
-				UE_LOGFMT(MS_RoundLoader, Warning, "Failed to resolve recipe: {0}", RoundRecipe.Asset.ToString());
+				UE_LOGFMT(MS_RoundLoader, Warning, "Failed to resolve recipe: {0}", RoundRecipe.ToString());
 			}
 		}
 	}

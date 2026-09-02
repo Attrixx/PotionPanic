@@ -9,15 +9,6 @@ class UStationsLayoutLayer;
 class URecipeAsset;
 class UItemAsset;
 
-USTRUCT(BlueprintType)
-struct GAMEFLOW_API FRoundRecipe
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSoftObjectPtr<URecipeAsset> Asset;
-};
-
 /** An item customers may ask for during the round, and how often they ask for it. */
 USTRUCT(BlueprintType)
 struct GAMEFLOW_API FRoundOrderable
@@ -52,7 +43,7 @@ struct GAMEFLOW_API FRound
 
 	/** Every recipe available during this round: what the players are able to craft. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TArray<FRoundRecipe> Recipes;
+	TArray<TSoftObjectPtr<URecipeAsset>> Recipes;
 
 	/** Every item this round may order, weighted. Each one should be craftable through Recipes. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

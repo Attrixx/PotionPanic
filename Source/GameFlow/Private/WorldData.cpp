@@ -19,9 +19,9 @@ TSet<const UItemAsset*> GatherCraftableItems(const FRound& Round)
 {
 	TSet<const UItemAsset*> CraftableItems;
 
-	for (const FRoundRecipe& RoundRecipe : Round.Recipes)
+	for (const TSoftObjectPtr<URecipeAsset>& RoundRecipe : Round.Recipes)
 	{
-		const URecipeAsset* Recipe = RoundRecipe.Asset.LoadSynchronous();
+		const URecipeAsset* Recipe = RoundRecipe.LoadSynchronous();
 		if (!Recipe)
 			continue;
 
@@ -116,9 +116,9 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 			Error(i, TEXT("Has no recipe: nothing can be crafted."));
 		}
 
-		for (const FRoundRecipe& Recipe : Round.Recipes)
+		for (const TSoftObjectPtr<URecipeAsset>& Recipe : Round.Recipes)
 		{
-			if (Recipe.Asset.IsNull())
+			if (Recipe.IsNull())
 			{
 				Error(i, TEXT("Contains a null recipe."));
 				break;
