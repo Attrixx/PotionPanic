@@ -132,8 +132,36 @@ void AAlchemyGameState::StartRound()
 	// TODO: Start Round
 }
 
-void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldLiveOrders)
+void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 {
-	// If status changed:
-	// OnOrderChanged.Broadcast
+	auto FindById = [](const TArray<FOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FOrder*
+	{
+		// Indexes should stay stable across updates 
+		if (Orders.IsValidIndex(IndexHint) && Orders[IndexHint].OrderId == OrderId)
+			return &Orders[IndexHint];
+		// Fallback to full search
+		return Orders.FindByPredicate([OrderId](const FOrder& Order) { return Order.OrderId == OrderId; });
+	};
+
+	for (int32 i = 0; i < RoundOrders.Num(); ++i)
+	{
+		const FOrder& Order = RoundOrders[i];
+		const FOrder* OldOrder = FindById(OldRoundOrders, Order.OrderId, i);
+
+		// Unknown ids count as changed: the order appeared with this update.
+		if (!OldOrder || OldOrder->State != Order.State)
+			OnOrderChanged.Broadcast(Order);
+	}
+
+	for (int32 i = 0; i < OldRoundOrders.Num(); ++i)
+	{
+		const FOrder& OldOrder = OldRoundOrders[i];
+		if (FindById(RoundOrders, OldOrder.OrderId, i))
+			continue;
+
+		// The order left the round without an outcome of its own.
+		FOrder DeletedOrder = OldOrder;
+		DeletedOrder.State = EOrderState::SystemDeleted;
+		OnOrderChanged.Broadcast(DeletedOrder);
+	}
 }

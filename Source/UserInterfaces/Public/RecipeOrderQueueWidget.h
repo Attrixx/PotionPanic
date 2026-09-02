@@ -36,6 +36,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void CompleteOrderWidget(UWidget* Widget);
 	
+	UFUNCTION(BlueprintImplementableEvent)
+	void SystemDeleteOrderWidget(UWidget* Widget);
+	
 private:
 	
 	UPROPERTY()

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -14,6 +14,7 @@ enum class EOrderState
 	Placed,
 	Cancelled, // Negative outcome
 	Completed, // Positive outcome
+	SystemDeleted, // Deleted without an outcome
 };
 
 USTRUCT(BlueprintType)
