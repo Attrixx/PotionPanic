@@ -107,6 +107,12 @@ void ALobbyPlayerController::Invite(const FInputActionValue& Value)
 
 void ALobbyPlayerController::HandleMenuAction(const FInputActionValue& Value)
 {
+	if (bInSettings)
+	{
+		HideSettings();
+		return;
+	}
+
 	ULocalPlayer* LocalPlayer = GetLocalPlayer();
 	if (IsValid(LocalPlayer) && LocalPlayer->GetControllerId() == 0)
 	{
@@ -149,6 +155,10 @@ void ALobbyPlayerController::TransitionToArea(ECameraPosition TargetCameraPositi
 
 	const ECameraPosition PreviousCameraPosition = CurrentLocalCameraPosition;
 	CurrentLocalCameraPosition = TargetCameraPosition;
+	if (TargetCameraPosition == ECameraPosition::Settings)
+	{
+		CameraPositionBeforeSettings = PreviousCameraPosition;
+	}
 
 	ALevelSequenceActor* TargetSequenceActor = nullptr;
 	bool bPlayForward = true;
@@ -241,4 +251,57 @@ void ALobbyPlayerController::OnLobbyInterfaceSequenceFinished()
 			}
 		}
 	}
+}
+
+void ALobbyPlayerController::ShowSettings()
+{
+	if (bInSettings) return;
+
+	bInSettings = true;
+
+	if (IsLocalController() && SettingsWidgetClass && !SettingsWidgetInstance)
+	{
+		SettingsWidgetInstance = CreateWidget<UUserWidget>(this, SettingsWidgetClass);
+		if (SettingsWidgetInstance)
+		{
+			// Bind HideSettings to the widget's OnBackClicked delegate via reflection,
+			// avoiding a hard compile-time dependency on UserInterfaces (circular dependency).
+			if (FMulticastDelegateProperty* DelegateProp = CastField<FMulticastDelegateProperty>(
+				SettingsWidgetInstance->GetClass()->FindPropertyByName(TEXT("OnBackClicked"))))
+			{
+				FScriptDelegate Delegate;
+				Delegate.BindUFunction(this, GET_FUNCTION_NAME_CHECKED(ALobbyPlayerController, HideSettings));
+				DelegateProp->AddDelegate(Delegate, SettingsWidgetInstance);
+			}
+
+			SettingsWidgetInstance->AddToViewport();
+
+			bShowMouseCursor = true;
+			// Set input mode to game and UI to allow interaction with the settings widget while still allowing game input.
+			FInputModeGameAndUI InputMode;
+			SetInputMode(InputMode);
+		}
+	}
+}
+
+void ALobbyPlayerController::HideSettings()
+{
+	if (!bInSettings) return;
+
+	bInSettings = false;
+
+	if (SettingsWidgetInstance)
+	{
+		SettingsWidgetInstance->RemoveFromParent();
+		SettingsWidgetInstance = nullptr;
+	}
+
+	bShowMouseCursor = false;
+	FInputModeGameOnly InputMode;
+	SetInputMode(InputMode);
+
+	// Route back through TransitionToArea so CurrentLocalCameraPosition, the active
+	// sequence and its playback direction stay consistent. It resolves the registered
+	// <area> -> Settings sequence and plays it in reverse.
+	TransitionToArea(CameraPositionBeforeSettings);
 }

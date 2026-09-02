@@ -48,9 +48,20 @@ public:
 
 	void SetInLobby(bool bNewInLobby);
 
+	/** Called from a LevelSequence to notify that the settings screen is now visible. */
+	UFUNCTION(BlueprintCallable, Category = "Lobby|Settings")
+	void ShowSettings();
+
+	/** Hides the settings by playing the appropriate sequence in reverse. Can be called from the UI button or via MenuAction. */
+	UFUNCTION(BlueprintCallable, Category = "Lobby|Settings")
+	void HideSettings();
+
 protected:
 
 	ECameraPosition CurrentLocalCameraPosition = ECameraPosition::Exterior;
+
+	/** Area the camera was in before entering the settings screen, restored by HideSettings. */
+	ECameraPosition CameraPositionBeforeSettings = ECameraPosition::Exterior;
 
 	UPROPERTY()
 	TObjectPtr<ULevelSequencePlayer> ActiveSequencePlayer = nullptr;
@@ -63,6 +74,12 @@ protected:
 
 	UFUNCTION()
 	void OnLobbyInterfaceSequenceFinished();
+
+	UPROPERTY(EditDefaultsOnly, Category = "Lobby|UI")
+	TSubclassOf<UUserWidget> SettingsWidgetClass;
+
+	UPROPERTY()
+	TObjectPtr<UUserWidget> SettingsWidgetInstance;
 
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<ULocalPlayerRegistrationComponent> LocalPlayerRegistrationComponent;
@@ -96,5 +113,7 @@ protected:
 	void OnRep_InLobby();
 
 	void PrimaryPlayerLeave();
+
+	bool bInSettings = false;
 	
 };
