@@ -202,6 +202,10 @@ struct QTE_API FQTERuntimeState
 	UPROPERTY(BlueprintReadOnly, Category = "QTE")
 	float EffectiveStepTimeout = 0.f;
 
+	// Denominator for GlobalTimeRemaining, so UI can show a normalised timer gauge.
+	UPROPERTY(BlueprintReadOnly, Category = "QTE")
+	float EffectiveGlobalTimeout = 0.f;
+
 	UPROPERTY(BlueprintReadOnly, Category = "QTE")
 	float EffectiveTolerance = 0.f;
 

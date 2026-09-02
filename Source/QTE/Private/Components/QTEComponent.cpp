@@ -217,10 +217,13 @@ void UQTEComponent::FinishQTE(EQTEState FinalState, const FText& OverrideMessage
 		LastResult.ElapsedTime,
 		*LastResult.Message.ToString());
 
+	// Built before ClearActiveSessionReferences(), which nulls ActiveDefinition.
+	const FQTEAuthorityResult AuthorityResult = ActiveDefinition->BuildAuthorityResult(RuntimeState, LastResult, EQTEState::None);
+
 	ClearActiveSessionReferences();
 	OnQTEUpdated.Broadcast(RuntimeState);
 	OnQTEFinished.Broadcast(LastResult);
-	AuthoritySession.Resolve(ActiveDefinition->BuildAuthorityResult(RuntimeState, LastResult, EQTEState::None));
+	AuthoritySession.Resolve(AuthorityResult);
 }
 
 // ============================================================
