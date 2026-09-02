@@ -7,11 +7,27 @@
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
+AAlchemyGameState::AAlchemyGameState()
+{
+	// Only ticks on the server, and only while the current round has orders left to resolve.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+}
+
+void AAlchemyGameState::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+
+	if (HasAuthority())
+		UpdateOrders();
+}
+
 void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AAlchemyGameState, SoftWorldData);
 	DOREPLIFETIME(AAlchemyGameState, CurrentRound);
+	DOREPLIFETIME(AAlchemyGameState, RoundStartTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundEndTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundOrders);
 }
@@ -33,6 +49,41 @@ float AAlchemyGameState::GetRoundTime() const
 float AAlchemyGameState::GetRoundRemainingTime() const
 {
 	return RoundEndTime - GetServerWorldTimeSeconds();
+}
+
+bool AAlchemyGameState::SubmitRecipe(URecipeAsset* Recipe)
+{
+	if (!HasAuthority())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Recipe submitted without authority.");
+		return false;
+	}
+
+	if (!Recipe)
+		return false;
+
+	const float RoundTime = GetRoundTime();
+	FOrder* Soonest = nullptr;
+	double SoonestRemainingTime = 0.0;
+
+	for (FOrder& Order : RoundOrders)
+	{
+		if (Order.State != EOrderState::Placed || Order.Recipe != Recipe)
+			continue;
+
+		const double RemainingTime = Order.StartTime + Order.MaxDuration - RoundTime;
+		if (!Soonest || RemainingTime < SoonestRemainingTime)
+		{
+			Soonest = &Order;
+			SoonestRemainingTime = RemainingTime;
+		}
+	}
+
+	if (!Soonest)
+		return false;
+
+	SetOrderState(*Soonest, EOrderState::Completed);
+	return true;
 }
 
 void AAlchemyGameState::OnRep_SoftWorldData()
@@ -99,6 +150,7 @@ const FRound* AAlchemyGameState::GetCurrentRound() const
 void AAlchemyGameState::OnCurrentRoundApplied()
 {
 	CreateOrders();
+	StartRound(); // TODO: Wait for everyone ready
 }
 
 void AAlchemyGameState::CreateOrders()
@@ -129,7 +181,48 @@ void AAlchemyGameState::StartRound()
 	
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
-	// TODO: Start Round
+	SetActorTickEnabled(true);
+}
+
+void AAlchemyGameState::UpdateOrders()
+{
+	const float RoundTime = GetRoundTime();
+	bool bAnyOrderLeft = false;
+
+	for (FOrder& Order : RoundOrders)
+	{
+		// An order with a tiny MaxDuration may go through both transitions in the same update.
+		if (Order.State == EOrderState::Pending && RoundTime >= Order.StartTime)
+			SetOrderState(Order, EOrderState::Placed);
+
+		if (Order.State == EOrderState::Placed && RoundTime >= Order.StartTime + Order.MaxDuration)
+			SetOrderState(Order, EOrderState::Cancelled);
+
+		bAnyOrderLeft |= Order.State == EOrderState::Pending || Order.State == EOrderState::Placed;
+	}
+
+	if (!bAnyOrderLeft)
+		EndRound();
+}
+
+void AAlchemyGameState::EndRound()
+{
+	SetActorTickEnabled(false);
+
+	const TArray<FOrder> EndedOrders = MoveTemp(RoundOrders);
+	RoundOrders.Reset();
+
+	for (FOrder Order : EndedOrders)
+	{
+		Order.State = EOrderState::SystemDeleted;
+		OnOrderChanged.Broadcast(Order);
+	}
+}
+
+void AAlchemyGameState::SetOrderState(FOrder& Order, EOrderState NewState)
+{
+	Order.State = NewState;
+	OnOrderChanged.Broadcast(Order);
 }
 
 void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)

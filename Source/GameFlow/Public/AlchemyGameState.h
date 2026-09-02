@@ -22,6 +22,10 @@ class GAMEFLOW_API AAlchemyGameState : public AGameStateBase
 
 public:
 
+	AAlchemyGameState();
+
+	void Tick(float DeltaSeconds) override;
+
 	void SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData);
 
 	UFUNCTION(BlueprintCallable)
@@ -32,6 +36,14 @@ public:
 	
 	UFUNCTION(BlueprintCallable)
 	const TArray<FOrder>& GetRoundOrders() const { return RoundOrders; }
+
+	/**
+	 * Completes the placed order expiring the soonest among those asking for Recipe. Server only.
+	 * @param Recipe The recipe that was just completed.
+	 * @return False when no placed order is waiting for that recipe.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool SubmitRecipe(URecipeAsset* Recipe);
 
 	FOrderDelegate OnOrderChanged;
 
@@ -50,6 +62,15 @@ private:
 	
 	void CreateOrders();
 	void StartRound();
+
+	/** Places pending orders and cancels expired ones, based on the current round time. Server only. */
+	void UpdateOrders();
+
+	/** Reports every remaining order as deleted, drops them and stops ticking. Server only. */
+	void EndRound();
+
+	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
+	void SetOrderState(FOrder& Order, EOrderState NewState);
 	
 	UFUNCTION()
 	void OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders);
