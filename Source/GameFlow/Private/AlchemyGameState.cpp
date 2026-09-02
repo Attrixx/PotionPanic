@@ -3,9 +3,42 @@
 #include "AlchemyGameState.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
+#include "RecipeAsset.h"
 #include <Net/UnrealNetwork.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
+
+namespace
+{
+	URecipeAsset* PickNextOrderRecipe(TArray<FRoundRecipe>& RecipeBag, const TArray<FRoundRecipe>& AllRecipes, URecipeAsset* LastPickedRecipe)
+	{
+		if (RecipeBag.IsEmpty())
+			RecipeBag = AllRecipes;
+
+		float TotalWeight = 0.f;
+		for (const FRoundRecipe& Recipe : RecipeBag)
+			TotalWeight += Recipe.BaseProbability;
+
+		float Roll = FMath::FRandRange(0.f, TotalWeight);
+		int32 PickedIndex = RecipeBag.Num() - 1;
+		for (int32 i = 0; i < RecipeBag.Num(); ++i)
+		{
+			Roll -= RecipeBag[i].BaseProbability;
+			if (Roll <= 0.f)
+			{
+				PickedIndex = i;
+				break;
+			}
+		}
+
+		if (RecipeBag.Num() > 1 && RecipeBag[PickedIndex].Asset.Get() == LastPickedRecipe)
+			PickedIndex = (PickedIndex + 1) % RecipeBag.Num();
+
+		URecipeAsset* PickedRecipe = RecipeBag[PickedIndex].Asset.Get();
+		RecipeBag.RemoveAtSwap(PickedIndex);
+		return PickedRecipe;
+	}
+}
 
 AAlchemyGameState::AAlchemyGameState()
 {
@@ -160,13 +193,20 @@ void AAlchemyGameState::CreateOrders()
 	
 	float RecipeInterval = Round->Duration / Round->OrderCount;
 
+	TArray<FRoundRecipe> WeightedRecipes = Round->Recipes.FilterByPredicate(
+		[](const FRoundRecipe& Recipe) { return Recipe.BaseProbability > 0.f; });
+	TArray<FRoundRecipe> RecipeBag;
+	URecipeAsset* LastPickedRecipe = nullptr;
+
 	RoundOrders.SetNumUninitialized(Round->OrderCount);
 	for (int32 i = 0; i < Round->OrderCount; ++i)
 	{
+		LastPickedRecipe = PickNextOrderRecipe(RecipeBag, WeightedRecipes, LastPickedRecipe);
+
 		RoundOrders[i] =
 		{
 			.OrderId = GenOrderId(),
-			.Recipe = nullptr, // TODO(francois): probability
+			.Recipe = LastPickedRecipe,
 			.State = EOrderState::Pending,
 			.StartTime = RecipeInterval * i,
 			.MaxDuration = 30.f, // TODO: Parameter this (nb of steps x difficulty?)
@@ -201,7 +241,8 @@ void AAlchemyGameState::UpdateOrders()
 		bAnyOrderLeft |= Order.State == EOrderState::Pending || Order.State == EOrderState::Placed;
 	}
 
-	if (!bAnyOrderLeft)
+	if (!bAnyOrderLeft || RoundTime >= RoundEndTime)
+		[[unlikely]]
 		EndRound();
 }
 
