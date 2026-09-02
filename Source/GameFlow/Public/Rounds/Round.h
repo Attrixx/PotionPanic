@@ -65,6 +65,14 @@ struct GAMEFLOW_API FRound
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 OrderCount = 3;
 
+	/**
+	 * Longest stretch, in seconds, this round may leave the players without a placed order.
+	 * Completing the last placed order pulls every pending one forward so the next is placed
+	 * no later than this. Zero places it at once; a value >= Duration keeps the even spread.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = 0))
+	float MaxTimeWithoutPlacedOrder = 3.f;
+
 	/** Rounds that may follow this one, as indices in the owning UWorldData. Empty means last round. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<int32> NextRounds;

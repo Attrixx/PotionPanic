@@ -40,11 +40,11 @@ public:
 	/**
 	 * Completes the placed order expiring the soonest among those asking for the delivered item.
 	 * Server only.
-	 * @param DeliveredOrder The object handed over, expected to be an AItemActor.
-	 * @return False when the object is not an item, or when no placed order is waiting for it.
+	 * @param ItemAsset The object handed over, expected to be an AItemActor.
+	 * @return True if the item was delivered. False when no placed order is waiting for this item.
 	 */
 	UFUNCTION(BlueprintCallable)
-	bool SubmitOrderObject(UObject* DeliveredOrder);
+	bool DeliverOrder(UItemAsset* ItemAsset);
 
 	FOrderDelegate OnOrderChanged;
 
@@ -64,8 +64,15 @@ private:
 	void CreateOrders();
 	void StartRound();
 
-	/** Places pending orders and cancels expired ones, based on the current round time. Server only. */
+	/**
+	 * Places pending orders and cancels expired ones, based on the current round time.
+	 * Runs on clients too: they reach the same transitions from replicated data, and
+	 * OnRep_RoundOrders corrects them whenever they drift. Only the server ends the round.
+	 */
 	void UpdateOrders();
+
+	/** Moves every pending order Shift seconds earlier, preserving the spacing between them. */
+	void ShiftPendingOrders(double Shift);
 
 	/** Reports every remaining order as deleted, drops them and stops ticking. Server only. */
 	void EndRound();
@@ -88,10 +95,10 @@ private:
 	int32 CurrentRound = 0;
 	
 	UPROPERTY(Replicated)
-	float RoundStartTime;
-	
+	float RoundStartTime = 0.f;
+
 	UPROPERTY(Replicated)
-	float RoundEndTime;
+	float RoundEndTime = 0.f;
 
 	UPROPERTY(ReplicatedUsing=OnRep_RoundOrders)
 	TArray<FOrder> RoundOrders;

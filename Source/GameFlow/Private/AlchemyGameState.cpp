@@ -11,39 +11,40 @@ DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
 namespace
 {
-	UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRoundOrderable>& AllItems, UItemAsset* LastPickedItem)
+UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRoundOrderable>& AllItems, UItemAsset* LastPickedItem)
+{
+	if (ItemBag.IsEmpty())
+		ItemBag = AllItems;
+
+	float TotalWeight = 0.f;
+	for (const FRoundOrderable& Orderable : ItemBag)
+		TotalWeight += Orderable.BaseProbability;
+
+	float Roll = FMath::FRandRange(0.f, TotalWeight);
+	int32 PickedIndex = ItemBag.Num() - 1;
+	for (int32 i = 0; i < ItemBag.Num(); ++i)
 	{
-		if (ItemBag.IsEmpty())
-			ItemBag = AllItems;
-
-		float TotalWeight = 0.f;
-		for (const FRoundOrderable& Orderable : ItemBag)
-			TotalWeight += Orderable.BaseProbability;
-
-		float Roll = FMath::FRandRange(0.f, TotalWeight);
-		int32 PickedIndex = ItemBag.Num() - 1;
-		for (int32 i = 0; i < ItemBag.Num(); ++i)
+		Roll -= ItemBag[i].BaseProbability;
+		if (Roll <= 0.f)
 		{
-			Roll -= ItemBag[i].BaseProbability;
-			if (Roll <= 0.f)
-			{
-				PickedIndex = i;
-				break;
-			}
+			PickedIndex = i;
+			break;
 		}
-
-		if (ItemBag.Num() > 1 && ItemBag[PickedIndex].Asset.Get() == LastPickedItem)
-			PickedIndex = (PickedIndex + 1) % ItemBag.Num();
-
-		UItemAsset* PickedItem = ItemBag[PickedIndex].Asset.Get();
-		ItemBag.RemoveAtSwap(PickedIndex);
-		return PickedItem;
 	}
+
+	if (ItemBag.Num() > 1 && ItemBag[PickedIndex].Asset.Get() == LastPickedItem)
+		PickedIndex = (PickedIndex + 1) % ItemBag.Num();
+
+	UItemAsset* PickedItem = ItemBag[PickedIndex].Asset.Get();
+	ItemBag.RemoveAtSwap(PickedIndex);
+	return PickedItem;
+}
 }
 
 AAlchemyGameState::AAlchemyGameState()
 {
-	// Only ticks on the server, and only while the current round has orders left to resolve.
+	// Ticks on server and clients alike, and only while the current round has orders left to
+	// resolve. The server enables it in StartRound, the clients in OnRep_RoundOrders.
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 }
@@ -52,8 +53,7 @@ void AAlchemyGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (HasAuthority())
-		UpdateOrders();
+	UpdateOrders();
 }
 
 void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -85,44 +85,66 @@ float AAlchemyGameState::GetRoundRemainingTime() const
 	return RoundEndTime - GetServerWorldTimeSeconds();
 }
 
-bool AAlchemyGameState::SubmitOrderObject(UObject* DeliveredOrder)
+bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
 {
 	if (!HasAuthority())
 	{
-		UE_LOGFMT(MS_AlchemyGameState, Warning, "Item submitted without authority.");
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Item delivered without authority.");
 		return false;
 	}
-
-	// Only item actors carry the asset identifying what they are, and orders ask for that asset.
-	const AItemActor* DeliveredItem = Cast<AItemActor>(DeliveredOrder);
-	if (!DeliveredItem)
-		return false;
-
-	UItemAsset* DeliveredAsset = DeliveredItem->GetItemAsset();
-	if (!DeliveredAsset)
-		return false;
 
 	const float RoundTime = GetRoundTime();
 	FOrder* Soonest = nullptr;
 	double SoonestRemainingTime = 0.0;
+	int32 PlacedCount = 0;
+	double NextPendingStartTime = 0.0;
+	bool bAnyPending = false;
 
 	for (FOrder& Order : RoundOrders)
 	{
-		if (Order.State != EOrderState::Placed || Order.Item != DeliveredAsset)
-			continue;
-
-		const double RemainingTime = Order.StartTime + Order.MaxDuration - RoundTime;
-		if (!Soonest || RemainingTime < SoonestRemainingTime)
+		switch (Order.State)
 		{
-			Soonest = &Order;
-			SoonestRemainingTime = RemainingTime;
+		case EOrderState::Placed:
+		{
+			++PlacedCount;
+			if (Order.Item != ItemAsset)
+				break;
+
+			const double RemainingTime = Order.StartTime + Order.MaxDuration - RoundTime;
+			if (!Soonest || RemainingTime < SoonestRemainingTime)
+			{
+				Soonest = &Order;
+				SoonestRemainingTime = RemainingTime;
+			}
+		}
+		break;
+
+		case EOrderState::Pending:
+		{
+			if (!bAnyPending || Order.StartTime < NextPendingStartTime)
+			{
+				NextPendingStartTime = Order.StartTime;
+				bAnyPending = true;
+			}
+		}
+		break;
+
+		default:
+			break;
 		}
 	}
 
 	if (!Soonest)
 		return false;
 
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Order completed by delivering {0}.", ItemAsset ? ItemAsset->ItemName.ToString() : "NULL");
 	SetOrderState(*Soonest, EOrderState::Completed);
+
+	// That was the last thing to work on: pull the tail forward so the players don't idle.
+	const FRound* Round = GetCurrentRound();
+	if (PlacedCount == 1 && bAnyPending && Round)
+		ShiftPendingOrders(NextPendingStartTime - RoundTime - Round->MaxTimeWithoutPlacedOrder);
+
 	return true;
 }
 
@@ -197,7 +219,7 @@ void AAlchemyGameState::CreateOrders()
 {
 	const FRound* Round = GetCurrentRound();
 	check(Round);
-	
+
 	float RecipeInterval = Round->Duration / Round->OrderCount;
 
 	TArray<FRoundOrderable> WeightedItems = Round->Orderables.FilterByPredicate(
@@ -225,7 +247,7 @@ void AAlchemyGameState::StartRound()
 {
 	const FRound* Round = GetCurrentRound();
 	check(Round);
-	
+
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
 	SetActorTickEnabled(true);
@@ -248,9 +270,32 @@ void AAlchemyGameState::UpdateOrders()
 		bAnyOrderLeft |= Order.State == EOrderState::Pending || Order.State == EOrderState::Placed;
 	}
 
-	if (!bAnyOrderLeft || RoundTime >= RoundEndTime)
+	// Ending the round clears RoundOrders, which the clients pick up through OnRep_RoundOrders.
+	// Doing it locally there would broadcast every deletion twice.
+	if (!HasAuthority())
+		return;
+
+	if (!bAnyOrderLeft || GetRoundRemainingTime() <= 0.f)
 		[[unlikely]]
-		EndRound();
+			EndRound();
+}
+
+void AAlchemyGameState::ShiftPendingOrders(double Shift)
+{
+	if (Shift <= 0.0)
+		return;
+
+	int32 ShiftedCount = 0;
+	for (FOrder& Order : RoundOrders)
+	{
+		if (Order.State == EOrderState::Pending)
+		{
+			Order.StartTime -= Shift;
+			++ShiftedCount;
+		}
+	}
+
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Pulled the {0} pending order(s) {1}s forward.", ShiftedCount, Shift);
 }
 
 void AAlchemyGameState::EndRound()
@@ -283,6 +328,9 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 		// Fallback to full search
 		return Orders.FindByPredicate([OrderId](const FOrder& Order) { return Order.OrderId == OrderId; });
 	};
+
+	// The server drives its own tick from StartRound/EndRound; the clients follow the order list.
+	SetActorTickEnabled(!RoundOrders.IsEmpty());
 
 	for (int32 i = 0; i < RoundOrders.Num(); ++i)
 	{
