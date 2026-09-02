@@ -11,6 +11,7 @@
 #include "ActorFilters/InterfaceActorFilter.h"
 #include "Components/QTEComponent.h"
 #include "Components/QTEDisplayComponent.h"
+#include "NetworkSoundComponent.h"
 #include "NetworkSoundSubsystem.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
@@ -57,6 +58,8 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	QTEDisplayComponent = CreateDefaultSubobject<UQTEDisplayComponent>(TEXT("QTE Display"));
 	QTEDisplayComponent->SetupAttachment(RootComponent);
+
+	NetworkSoundComponent = CreateDefaultSubobject<UNetworkSoundComponent>(TEXT("Network Sound"));
 }
 
 bool AAlchemistBase::IsCarrying() const

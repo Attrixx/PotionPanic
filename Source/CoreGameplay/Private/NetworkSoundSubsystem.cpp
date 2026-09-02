@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "NetworkSoundSubsystem.h"
+#include "NetworkSoundComponent.h"
 #include "NetworkSoundRelay.h"
 
 #include "Components/AudioComponent.h"
@@ -27,38 +28,52 @@ int32 UNetworkSoundSubsystem::PlayNetworkedSound(USoundBase* Sound, FVector Loca
 		return -1;
 	}
 
-	// ── 1. Generate a unique handle for this sound instance ──
+	// ── 1. Generate a handle unique across all players in the session ──
 	const int32 Handle = GenerateHandle(Instigator);
 
 	// ── 2. Play immediately in local at full volume (client-predicted, zero latency) ──
 	//       SpawnSoundAtLocation returns the AudioComponent so we can stop it later.
-	UAudioComponent* AudioComp = UGameplayStatics::SpawnSoundAtLocation(World, Sound, Location, FRotator::ZeroRotator, 1.0f);
+	UAudioComponent* AudioComp = UGameplayStatics::SpawnSoundAtLocation(
+		World, Sound, Location, FRotator::ZeroRotator, 1.0f
+	);
 	if (AudioComp)
 	{
 		ActiveSounds.Add(Handle, AudioComp);
 	}
 
-	// ── 3. Resolve the instigator's PlayerState to exclude them from the Multicast ──
+	// ── 3. Resolve the instigator's PlayerState (used to skip them in the Multicast) ──
 	APlayerState* InstigatorState = nullptr;
-	if (Instigator)
+	if (const APawn* InstigatorPawn = Cast<APawn>(Instigator))
 	{
-		if (APawn* InstigatorPawn = Cast<APawn>(Instigator))
-		{
-			InstigatorState = InstigatorPawn->GetPlayerState();
-		}
+		InstigatorState = InstigatorPawn->GetPlayerState();
 	}
 
-	// ── 4. Relay the sound to other clients through the replicated relay actor ──
-	// If called directly on the server (no instigating client), InstigatorState will be
-	// nullptr and all clients will play the sound — an unlikely case in this project.
-	ANetworkSoundRelay* Relay = GetOrCreateRelay();
-	if (!Relay)
+	// ── 4. Route the broadcast through the instigator's UNetworkSoundComponent ──
+	// The component lives on the owned Pawn, making its Server RPC valid for any client.
+	// If the instigator has no such component (or we're already on the server), fall back
+	// to broadcasting directly.
+	UNetworkSoundComponent* SoundComp = Instigator
+		? Instigator->FindComponentByClass<UNetworkSoundComponent>()
+		: nullptr;
+
+	if (SoundComp)
 	{
-		UE_LOG(LogNetworkSound, Warning, TEXT("PlayNetworkedSound: Could not find or create a NetworkSoundRelay."));
-		return Handle;
+		ActiveSoundComponents.Add(Handle, SoundComp);
+		SoundComp->RelaySound(Sound, Location, InstigatorState, Handle);
+	}
+	else if (World->GetNetMode() != NM_Client)
+	{
+		// Server or standalone: no need for a Server RPC, broadcast directly.
+		BroadcastSoundOnServer(Sound, Location, InstigatorState, Handle);
+	}
+	else
+	{
+		UE_LOG(LogNetworkSound, Warning,
+			TEXT("PlayNetworkedSound: Instigator '%s' has no UNetworkSoundComponent. "
+				 "Sound will not be heard by other clients."),
+			Instigator ? *Instigator->GetName() : TEXT("nullptr"));
 	}
 
-	Relay->Server_BroadcastSound(Sound, Location, InstigatorState, Handle);
 	return Handle;
 }
 
@@ -72,15 +87,47 @@ void UNetworkSoundSubsystem::StopNetworkedSound(int32 Handle)
 	// ── 1. Stop locally ──
 	StopRemoteSound(Handle);
 
-	// ── 2. Broadcast the stop to all other clients ──
+	// ── 2. Route the stop through the same component that started the sound ──
+	if (TWeakObjectPtr<UNetworkSoundComponent>* CompPtr = ActiveSoundComponents.Find(Handle))
+	{
+		if (CompPtr->IsValid())
+		{
+			CompPtr->Get()->RelayStop(Handle);
+		}
+		ActiveSoundComponents.Remove(Handle);
+	}
+	else
+	{
+		UWorld* World = GetGameInstance()->GetWorld();
+		if (World && World->GetNetMode() != NM_Client)
+		{
+			BroadcastStopOnServer(Handle);
+		}
+	}
+}
+
+void UNetworkSoundSubsystem::BroadcastSoundOnServer(USoundBase* Sound, FVector Location, APlayerState* InstigatorState, int32 Handle)
+{
 	ANetworkSoundRelay* Relay = GetOrCreateRelay();
 	if (!Relay)
 	{
-		UE_LOG(LogNetworkSound, Warning, TEXT("StopNetworkedSound: Could not find or create a NetworkSoundRelay."));
+		UE_LOG(LogNetworkSound, Warning, TEXT("BroadcastSoundOnServer: Could not find or create a NetworkSoundRelay."));
 		return;
 	}
 
-	Relay->Server_BroadcastStop(Handle);
+	Relay->Multicast_PlaySound(Sound, Location, InstigatorState, Handle);
+}
+
+void UNetworkSoundSubsystem::BroadcastStopOnServer(int32 Handle)
+{
+	ANetworkSoundRelay* Relay = GetOrCreateRelay();
+	if (!Relay)
+	{
+		UE_LOG(LogNetworkSound, Warning, TEXT("BroadcastStopOnServer: Could not find or create a NetworkSoundRelay."));
+		return;
+	}
+
+	Relay->Multicast_StopSound(Handle);
 }
 
 void UNetworkSoundSubsystem::RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp)
@@ -107,16 +154,13 @@ int32 UNetworkSoundSubsystem::GenerateHandle(AActor* Instigator)
 {
 	// Encode the instigator's PlayerId into the upper part of the handle so that
 	// concurrent sounds from different players do not share the same key on remote clients.
-	// Format: (PlayerId * 100000) + LocalCounter, assuming fewer than 100 000 sounds per player per session.
+	// Format: (PlayerId * 100000) + LocalCounter.
 	int32 PlayerId = 0;
-	if (Instigator)
+	if (const APawn* InstigatorPawn = Cast<APawn>(Instigator))
 	{
-		if (const APawn* InstigatorPawn = Cast<APawn>(Instigator))
+		if (const APlayerState* PS = InstigatorPawn->GetPlayerState())
 		{
-			if (const APlayerState* PS = InstigatorPawn->GetPlayerState())
-			{
-				PlayerId = PS->GetPlayerId();
-			}
+			PlayerId = PS->GetPlayerId();
 		}
 	}
 
@@ -156,7 +200,7 @@ ANetworkSoundRelay* UNetworkSoundSubsystem::GetOrCreateRelay()
 
 	if (NewRelay)
 	{
-		UE_LOG(LogNetworkSound, Log, TEXT("PlayNetworkedSound: Spawned a new ANetworkSoundRelay."));
+		UE_LOG(LogNetworkSound, Log, TEXT("GetOrCreateRelay: Spawned a new ANetworkSoundRelay."));
 		CachedRelay = NewRelay;
 	}
 

@@ -10,17 +10,22 @@ class USoundBase;
 class UAudioComponent;
 class ANetworkSoundRelay;
 class APlayerState;
+class UNetworkSoundComponent;
 
 /**
  * GameInstance subsystem acting as the single entry point for playing networked sounds.
  *
  * PlayNetworkedSound() behaviour:
  *   1. Plays the sound immediately in local at full volume (client-predicted, zero latency).
- *   2. Sends a Server RPC via ANetworkSoundRelay to relay the sound via NetMulticast.
- *   3. Other clients receive the sound through the Multicast and play it at RemoteVolumeMultiplier.
+ *   2. Routes a Server RPC through UNetworkSoundComponent (on the instigating Pawn) to the server.
+ *   3. The server calls BroadcastSoundOnServer(), which triggers a NetMulticast on ANetworkSoundRelay.
+ *   4. Other clients receive the sound via the Multicast and play it at RemoteVolumeMultiplier.
  *
- * StopNetworkedSound() stops a looping sound on all machines using the handle
- * returned by PlayNetworkedSound().
+ * Why UNetworkSoundComponent instead of a Server RPC on ANetworkSoundRelay?
+ *   UE requires Server RPCs to be called on an actor owned by the calling client.
+ *   ANetworkSoundRelay is spawned by the server with no owner, so non-host clients cannot
+ *   call Server RPCs on it — they are silently dropped. The Pawn is always owned by its
+ *   local PlayerController, making Server RPCs on UNetworkSoundComponent valid for all clients.
  *
  * Accessible from anywhere:
  *   UNetworkSoundSubsystem* SoundSys = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>();
@@ -43,7 +48,8 @@ public:
 	 *
 	 * @param Sound      The sound to play (2D or spatialized depending on its attenuation settings).
 	 * @param Location   World position used for spatialized sounds.
-	 * @param Instigator The actor that triggered the sound (used to identify the instigating machine).
+	 * @param Instigator The actor that triggered the sound. Must have a UNetworkSoundComponent
+	 *                   attached for network broadcasting to work.
 	 * @return           A sound handle to use with StopNetworkedSound(). Returns -1 on failure.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Sound|Network")
@@ -59,9 +65,23 @@ public:
 	void StopNetworkedSound(int32 Handle);
 
 	/**
+	 * Called by UNetworkSoundComponent on the server after its Server_RelaySound RPC fires.
+	 * Triggers the NetMulticast on ANetworkSoundRelay.
+	 * Not intended for direct use — call PlayNetworkedSound() instead.
+	 */
+	void BroadcastSoundOnServer(USoundBase* Sound, FVector Location, APlayerState* InstigatorState, int32 Handle);
+
+	/**
+	 * Called by UNetworkSoundComponent on the server after its Server_RelayStop RPC fires.
+	 * Triggers the NetMulticast stop on ANetworkSoundRelay.
+	 * Not intended for direct use — call StopNetworkedSound() instead.
+	 */
+	void BroadcastStopOnServer(int32 Handle);
+
+	/**
 	 * Called by ANetworkSoundRelay on remote clients to register a spawned AudioComponent
 	 * so it can be stopped later by StopNetworkedSound().
-	 * Not intended for direct use — call PlayNetworkedSound() instead.
+	 * Not intended for direct use.
 	 */
 	void RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp);
 
@@ -79,7 +99,7 @@ private:
 	/**
 	 * Generates a handle unique across all players in the session.
 	 * Encodes the instigator's PlayerId to avoid handle collisions between concurrent players.
-	 * Format: (PlayerId * 100000) + LocalCounter.
+	 * Format: (PlayerId * 100000) + LocalCounter, assuming fewer than 100 000 sounds per player per session.
 	 */
 	int32 GenerateHandle(AActor* Instigator);
 
@@ -88,6 +108,12 @@ private:
 
 	/** Tracks active AudioComponents by handle so they can be stopped on demand. */
 	TMap<int32, TWeakObjectPtr<UAudioComponent>> ActiveSounds;
+
+	/**
+	 * Tracks the UNetworkSoundComponent responsible for each handle so StopNetworkedSound()
+	 * can route the Server RPC through the correct owned actor.
+	 */
+	TMap<int32, TWeakObjectPtr<UNetworkSoundComponent>> ActiveSoundComponents;
 
 	/** Per-machine counter incremented each time a sound is played. */
 	int32 NextHandle = 0;

@@ -21,6 +21,7 @@ class UQTEComponent;
 class UQTEWidgetBase;
 class UQTEDisplayComponent;
 class USoundBase;
+class UNetworkSoundComponent;
 struct FInputActionValue;
 
 
@@ -90,6 +91,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UNetworkSoundComponent> NetworkSoundComponent;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
