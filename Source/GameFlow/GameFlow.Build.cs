@@ -21,7 +21,8 @@ public class GameFlow : ModuleRules
 		{
 			"Recipes",
 			"Items",
-			"Activities"
+			"Activities",
+			"Player"
 		});
 	}
 }

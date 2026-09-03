@@ -12,6 +12,7 @@
 
 class UHolderComponent;
 class URangeComponent;
+class UActorFilter;
 class UPhysicalAnimationComponent;
 class UInputMappingContext;
 class UInputAction;
@@ -76,6 +77,13 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
 	TObjectPtr<UInterfaceActorFilter> CarriableFilter;
+
+	/**
+	 * Matches any actor implementing IInteractable, ignoring CanInteract.
+	 * Used only to drive the RangeComponent highlight so idle stations still get outlined.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UInterfaceActorFilter> InteractableHighlightFilter;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
@@ -151,10 +159,29 @@ public:
 
 private:
 
-	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
 	bool ShouldBlockGameplayInput() const;
 
 	int32 PlayNetworkedSound(USoundBase* Sound);
+
+	/**
+	 * Tracks the highlight filters on RangeComponent and (un)binds OnBestMatchingActorChanged.
+	 * Only enabled while this pawn is locally controlled: the Custom Depth outline is a purely
+	 * client-side visual, so a remote player's pawn must never drive it on our screen.
+	 */
+	void SetInteractionHighlightEnabled(bool bEnabled);
+
+	/** Moves the Custom Depth outline to the best interactable in range, or the best carriable if none. */
+	UFUNCTION()
+	void HandleHighlightTargetChanged(UActorFilter* Filter, AActor* NewBest, AActor* PreviousBest);
+
+	/**
+	 * Recursively toggles Custom Depth rendering on every primitive component of TargetActor
+	 * (and of any actors nested through UChildActorComponent). Null TargetActor is a no-op.
+	 */
+	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
+
+	bool bInteractionHighlightActive = false;
+	TWeakObjectPtr<AActor> HighlightedActor;
 
 private: // Input
 	
@@ -165,8 +192,11 @@ private: // Input
 	void Input_PickupOrDrop();
 	void Input_Throw();
 
+	// Resolves the interaction target on the server from its own RangeComponent rather than
+	// trusting a client-sent actor pointer: station visual actors are non-replicated child
+	// actors, so their reference would arrive null on the server.
 	UFUNCTION(Server, Reliable)
-	void Server_Interact(AActor* Interactable);
+	void Server_Interact();
 
 	UFUNCTION(Server, Reliable)
 	void Server_Pickup(AActor* Carriable);

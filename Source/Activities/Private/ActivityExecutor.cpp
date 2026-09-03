@@ -12,6 +12,11 @@
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ActivityExecutor, Log, All);
 
+UActivityExecutor::UActivityExecutor()
+{
+	SetIsReplicatedByDefault(true);
+}
+
 void UActivityExecutor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

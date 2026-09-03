@@ -18,6 +18,26 @@ void ALobbyPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ALobbyPlayerState, PreviewActor);
 }
 
+void ALobbyPlayerState::CopyProperties(APlayerState* NewPlayerState)
+{
+	Super::CopyProperties(NewPlayerState);
+
+	// FLobbyPlayerInfo is the source of truth in the lobby; seed the base fields from it so the
+	// chosen color / slot survive seamless travel into the gameplay level.
+	if (APotionPanicPlayerState* NewPS = Cast<APotionPanicPlayerState>(NewPlayerState))
+	{
+		NewPS->SetCustomizationColor(PlayerInfo.PlayerColor);
+		NewPS->SetPlayerSlotIndex(PlayerInfo.PlayerIndex);
+		UE_LOG(LogTemp, Warning, TEXT("[Lobby CopyProperties] seeded %s with Color=%d Slot=%d"),
+			*NewPS->GetClass()->GetName(), (int32)PlayerInfo.PlayerColor, PlayerInfo.PlayerIndex);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[Lobby CopyProperties] target %s is not APotionPanicPlayerState"),
+			NewPlayerState ? *NewPlayerState->GetClass()->GetName() : TEXT("null"));
+	}
+}
+
 void ALobbyPlayerState::BeginPlay()
 {
 	Super::BeginPlay();
@@ -34,6 +54,8 @@ void ALobbyPlayerState::OnRep_PlayerName()
 void ALobbyPlayerState::Server_SetPlayerColor_Implementation(EAlchemistColor NewColor)
 {
 	PlayerInfo.PlayerColor = NewColor;
+	// Mirror into the shared base so the choice survives seamless travel into the gameplay level.
+	SetCustomizationColor(NewColor);
 	OnRep_PlayerInfo();
 
 	// Notify the MPC on the server so all materials using it update immediately.
@@ -82,6 +104,8 @@ void ALobbyPlayerState::ApplyColorToCharacter(AAlchemistBase* Character) const
 void ALobbyPlayerState::SetPlayerIndex(int32 Index)
 {
 	PlayerInfo.PlayerIndex = Index;
+	// Mirror into the shared base so the slot survives seamless travel into the gameplay level.
+	SetPlayerSlotIndex(Index);
 	OnRep_PlayerInfo();
 }
 

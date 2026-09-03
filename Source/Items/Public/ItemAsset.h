@@ -37,6 +37,9 @@ public:
 	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
+	FTransform StaticMeshTransform = FTransform::Identity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
 	TObjectPtr<UNiagaraSystem> NiagaraSystem = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")

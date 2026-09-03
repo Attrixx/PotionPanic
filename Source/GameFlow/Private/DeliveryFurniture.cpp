@@ -8,6 +8,7 @@
 ADeliveryFurniture::ADeliveryFurniture()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 }
 
 void ADeliveryFurniture::Interact_Implementation(AActor* InInstigator)

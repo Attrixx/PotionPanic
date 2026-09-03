@@ -23,6 +23,10 @@ class ACTIVITIES_API UActivityExecutor : public UActorComponent
 {
 	GENERATED_BODY()
 
+public:
+
+	UActivityExecutor();
+
 protected:
 
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/PlayerState.h"
+#include "PotionPanicPlayerState.h"
 #include "LobbyGameState.h"
 #include "LobbyPlayerState.generated.h"
 
@@ -39,17 +39,22 @@ struct FLobbyPlayerInfo
  * 
  */
 UCLASS()
-class LOBBY_API ALobbyPlayerState : public APlayerState
+class LOBBY_API ALobbyPlayerState : public APotionPanicPlayerState
 {
 	GENERATED_BODY()
-	
+
 public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void CopyProperties(APlayerState* NewPlayerState) override;
 
 protected:
 
 	void BeginPlay() override;
 	void OnRep_PlayerName() override;
+
+	// The Lobby drives its preview / pawn visuals from FLobbyPlayerInfo below, so opt out of the
+	// base auto-apply to avoid doing the work twice.
+	virtual bool ShouldAutoApplyCustomization() const override { return false; }
 
 public:
 

@@ -130,6 +130,7 @@ void AItemActor::ApplyItemAsset()
 	ItemTags = ItemAsset->ItemTags;
 
 	StaticMesh->SetStaticMesh(ItemAsset->StaticMesh);
+	StaticMesh->SetRelativeTransform(ItemAsset->StaticMeshTransform);
 
 	Niagara->SetAsset(ItemAsset->NiagaraSystem);
 	Niagara->Activate(true);
