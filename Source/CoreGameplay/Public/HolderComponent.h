@@ -39,6 +39,23 @@ public:
 	UFUNCTION(BlueprintCallable)
 	UObject* Eject();
 
+	/**
+	 * Drops the held Carriable where it stands, skipping the ground snapping and the physics
+	 * Release re-enables. Use it when the Carriable is about to be attached somewhere else, or
+	 * outside a game world where physics does not run.
+	 * @returns The detached Carriable, or null if the holder was empty.
+	 */
+	UFUNCTION(BlueprintCallable)
+	UObject* Detach();
+
+	/**
+	 * Hands the held Carriable over to Target. Neither holder needs bAllowStealing: this is a
+	 * hand-over, not a steal.
+	 * @returns True on success. On failure nothing moved and the Carriable stays on this holder.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool TransferTo(UHolderComponent* Target);
+
 	/** Enables or disables catching Carriables that begin overlapping this holder. */
 	UFUNCTION(BlueprintCallable)
 	void SetCatchAllowed(bool bAllowed) { bIsCatchAllowed = bAllowed; }

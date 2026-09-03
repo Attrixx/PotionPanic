@@ -130,6 +130,51 @@ UObject* UHolderComponent::Eject()
 	return Release(GetComponentTransform().TransformVectorNoScale(EjectForce));
 }
 
+UObject* UHolderComponent::Detach()
+{
+	if (!Carriable.IsValid())
+		return nullptr;
+
+	UObject* OldCarriable = Carriable.Get();
+
+	if (UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(OldCarriable))
+	{
+		Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	}
+	else
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
+	}
+
+	// Restores the standalone collision profile, but leaves physics simulation off: the caller
+	// either re-attaches the Carriable right away, or is not in a world that could simulate it.
+	ApplyCarriedState(OldCarriable, false);
+	LocallyAppliedCarriable.Reset();
+	Carriable.Reset();
+
+	OnCarriableChanged.Broadcast(this);
+	return OldCarriable;
+}
+
+bool UHolderComponent::TransferTo(UHolderComponent* Target)
+{
+	if (!Target || Target == this || !Carriable.IsValid() || Target->GetCarriable())
+		return false;
+
+	UObject* Moving = Carriable.Get();
+
+	// Detach rather than Release: the Carriable is attached again on the very next line, so it
+	// must not snap to the ground or start simulating on the way out.
+	Detach();
+
+	if (Target->TryPickup(Moving))
+		return true;
+
+	// Put it back. A failed transfer leaves both holders exactly as they were.
+	TryPickup(Moving);
+	return false;
+}
+
 
 void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp,
                                              int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)

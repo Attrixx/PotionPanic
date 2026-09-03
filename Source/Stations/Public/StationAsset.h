@@ -34,13 +34,20 @@ public:
 	bool bCanEverTakeItemFromInstigator = true;
 
 	/**
-	 * If false the station's holder is a pass-through, never a storage spot: it won't catch
-	 * overlapping items, and any item still on it once an activity concludes is handed back
-	 * to the instigator, or ejected if that fails.
+	 * If false the station's holder is a pass-through, never a storage spot: an item left on it
+	 * with nothing to do is handed back to the instigator, or ejected if that fails.
 	 * Set to false for stations that only consume, like a delivery counter or a bin.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bCanStoreItems = true;
+
+	/**
+	 * Whether the holder catches items that begin overlapping it, rather than only receiving them
+	 * from a deliberate interaction. Set to false for a station players must hand items to.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanCatchItems = true;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TObjectPtr<USoundBase> OnInteractSound;
 

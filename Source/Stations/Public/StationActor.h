@@ -110,6 +110,13 @@ public:
 	void ApplyStationAsset();
 
 private:
+
+	/**
+	 * Gets rid of an item the current station asset refuses to store. Ejects it in a game world,
+	 * and merely detaches it outside one, where there is no physics to eject into.
+	 */
+	void DropItemRefusedByAsset();
+
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<AItemActor> ItemClass;
 
