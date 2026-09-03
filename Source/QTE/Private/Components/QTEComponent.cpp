@@ -85,7 +85,7 @@ void UQTEComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 			}
 		}
 
-		if (RuntimeState.GlobalTimeRemaining <= 0.f && ActiveDefinition->GetEffectiveGlobalTimeout() > 0.f)
+		if (RuntimeState.GlobalTimeRemaining <= 0.f && ActiveDefinition->GetEffectiveGlobalTimeout(DifficultyScale) > 0.f)
 		{
 			FinishQTE(EQTEState::Timeout);
 			return;
@@ -102,7 +102,7 @@ void UQTEComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 		if (FailsafeTimeoutSeconds > 0.f
 			&& RuntimeState.ElapsedTime >= FailsafeTimeoutSeconds
 			&& RuntimeState.EffectiveStepTimeout <= 0.f
-			&& ActiveDefinition->GetEffectiveGlobalTimeout() <= 0.f)
+			&& ActiveDefinition->GetEffectiveGlobalTimeout(DifficultyScale) <= 0.f)
 		{
 			UE_LOG(MS_QTEComponent,
 				Warning,
@@ -492,6 +492,11 @@ float& UQTEComponent::GetMutableHoldStartTime()
 float UQTEComponent::GetAuthorityMirrorReadyTimeoutSeconds() const
 {
 	return AuthorityMirrorReadyTimeoutSeconds;
+}
+
+float UQTEComponent::GetDifficultyScale() const
+{
+	return DifficultyScale;
 }
 
 void UQTEComponent::HandleAuthorityMirrorReadyTimeout()

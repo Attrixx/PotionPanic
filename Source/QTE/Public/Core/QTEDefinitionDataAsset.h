@@ -72,12 +72,22 @@ private:
 
 public:
 
-	float GetDifficultyMultiplier() const;
-	float GetEffectiveGlobalTimeout() const;
-	float GetEffectiveStepTimeout(const FQTEStepDefinition& Step) const;
-	float GetEffectiveTolerance(const FQTEStepDefinition& Step) const;
-	float GetEffectiveHoldTime(const FQTEStepDefinition& Step) const;
-	int32 GetEffectiveMashTarget(const FQTEStepDefinition& Step) const;
+	/**
+	 * Effective timings, in the sense of what the player actually has to do.
+	 *
+	 * RuntimeScale stacks on top of the definition's own DifficultyMultiplier so a round can
+	 * tighten every QTE without editing assets; it defaults to 1, which leaves a definition
+	 * exactly as authored. Beware that the multiplier pulls the two sides apart: hold time is
+	 * multiplied by it, timeouts are divided, so doubling it makes a hold four times harder to
+	 * fit. IsDataValid checks the authored value; a runtime scale is not checked, so raise it in
+	 * small steps.
+	 */
+	float GetDifficultyMultiplier(float RuntimeScale = 1.f) const;
+	float GetEffectiveGlobalTimeout(float RuntimeScale = 1.f) const;
+	float GetEffectiveStepTimeout(const FQTEStepDefinition& Step, float RuntimeScale = 1.f) const;
+	float GetEffectiveTolerance(const FQTEStepDefinition& Step, float RuntimeScale = 1.f) const;
+	float GetEffectiveHoldTime(const FQTEStepDefinition& Step, float RuntimeScale = 1.f) const;
+	int32 GetEffectiveMashTarget(const FQTEStepDefinition& Step, float RuntimeScale = 1.f) const;
 	const FQTEOutcomeConfiguration* GetOutcomeConfiguration(EQTEState FinalState);
 	EQTEGrade ResolveGrade(const FQTERuntimeState& RuntimeState, EQTEState FinalState);
 	FText ResolveOutcomeMessage(EQTEState FinalState, const FText& OverrideMessage);

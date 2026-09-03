@@ -100,6 +100,7 @@ public:
 	void BroadcastQTEUpdated();
 	void ApplyAuthorityCompletionToLocalMirror(const FQTEAuthorityResult& AuthorityResult);
 	float GetAuthorityMirrorReadyTimeoutSeconds() const;
+	float GetDifficultyScale() const;
 	void HandleAuthorityMirrorReadyTimeout();
 	void HandleEnhancedInputStarted(const FInputActionInstance& Instance);
 	void HandleEnhancedInputTriggered(const FInputActionInstance& Instance);
@@ -205,6 +206,20 @@ private:
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "QTE|Safety", meta = (ClampMin = 0.0))
 	float FailsafeTimeoutSeconds = 30.f;
+
+	/**
+	 * Stacks on top of each definition's own DifficultyMultiplier, so game progression can tighten
+	 * every QTE this player runs without touching a single asset. 1 leaves definitions as authored.
+	 * Set it from Blueprint when a round starts; it is read each time the effective timings are
+	 * recomputed, so a change lands immediately.
+	 *
+	 * Only the authority's value decides an outcome: the client mirror is there for responsiveness
+	 * and its result is overwritten by ApplyAuthorityCompletionToLocalMirror. A scale that differs
+	 * between the two is therefore cosmetic, not a desync, but it will look wrong to the player.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "QTE|Difficulty",
+		meta = (ClampMin = 0.1, AllowPrivateAccess = "true"))
+	float DifficultyScale = 1.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "QTE|Debug")
 	bool bDrawMashDebugFeedback = false;

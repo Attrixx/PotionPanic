@@ -294,51 +294,51 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 }
 #endif
 
-float UQTEDefinitionDataAsset::GetDifficultyMultiplier() const
+float UQTEDefinitionDataAsset::GetDifficultyMultiplier(float RuntimeScale) const
 {
-	return FMath::Max(0.1f, Configuration.DifficultyMultiplier);
+	return FMath::Max(0.1f, Configuration.DifficultyMultiplier * FMath::Max(0.1f, RuntimeScale));
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveGlobalTimeout() const
+float UQTEDefinitionDataAsset::GetEffectiveGlobalTimeout(float RuntimeScale) const
 {
 	if (Configuration.GlobalTimeoutSeconds <= 0.f)
 	{
 		return 0.f;
 	}
 
-	return Configuration.GlobalTimeoutSeconds / GetDifficultyMultiplier();
+	return Configuration.GlobalTimeoutSeconds / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveStepTimeout(const FQTEStepDefinition& Step) const
+float UQTEDefinitionDataAsset::GetEffectiveStepTimeout(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	if (!Step.bUseStepTimeout || Step.StepTimeoutSeconds <= 0.f)
 	{
 		return 0.f;
 	}
 
-	return Step.StepTimeoutSeconds / GetDifficultyMultiplier();
+	return Step.StepTimeoutSeconds / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveTolerance(const FQTEStepDefinition& Step) const
+float UQTEDefinitionDataAsset::GetEffectiveTolerance(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	const float BaseTolerance = Step.bOverrideTolerance
 		? Step.ToleranceOverrideSeconds
 		: Configuration.InputToleranceSeconds;
 
-	return BaseTolerance / GetDifficultyMultiplier();
+	return BaseTolerance / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveHoldTime(const FQTEStepDefinition& Step) const
+float UQTEDefinitionDataAsset::GetEffectiveHoldTime(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	return Step.StepType == EQTEStepType::Hold
-		? Step.RequiredHoldTimeSeconds * GetDifficultyMultiplier()
+		? Step.RequiredHoldTimeSeconds * GetDifficultyMultiplier(RuntimeScale)
 		: 0.f;
 }
 
-int32 UQTEDefinitionDataAsset::GetEffectiveMashTarget(const FQTEStepDefinition& Step) const
+int32 UQTEDefinitionDataAsset::GetEffectiveMashTarget(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	return Step.StepType == EQTEStepType::Mash
-		? FMath::Max(1, FMath::CeilToInt(static_cast<float>(Step.RequiredMashCount) * GetDifficultyMultiplier()))
+		? FMath::Max(1, FMath::CeilToInt(static_cast<float>(Step.RequiredMashCount) * GetDifficultyMultiplier(RuntimeScale)))
 		: 0;
 }
 
