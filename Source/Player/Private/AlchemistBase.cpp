@@ -42,7 +42,10 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
 	CarriableFilter->Interface = UCarriable::StaticClass();
-	
+
+	InteractableHighlightFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Interactable Highlight Filter"));
+	InteractableHighlightFilter->Interface = UInteractable::StaticClass();
+
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
 
@@ -132,12 +135,12 @@ void AAlchemistBase::BeginPlay()
 		PhysicalAnimationComponent->ApplyPhysicalAnimationSettingsBelow(RagdollRootBoneName, PhysicalAnimationData);
 		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
 	}
-
-	// TODO: Register SetActorCustomDepthEnabled on RangeComponent
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	SetInteractionHighlightEnabled(false);
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -172,6 +175,9 @@ void AAlchemistBase::NotifyControllerChanged()
 			Subsystem->AddMappingContext(ContextToAdd, 0);
 		}
 	}
+
+	// The interaction outline is local-only: keep it running solely while we control this pawn locally.
+	SetInteractionHighlightEnabled(IsLocallyControlled());
 }
 
 void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -191,6 +197,54 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
+}
+
+void AAlchemistBase::SetInteractionHighlightEnabled(bool bEnabled)
+{
+	if (bEnabled == bInteractionHighlightActive)
+	{
+		return;
+	}
+	bInteractionHighlightActive = bEnabled;
+
+	if (bEnabled)
+	{
+		RangeComponent->TrackFilter(InteractableHighlightFilter);
+		RangeComponent->TrackFilter(CarriableFilter);
+		RangeComponent->OnBestMatchingActorChanged.AddUniqueDynamic(this, &AAlchemistBase::HandleHighlightTargetChanged);
+
+		// TrackFilter does not broadcast, so sync the initial outline once.
+		HandleHighlightTargetChanged(nullptr, nullptr, nullptr);
+	}
+	else
+	{
+		RangeComponent->OnBestMatchingActorChanged.RemoveDynamic(this, &AAlchemistBase::HandleHighlightTargetChanged);
+		RangeComponent->UntrackFilter(InteractableHighlightFilter);
+		RangeComponent->UntrackFilter(CarriableFilter);
+
+		SetActorCustomDepthEnabled(HighlightedActor.Get(), false);
+		HighlightedActor = nullptr;
+	}
+}
+
+void AAlchemistBase::HandleHighlightTargetChanged(UActorFilter* Filter, AActor* NewBest, AActor* PreviousBest)
+{
+	// Interactable takes priority; fall back to the best carriable when there is none in range.
+	AActor* Desired = RangeComponent->GetBestMatchingActor(InteractableHighlightFilter);
+	if (!Desired)
+	{
+		Desired = RangeComponent->GetBestMatchingActor(CarriableFilter);
+	}
+
+	AActor* Current = HighlightedActor.Get();
+	if (Desired == Current)
+	{
+		return;
+	}
+
+	SetActorCustomDepthEnabled(Current, false);
+	SetActorCustomDepthEnabled(Desired, true);
+	HighlightedActor = Desired;
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -315,8 +369,8 @@ void AAlchemistBase::Input_Interact()
 		return;
 	}
 
-	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
-		Server_Interact(Interactable);
+	if (RangeComponent->FindBestMatchingActor(InteractableFilter))
+		Server_Interact();
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
@@ -354,14 +408,16 @@ void AAlchemistBase::Input_Throw()
 	}
 }
 
-void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
+void AAlchemistBase::Server_Interact_Implementation()
 {
 	if (ShouldBlockGameplayInput())
 	{
 		return;
 	}
 
-	if (Interactable && Interactable->Implements<UInteractable>() && RangeComponent->IsActorInRange(Interactable))
+	// FindBestMatchingActor already filters on IInteractable + CanInteract and only returns
+	// actors currently in range, so no further validation is needed here.
+	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
 	{
 		IInteractable::Execute_Interact(Interactable, this);
 	}
