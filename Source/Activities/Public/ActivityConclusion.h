@@ -7,6 +7,7 @@
 #include "ActivityConclusion.generated.h"
 
 struct FActivityExecutionState;
+class UItemAsset;
 
 /**
  * Abstract base class defining the final outcome of an Activity.
@@ -25,6 +26,16 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 	void Conclude(const FActivityExecutionState& State) const;
+
+#if WITH_EDITOR
+	/**
+	 * Collects every item this conclusion may leave in the world when the activity succeeds.
+	 * Used to validate that the items a round orders can actually be crafted during it.
+	 * Blueprint conclusions cannot report anything here, so an empty result is not proof that
+	 * nothing is produced.
+	 */
+	virtual void GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const {}
+#endif
 
 protected:
 

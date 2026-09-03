@@ -16,10 +16,16 @@ class ACTIVITIES_API UMorphOrConsumeItemActivityConclusion : public UActivityCon
 {
 	GENERATED_BODY()
 	
+public:
+
+#if WITH_EDITOR
+	void GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const override;
+#endif
+
 protected:
-	
+
 	void Conclude_Implementation(const FActivityExecutionState& ActivityState) const override;
-		
+	
 	UPROPERTY(EditAnywhere, Category="", meta=(InlineEditConditionToggle))
 	bool bMorphOnSuccess = true;
 	

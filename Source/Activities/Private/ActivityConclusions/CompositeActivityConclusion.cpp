@@ -25,6 +25,17 @@ EDataValidationResult UCompositeActivityConclusion::IsDataValid(FDataValidationC
 }
 #endif
 
+#if WITH_EDITOR
+void UCompositeActivityConclusion::GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const
+{
+	for (const UActivityConclusion* Conclusion : Conclusions)
+	{
+		if (IsValid(Conclusion))
+			Conclusion->GatherItemsProducedOnSuccess(OutItems);
+	}
+}
+#endif
+
 void UCompositeActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {
 	for (UActivityConclusion* Conclusion : Conclusions)

@@ -3,8 +3,18 @@
 #include "ActivityConclusions/MorphOrConsumeItemActivityConclusion.h"
 #include "ActivityExecutionState.h"
 #include "ItemActor.h"
+#include "ItemAsset.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_MorphOrConsumeItem, Log, All);
+
+#if WITH_EDITOR
+void UMorphOrConsumeItemActivityConclusion::GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const
+{
+	// Without a morph the item is consumed, so nothing is left behind.
+	if (bMorphOnSuccess && OnActivitySuccess)
+		OutItems.Add(OnActivitySuccess);
+}
+#endif
 
 void UMorphOrConsumeItemActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {

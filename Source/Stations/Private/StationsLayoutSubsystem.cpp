@@ -16,12 +16,30 @@ void UStationsLayoutSubsystem::ApplyLayer(UStationsLayoutLayer* Layer)
 {
 	for (auto It = Stations.CreateIterator(); It; ++It)
 	{
-		if (AStationActor* Station = It->Get())
+		if (AStationActor* Station = It->Station.Get())
 		{
 			auto& Slot = Station->GetStationSlot();
 			if (UStationAsset* AssetOverride = Layer->GetOverride(Slot))
 			{
 				Station->SetStationAsset(AssetOverride);
+			}
+		}
+		else
+		{
+			It.RemoveCurrentSwap();
+		}
+	}
+}
+
+void UStationsLayoutSubsystem::ResetToDefaultLayout()
+{
+	for (auto It = Stations.CreateIterator(); It; ++It)
+	{
+		if (AStationActor* Station = It->Station.Get())
+		{
+			if (Station->GetStationAsset() != It->DefaultAsset)
+			{
+				Station->SetStationAsset(It->DefaultAsset);
 			}
 		}
 		else
@@ -38,7 +56,9 @@ void UStationsLayoutSubsystem::GetStationsFromWorld(UWorld* InWorld)
 	{
 		if (AStationActor* Station = *It)
 		{
-			Stations.Add(Station);
+			FTrackedStation& Tracked = Stations.AddDefaulted_GetRef();
+			Tracked.Station = Station;
+			Tracked.DefaultAsset = Station->GetStationAsset();
 		}
 	}
 }

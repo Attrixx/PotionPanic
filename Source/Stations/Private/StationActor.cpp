@@ -49,6 +49,7 @@ void AStationActor::BeginPlay()
 
 	Executor->Initialize(ItemHolder);
 	ItemHolder->OnCarriableChanged.AddDynamic(this, &AStationActor::Holder_OnCarriableChanged);
+	Executor->OnExecutionStatusChanged.AddDynamic(this, &AStationActor::Executor_OnExecutionStatusChanged);
 }
 
 void AStationActor::Interact_Implementation(AActor* InInstigator)
@@ -80,6 +81,12 @@ UActivityExecutor* AStationActor::GetActivityExecutor() const
 
 void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 {
+	if (bStartingActivity)
+	{
+		// Guard re-entering from TryPickup broadcast
+		return;
+	}
+
 	if (Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing)
 	{
 		// Calling StartActivity again would cancel the current activity
@@ -97,8 +104,9 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 	// match is the instigator's rather than the station's, move it here before starting.
 	if (SourceHolder)
 	{
-		auto* Item = SourceHolder->Release();
-		ItemHolder->TryPickup(Item);
+		// TryPickup broadcasts OnCarriableChanged, which re-enters through Holder_OnCarriableChanged.
+		TGuardValue<bool> ReentrancyGuard(bStartingActivity, true);
+		ItemHolder->TryPickup(SourceHolder->Release());
 	}
 
 	Executor->StartActivity(Activity, InInstigator);
@@ -160,6 +168,35 @@ void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 	}
 }
 
+void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecutor, EActivityExecutionStatus NewStatus)
+{
+	if (NewStatus == EActivityExecutionStatus::Ongoing || !HasAuthority())
+	{
+		return;
+	}
+
+	if (!StationAsset || StationAsset->bCanStoreItems)
+	{
+		return;
+	}
+
+	UObject* LeftOver = ItemHolder->GetCarriable();
+	if (!LeftOver)
+	{
+		// Nominal case for a pass-through station: the conclusion consumed the item.
+		return;
+	}
+
+	// The activity left the item behind, but this station is not a storage spot.
+	AActor* LastInstigator = InExecutor->GetExecutionState().LastInstigator.Get();
+	UHolderComponent* InstigatorHolder = LastInstigator ? LastInstigator->FindComponentByClass<UHolderComponent>() : nullptr;
+
+	if (!InstigatorHolder || !InstigatorHolder->TryPickup(LeftOver))
+	{
+		ItemHolder->Eject();
+	}
+}
+
 void AStationActor::OnRep_StationAsset()
 {
 	ApplyStationAsset();
@@ -168,6 +205,8 @@ void AStationActor::OnRep_StationAsset()
 // This method MUST be callable in Editor, don't call gameplay stuff in here!!
 void AStationActor::ApplyStationAsset()
 {
+	ItemHolder->SetCatchAllowed(!StationAsset || StationAsset->bCanStoreItems);
+
 	TSubclassOf<AStationVisualActor> VisualClass = StationAsset ? StationAsset->VisualActorClass : nullptr;
 
 	if (VisualActor->GetChildActorClass() != VisualClass)

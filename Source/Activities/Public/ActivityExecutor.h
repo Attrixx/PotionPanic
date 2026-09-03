@@ -66,6 +66,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
 
+	/** Context of the last started activity: holder, item, instigator, status and score. */
+	const FActivityExecutionState& GetExecutionState() const { return State; }
+
 	UPROPERTY(BlueprintAssignable)
 	FActivityExecutionStatusChangedDelegate OnExecutionStatusChanged;
 

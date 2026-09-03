@@ -4,9 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
+#include "Order.h"
+#include "Rounds/Round.h"
 #include "AlchemyGameState.generated.h"
 
 class UWorldData;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundEndedDelegate);
 
 /**
  * 
@@ -20,15 +24,34 @@ class GAMEFLOW_API AAlchemyGameState : public AGameStateBase
 
 public:
 
+	AAlchemyGameState();
+
+	void Tick(float DeltaSeconds) override;
+
 	void SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData);
 
-	// Beware, this must be compared using `GetServerWorldTimeSeconds()`, not the local time.
-	// You probably want to use `GetRoundRemainingTime()` instead.
 	UFUNCTION(BlueprintCallable)
-	float GetRoundEndTime() const { return RoundEndTime; }
+	float GetRoundTime() const;
 
 	UFUNCTION(BlueprintCallable)
 	float GetRoundRemainingTime() const;
+	
+	UFUNCTION(BlueprintCallable)
+	const TArray<FOrder>& GetRoundOrders() const { return RoundOrders; }
+
+	/**
+	 * Completes the placed order expiring the soonest among those asking for the delivered item.
+	 * Server only.
+	 * @param ItemAsset The object handed over, expected to be an AItemActor.
+	 * @return True if the item was delivered. False when no placed order is waiting for this item.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool DeliverOrder(UItemAsset* ItemAsset);
+
+	FOrderDelegate OnOrderChanged;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnRoundEndedDelegate OnRoundEnded;
 
 private:
 
@@ -37,8 +60,33 @@ private:
 	
 	void OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPath, UObject* InLoadedObject);
 		
+	void SetCurrentRound(int32 Index);
+	const FRound* GetCurrentRound() const;
+	
 	UFUNCTION()
-	void OnRootRoundApplied();
+	void OnCurrentRoundApplied();
+	
+	void CreateOrders();
+	void StartRound();
+
+	/**
+	 * Places pending orders and cancels expired ones, based on the current round time.
+	 * Runs on clients too: they reach the same transitions from replicated data, and
+	 * OnRep_RoundOrders corrects them whenever they drift. Only the server ends the round.
+	 */
+	void UpdateOrders();
+
+	/** Moves every pending order Shift seconds earlier, preserving the spacing between them. */
+	void ShiftPendingOrders(double Shift);
+
+	/** Reports every remaining order as deleted, drops them and stops ticking. Server only. */
+	void EndRound();
+
+	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
+	void SetOrderState(FOrder& Order, EOrderState NewState);
+	
+	UFUNCTION()
+	void OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders);
 	
 private:
 
@@ -49,5 +97,17 @@ private:
 	TObjectPtr<UWorldData> WorldData;
 
 	UPROPERTY(Replicated)
-	float RoundEndTime;
+	int32 CurrentRound = 0;
+	
+	UPROPERTY(Replicated)
+	float RoundStartTime = 0.f;
+
+	UPROPERTY(Replicated)
+	float RoundEndTime = 0.f;
+
+	UPROPERTY(ReplicatedUsing=OnRep_RoundOrders)
+	TArray<FOrder> RoundOrders;
+	
+	uint32 GenOrderId() { return OrderIdCounter++; }
+	uint32 OrderIdCounter;
 };

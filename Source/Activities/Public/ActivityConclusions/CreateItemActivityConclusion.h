@@ -20,9 +20,15 @@ class ACTIVITIES_API UCreateItemActivityConclusion : public UActivityConclusion
 #if WITH_EDITOR
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
-	
+
+public:
+
+#if WITH_EDITOR
+	void GatherItemsProducedOnSuccess(TSet<const UItemAsset*>& OutItems) const override;
+#endif
+
 protected:
-		
+
 	void Conclude_Implementation(const FActivityExecutionState& ActivityState) const override;
 	
 	UPROPERTY(EditAnywhere, Category="")

@@ -4,6 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "Interactable.h"
 #include "GameplayTagContainer.h"
+#include "ActivityExecutionState.h"
 #include "StationActor.generated.h"
 
 class AItemActor;
@@ -101,6 +102,9 @@ public:
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
 
 	UFUNCTION()
+	void Executor_OnExecutionStatusChanged(UActivityExecutor* InExecutor, EActivityExecutionStatus NewStatus);
+
+	UFUNCTION()
 	void OnRep_StationAsset();
 
 	void ApplyStationAsset();
@@ -130,4 +134,7 @@ private:
 	/** Spawns and swaps the station's visual representation (AStationVisualActor) from the StationAsset. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UChildActorComponent> VisualActor;
+
+	/** Guards TryStartMatchingActivity against the re-entrancy caused by moving an item onto ItemHolder. */
+	bool bStartingActivity = false;
 };
