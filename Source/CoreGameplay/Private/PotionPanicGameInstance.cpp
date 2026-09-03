@@ -1,13 +1,25 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "PotionPanicGameInstance.h"
 #include "MultiplayerSessionsSubsystem.h"
+#include "PotionPanicUserSettings.h"
 
 #include "OnlineSubsystem.h"
 #include "Interfaces/OnlineExternalUIInterface.h"
 
+void UPotionPanicGameInstance::Init()
+{
+	Super::Init();
+
+	if (UPotionPanicUserSettings* Settings = UPotionPanicUserSettings::GetPotionPanicUserSettings())
+	{
+		Settings->EnsureVideoDefaults();
+	}
+}
+
 void UPotionPanicGameInstance::StartGameInstance()
 {
 	Super::StartGameInstance();
+
 	MultiplayerSessionsSubsystem = GetSubsystem<UMultiplayerSessionsSubsystem>();
 
 	if (MultiplayerSessionsSubsystem)

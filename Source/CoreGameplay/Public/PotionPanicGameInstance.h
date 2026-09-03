@@ -17,6 +17,7 @@ class COREGAMEPLAY_API UPotionPanicGameInstance : public UGameInstance
 
 protected:
 
+	virtual void Init() override;
 	void StartGameInstance() override;
 
 	void OnJoinSessions(EOnJoinSessionCompleteResult::Type Result);

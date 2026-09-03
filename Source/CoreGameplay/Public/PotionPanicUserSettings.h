@@ -32,18 +32,33 @@ class COREGAMEPLAY_API UPotionPanicUserSettings : public UGameUserSettings
 
 public:
 
+	static constexpr float DefaultMasterVolume = 1.0f;
+	static constexpr float DefaultMusicVolume  = 0.8f;
+	static constexpr float DefaultSFXVolume    = 1.0f;
+
 	UFUNCTION(BlueprintCallable, Category = "Settings")
 	static UPotionPanicUserSettings* GetPotionPanicUserSettings();
 
-	UPROPERTY(Config)
-	float MasterVolume = 1.0f;
+	UFUNCTION(BlueprintCallable, Category = "Settings")
+	void EnsureVideoDefaults();
+
+	virtual void SetToDefaults() override;
 
 	UPROPERTY(Config)
-	float MusicVolume = 0.8f;
+	float MasterVolume = DefaultMasterVolume;
 
 	UPROPERTY(Config)
-	float SFXVolume = 1.0f;
+	float MusicVolume = DefaultMusicVolume;
+
+	UPROPERTY(Config)
+	float SFXVolume = DefaultSFXVolume;
 
 	UPROPERTY(Config)
 	TArray<FSavedKeybind> SavedKeybinds;
+
+	UPROPERTY(Config)
+	bool bVideoDefaultsInitialized = false;
+
+	UPROPERTY(Config)
+	bool bAudioDefaultsInitialized = false;
 };
