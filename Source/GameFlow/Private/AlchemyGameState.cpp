@@ -310,6 +310,9 @@ void AAlchemyGameState::EndRound()
 		Order.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(Order);
 	}
+	
+	OnRoundEnded.Broadcast();
+	// TODO: Start Next round or End Level
 }
 
 void AAlchemyGameState::SetOrderState(FOrder& Order, EOrderState NewState)

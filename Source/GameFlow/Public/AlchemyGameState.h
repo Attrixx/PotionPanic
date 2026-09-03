@@ -10,6 +10,8 @@
 
 class UWorldData;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundEndedDelegate);
+
 /**
  * 
  */
@@ -47,6 +49,9 @@ public:
 	bool DeliverOrder(UItemAsset* ItemAsset);
 
 	FOrderDelegate OnOrderChanged;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnRoundEndedDelegate OnRoundEnded;
 
 private:
 
