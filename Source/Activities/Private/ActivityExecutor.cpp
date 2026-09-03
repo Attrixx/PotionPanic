@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ActivityExecutor.h"
+#include "Carriable.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
 #include "ActivityAsset.h"
@@ -47,7 +48,7 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 	Holder->OnCarriableChanged.AddDynamic(this, &UActivityExecutor::Holder_OnCarriableChanged);
 }
 
-void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator)
+void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, AItemActor* SecondaryItem)
 {
 	if (!State.Holder.IsValid())
 	{
@@ -64,6 +65,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 	Cancel();
 
 	State.Item = Cast<AItemActor>(State.Holder->GetCarriable()); // null item is valid
+	State.SecondaryItem = SecondaryItem; // null unless the activity asks for a second ingredient
 	State.LastInstigator = Instigator; // null instigator is valid
 
 	Steps.Reset(Activity->ActivitySteps.Num()); // Step.Num() == 0 is valid
@@ -214,7 +216,29 @@ void UActivityExecutor::Conclude(EActivityExecutionStatus Status)
 
 	State.Status = Status;
 	Conclusion->Conclude(State);
+	ConsumeSecondaryItem();
 	OnExecutionStatusChanged.Broadcast(this, Status);
+}
+
+void UActivityExecutor::ConsumeSecondaryItem()
+{
+	AItemActor* ItemToConsume = State.SecondaryItem.Get();
+	State.SecondaryItem.Reset();
+
+	if (!IsValid(ItemToConsume))
+		return;
+
+	// The ingredient went into the mix, whether the activity succeeded or failed. It spent the
+	// whole activity in the hands of the instigator rather than on the holder, which only ever
+	// holds one item, so release it from that holder before destroying it: the holder would
+	// otherwise keep pointing at a dead actor.
+	if (UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(ItemToConsume))
+	{
+		if (UHolderComponent* OwningHolder = Cast<UHolderComponent>(Primitive->GetAttachParent()))
+			OwningHolder->Release();
+	}
+
+	ItemToConsume->Destroy();
 }
 
 void UActivityExecutor::Reset(EActivityExecutionStatus Status)

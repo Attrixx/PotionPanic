@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -34,6 +34,14 @@ struct FActivityExecutionState
 	 */
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<AItemActor> Item; // = Cast<AItemActor>(Holder->GetCarriable());
+
+	/**
+	 * Second ingredient, carried by the instigator, matched against the activity's
+	 * SecondaryInputTags. Stays in their hands for the whole activity and is consumed when it
+	 * concludes. Null for a single-item activity.
+	 */
+	UPROPERTY(BlueprintReadOnly)
+	TWeakObjectPtr<AItemActor> SecondaryItem;
 
 	/**
 	 * Last Instigator received through StartActivity or Interact. Can be null.

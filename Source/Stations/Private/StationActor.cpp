@@ -63,8 +63,9 @@ void AStationActor::Interact_Implementation(AActor* InInstigator)
 bool AStationActor::CanInteract_Implementation(AActor* InInstigator) const
 {
 	UHolderComponent* UnusedSourceHolder = nullptr;
+	AItemActor* UnusedSecondaryItem = nullptr;
 	return Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing
-		|| FindMatchingActivity(InInstigator, UnusedSourceHolder) != nullptr;
+		|| FindMatchingActivity(InInstigator, UnusedSourceHolder, UnusedSecondaryItem) != nullptr;
 }
 
 void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
@@ -103,7 +104,8 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 	}
 
 	UHolderComponent* SourceHolder = nullptr;
-	UActivityAsset* Activity = FindMatchingActivity(InInstigator, SourceHolder);
+	AItemActor* SecondaryItem = nullptr;
+	UActivityAsset* Activity = FindMatchingActivity(InInstigator, SourceHolder, SecondaryItem);
 	if (!Activity)
 	{
 		return;
@@ -125,12 +127,13 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 		}
 	}
 
-	Executor->StartActivity(Activity, InInstigator);
+	Executor->StartActivity(Activity, InInstigator, SecondaryItem);
 }
 
-UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const
+UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder, AItemActor*& OutSecondaryItem) const
 {
 	OutSourceHolder = nullptr;
+	OutSecondaryItem = nullptr;
 
 	if (!StationAsset)
 	{

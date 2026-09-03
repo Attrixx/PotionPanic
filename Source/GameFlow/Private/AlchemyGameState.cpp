@@ -1,9 +1,13 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AlchemyGameState.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
+#include "ActivityExecutor.h"
+#include "ItemActor.h"
 #include "ItemAsset.h"
+#include "StationActor.h"
+#include <EngineUtils.h>
 #include <Net/UnrealNetwork.h>
 #include <GameFramework/PlayerController.h>
 #include <TimerManager.h>
@@ -388,7 +392,8 @@ void AAlchemyGameState::EndRound()
 	check(Round);
 	
 	SetActorTickEnabled(false);
-
+	CancelOngoingStationActivities();
+	
 	const TArray<FItemOrder> EndedOrders = MoveTemp(RoundOrders);
 	RoundOrders.Reset();
 
@@ -412,6 +417,30 @@ void AAlchemyGameState::EndRound()
 	int32 Rand = FMath::RandRange(0, Round->NextRounds.Num() - 1);
 	int32 NextRound = Round->NextRounds[Rand];
 	SetCurrentRound(NextRound);
+}
+
+void AAlchemyGameState::CancelOngoingStationActivities()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// An activity left running past the round is not just untidy: while its QTE step is alive,
+	// AAlchemistBase::ShouldBlockGameplayInput() reads UQTEComponent::IsQTERunning() and gates
+	// every gameplay input, so the player stays frozen through the whole transition while the
+	// station's looping sound carries over into the end-of-round screen.
+	//
+	// Cancelling from the authority propagates on its own: the executor cancels its current step,
+	// which cancels the authority QTE, which tells the owning client to drop its mirror. Executors
+	// that are not running ignore the call.
+	for (TActorIterator<AStationActor> It(GetWorld()); It; ++It)
+	{
+		if (UActivityExecutor* Executor = It->GetActivityExecutor())
+		{
+			Executor->Cancel();
+		}
+	}
 }
 
 void AAlchemyGameState::SetOrderState(FItemOrder& Order, EOrderState NewState)

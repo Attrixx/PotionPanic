@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -33,9 +33,12 @@ public:
 	/**
 	 * Finds an activity matching the given tags.
 	 * @param Tags Item tags and activity tags.
+	 * @param CarriedTags Tags of the item the instigator carries on top of the one being matched,
+	 *        used against the activity's SecondaryInputTags. Empty when they carry nothing, which
+	 *        rules out every activity that wants a second ingredient.
 	 * @return The found activity, or nullptr.
 	 */
-	UActivityAsset* FindActivityByInputTags(const FGameplayTagContainer& Tags) const;
+	UActivityAsset* FindActivityByInputTags(const FGameplayTagContainer& Tags, const FGameplayTagContainer& CarriedTags = FGameplayTagContainer()) const;
 
 	UFUNCTION(BlueprintCallable)
 	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }
