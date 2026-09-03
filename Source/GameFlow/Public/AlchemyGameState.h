@@ -6,9 +6,11 @@
 #include "GameFramework/GameStateBase.h"
 #include "ItemOrder.h"
 #include "Rounds/Round.h"
+#include "Engine/TimerHandle.h"
 #include "AlchemyGameState.generated.h"
 
 class UWorldData;
+class URoundLoader;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundDelegate, const FRound&, Round);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLevelCompleteDelegate);
@@ -73,6 +75,19 @@ private:
 	UFUNCTION()
 	void OnCurrentRoundApplied();
 	
+	/** Drops the round load and the round start still pending, if any. Server only. */
+	void CancelPendingRoundStart();
+
+	/**
+	 * True when every client the server knows about reported this world as loaded.
+	 * A player still travelling in has no controller here yet and cannot be waited on, so this
+	 * holds the round back for the clients already connected, not for an expected player count.
+	 */
+	bool AreAllPlayersReady();
+
+	/** Starts the round once the players are ready, or once the wait times out. Server only. */
+	void TryStartRound();
+
 	void CreateOrders();
 	void StartRound();
 
@@ -102,6 +117,24 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UWorldData> WorldData;
+
+	/** Round load in flight. Null as soon as it completed or was cancelled. */
+	UPROPERTY(Transient)
+	TObjectPtr<URoundLoader> RoundLoader;
+
+	/**
+	 * How long the server waits for the clients to be ready before starting the round anyway.
+	 * A client that never reports in must not hold the whole session hostage. Zero starts at once.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "Round", meta = (ClampMin = 0))
+	float MaxRoundStartWaitTime = 15.f;
+
+	/** How often the readiness of the clients is checked while waiting to start a round. */
+	UPROPERTY(EditDefaultsOnly, Category = "Round", meta = (ClampMin = 0.01))
+	float RoundStartWaitPollInterval = 0.25f;
+
+	FTimerHandle RoundStartWaitHandle;
+	double RoundStartWaitDeadline = 0.0;
 
 	UPROPERTY(Replicated)
 	int32 CurrentRound = 0;
