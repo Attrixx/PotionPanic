@@ -11,6 +11,8 @@ class UNiagaraComponent;
 class UPointLightComponent;
 class UWidgetComponent;
 class UBoxComponent;
+class UUserWidget;
+class UTexture2D;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnDoorZoneOccupancyChanged, struct FLevelData, Selector, bool, bHasPlayers);
 
@@ -41,7 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool IsLocked() const { return LevelData.bIsLocked; }
 	UFUNCTION(BlueprintCallable)
-	FString GetLevelName() const { return LevelData.LevelName; }
+	TSoftObjectPtr<UWorld> GetLevelWorld() const { return LevelData.Level; }
+	UFUNCTION(BlueprintCallable)
+	FString GetLevelName() const { return LevelData.Level.IsNull() ? FString() : LevelData.Level.GetAssetName(); }
 	UFUNCTION(BlueprintCallable)
 	int GetLevelNumber() const { return LevelData.LevelNumber; }
 
@@ -72,6 +76,13 @@ protected:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_PlayUnlockEffects();
+
+	/** Shows the loading screen on every client just before the server travel is triggered. */
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_ShowLoadingScreen();
+
+	/** Resolves the loading screen background image for this level from the static DataTable. */
+	UTexture2D* GetLevelLoadingTexture() const;
 
 protected:
 
@@ -108,6 +119,10 @@ protected:
 	class UDataTable* LevelDataTable;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Level Progression")
 	FName LevelID;
+
+	/** Full screen widget shown while the selected level is loading. Should implement ILoadingScreenWidgetInterface. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Loading Screen")
+	TSubclassOf<UUserWidget> LoadingScreenWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ExposeOnSpawn = true))
 	float DoorOpenAngle;

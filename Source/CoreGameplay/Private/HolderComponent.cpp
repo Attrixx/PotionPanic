@@ -66,19 +66,9 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 		UE_LOGFMT(MS_HolderComponent, Warning, "AttachToComponent failed.");
 	}
 
-	if (bShouldSwitchCollisionProfileOnPickup)
-	{
-		FName Profile = ICarriable::Execute_GetCarriedCollisionProfileName(NewCarriable);
-		if (Profile.IsNone())
-		{
-			UE_LOGFMT(MS_HolderComponent, Warning, "Carried Collision Profile Name is None.");
-		}
-		else
-		{
-			Primitive->SetCollisionProfileName(Profile);
-		}
-	}
-	
+	ApplyCarriedState(NewCarriable, true);
+	LocallyAppliedCarriable = NewCarriable;
+
 	OnCarriableChanged.Broadcast(this);
 	return true;
 }
@@ -99,18 +89,8 @@ UObject* UHolderComponent::Release(FVector Velocity)
 
 	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 
-	if (bShouldSwitchCollisionProfileOnRelease)
-	{
-		FName Profile = ICarriable::Execute_GetStandaloneCollisionProfileName(Carriable.Get());
-		if (Profile.IsNone())
-		{
-			UE_LOGFMT(MS_HolderComponent, Warning, "Standalone Collision Profile Name is None.");
-		}
-		else
-		{
-			Primitive->SetCollisionProfileName(Profile);
-		}
-	}
+	ApplyCarriedState(Carriable.Get(), false);
+	LocallyAppliedCarriable.Reset();
 
 	bool bSnapped = false;
 	if (bShouldSnapToGroundOnReleaseWithoutVelocity && Velocity.IsNearlyZero())
@@ -160,11 +140,62 @@ void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComp
 		return;
 }
 
+void UHolderComponent::ApplyCarriedState(UObject* InCarriable, bool bCarried)
+{
+	if (!InCarriable)
+		return;
+
+	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(InCarriable);
+	if (!Primitive)
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "ApplyCarriedState: Primitive is null.");
+		return;
+	}
+
+	if (bCarried)
+	{
+		Primitive->SetSimulatePhysics(false);
+
+		if (bShouldSwitchCollisionProfileOnPickup)
+		{
+			FName Profile = ICarriable::Execute_GetCarriedCollisionProfileName(InCarriable);
+			if (Profile.IsNone())
+				UE_LOGFMT(MS_HolderComponent, Warning, "Carried Collision Profile Name is None.");
+			else
+				Primitive->SetCollisionProfileName(Profile);
+		}
+	}
+	else if (bShouldSwitchCollisionProfileOnRelease)
+	{
+		FName Profile = ICarriable::Execute_GetStandaloneCollisionProfileName(InCarriable);
+		if (Profile.IsNone())
+			UE_LOGFMT(MS_HolderComponent, Warning, "Standalone Collision Profile Name is None.");
+		else
+			Primitive->SetCollisionProfileName(Profile);
+	}
+}
+
 void UHolderComponent::OnRep_Carriable()
 {
-	if (Carriable.IsValid())
-		if (TryPickup(Carriable.Get()))
-			return; // TryPickup already broadcasts
+	// The replication system has already assigned Carriable by the time this runs,
+	// so TryPickup() would early-out on its Carriable.IsValid() guard. Apply the
+	// physics/collision state directly instead (the attachment itself is replicated
+	// natively via AActor::AttachmentReplication).
+	UObject* NewCarriable = Carriable.Get();
+	UObject* PrevCarriable = LocallyAppliedCarriable.Get();
+
+	if (NewCarriable != PrevCarriable)
+	{
+		// Revert the one we were carrying (restores its standalone collision
+		// profile so it can be detected/picked up again), then apply the new one.
+		if (PrevCarriable)
+			ApplyCarriedState(PrevCarriable, false);
+
+		if (NewCarriable)
+			ApplyCarriedState(NewCarriable, true);
+
+		LocallyAppliedCarriable = NewCarriable;
+	}
 
 	OnCarriableChanged.Broadcast(this);
 }

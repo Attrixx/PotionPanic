@@ -40,7 +40,6 @@ FLevelData ULevelProgressionSubsystem::GetLevelData(FName LevelID, UDataTable* S
 	FLevelData ResultData;
 	
 	// Default fallbacks in case data isn't found
-	ResultData.LevelName = LevelID.ToString();
 	ResultData.LevelNumber = 0.0f;
 	ResultData.bIsLocked = true;
 	ResultData.Score = 0.0f;
@@ -55,10 +54,11 @@ FLevelData ULevelProgressionSubsystem::GetLevelData(FName LevelID, UDataTable* S
 			FString ContextString = TEXT("LevelProgressionSubsystem::GetLevelData");
 			if (FLevelStaticData* StaticData = StaticDataTable->FindRow<FLevelStaticData>(LevelID, ContextString))
 			{
-				ResultData.LevelName = StaticData->LevelName;
+				ResultData.Level = StaticData->Level;
+				ResultData.LevelDisplayName = StaticData->LevelDisplayName;
 				ResultData.LevelNumber = StaticData->LevelNumber;
 				// Load the texture synchronously if needed, or just pass the soft pointer (here we assume we want it loaded if asked)
-				ResultData.LevelTexture = StaticData->LevelTexture.LoadSynchronous();
+				ResultData.LevelTexture = StaticData->LevelPreviewTexture.LoadSynchronous();
 				ResultData.TargetScoreToUnlockNextLevel = StaticData->TargetScoreToUnlockNextLevel;
 			}
 		}
