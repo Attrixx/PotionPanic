@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
-#include "Order.h"
+#include "ItemOrder.h"
 #include "Rounds/Round.h"
 #include "AlchemyGameState.generated.h"
 
@@ -37,7 +37,7 @@ public:
 	float GetRoundRemainingTime() const;
 	
 	UFUNCTION(BlueprintCallable)
-	const TArray<FOrder>& GetRoundOrders() const { return RoundOrders; }
+	const TArray<FItemOrder>& GetRoundOrders() const { return RoundOrders; }
 
 	/**
 	 * Completes the placed order expiring the soonest among those asking for the delivered item.
@@ -83,10 +83,10 @@ private:
 	void EndRound();
 
 	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
-	void SetOrderState(FOrder& Order, EOrderState NewState);
+	void SetOrderState(FItemOrder& Order, EOrderState NewState);
 	
 	UFUNCTION()
-	void OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders);
+	void OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrders);
 	
 private:
 
@@ -106,7 +106,7 @@ private:
 	float RoundEndTime = 0.f;
 
 	UPROPERTY(ReplicatedUsing=OnRep_RoundOrders)
-	TArray<FOrder> RoundOrders;
+	TArray<FItemOrder> RoundOrders;
 	
 	uint32 GenOrderId() { return OrderIdCounter++; }
 	uint32 OrderIdCounter;

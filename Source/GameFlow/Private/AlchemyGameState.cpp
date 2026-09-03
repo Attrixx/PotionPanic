@@ -94,13 +94,13 @@ bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
 	}
 
 	const float RoundTime = GetRoundTime();
-	FOrder* Soonest = nullptr;
+	FItemOrder* Soonest = nullptr;
 	double SoonestRemainingTime = 0.0;
 	int32 PlacedCount = 0;
 	double NextPendingStartTime = 0.0;
 	bool bAnyPending = false;
 
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		switch (Order.State)
 		{
@@ -258,7 +258,7 @@ void AAlchemyGameState::UpdateOrders()
 	const float RoundTime = GetRoundTime();
 	bool bAnyOrderLeft = false;
 
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		// An order with a tiny MaxDuration may go through both transitions in the same update.
 		if (Order.State == EOrderState::Pending && RoundTime >= Order.StartTime)
@@ -286,7 +286,7 @@ void AAlchemyGameState::ShiftPendingOrders(double Shift)
 		return;
 
 	int32 ShiftedCount = 0;
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		if (Order.State == EOrderState::Pending)
 		{
@@ -302,10 +302,10 @@ void AAlchemyGameState::EndRound()
 {
 	SetActorTickEnabled(false);
 
-	const TArray<FOrder> EndedOrders = MoveTemp(RoundOrders);
+	const TArray<FItemOrder> EndedOrders = MoveTemp(RoundOrders);
 	RoundOrders.Reset();
 
-	for (FOrder Order : EndedOrders)
+	for (FItemOrder Order : EndedOrders)
 	{
 		Order.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(Order);
@@ -315,21 +315,21 @@ void AAlchemyGameState::EndRound()
 	// TODO: Start Next round or End Level
 }
 
-void AAlchemyGameState::SetOrderState(FOrder& Order, EOrderState NewState)
+void AAlchemyGameState::SetOrderState(FItemOrder& Order, EOrderState NewState)
 {
 	Order.State = NewState;
 	OnOrderChanged.Broadcast(Order);
 }
 
-void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
+void AAlchemyGameState::OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrders)
 {
-	auto FindById = [](const TArray<FOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FOrder*
+	auto FindById = [](const TArray<FItemOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FItemOrder*
 	{
 		// Indexes should stay stable across updates 
 		if (Orders.IsValidIndex(IndexHint) && Orders[IndexHint].OrderId == OrderId)
 			return &Orders[IndexHint];
 		// Fallback to full search
-		return Orders.FindByPredicate([OrderId](const FOrder& Order) { return Order.OrderId == OrderId; });
+		return Orders.FindByPredicate([OrderId](const FItemOrder& Order) { return Order.OrderId == OrderId; });
 	};
 
 	// The server drives its own tick from StartRound/EndRound; the clients follow the order list.
@@ -337,8 +337,8 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 
 	for (int32 i = 0; i < RoundOrders.Num(); ++i)
 	{
-		const FOrder& Order = RoundOrders[i];
-		const FOrder* OldOrder = FindById(OldRoundOrders, Order.OrderId, i);
+		const FItemOrder& Order = RoundOrders[i];
+		const FItemOrder* OldOrder = FindById(OldRoundOrders, Order.OrderId, i);
 
 		// Unknown ids count as changed: the order appeared with this update.
 		if (!OldOrder || OldOrder->State != Order.State)
@@ -347,12 +347,12 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 
 	for (int32 i = 0; i < OldRoundOrders.Num(); ++i)
 	{
-		const FOrder& OldOrder = OldRoundOrders[i];
+		const FItemOrder& OldOrder = OldRoundOrders[i];
 		if (FindById(RoundOrders, OldOrder.OrderId, i))
 			continue;
 
 		// The order left the round without an outcome of its own.
-		FOrder DeletedOrder = OldOrder;
+		FItemOrder DeletedOrder = OldOrder;
 		DeletedOrder.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(DeletedOrder);
 	}

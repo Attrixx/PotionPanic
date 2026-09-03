@@ -1,10 +1,10 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "RecipeOrderQueueWidget.h"
+#include "ItemOrderQueueWidget.h"
 #include "AlchemyGameState.h"
 #include "Components/PanelWidget.h"
 
-void URecipeOrderQueueWidget::NativeOnInitialized()
+void UItemOrderQueueWidget::NativeOnInitialized()
 {
 	Super::NativeOnInitialized();
 
@@ -12,7 +12,7 @@ void URecipeOrderQueueWidget::NativeOnInitialized()
 	GameState->OnOrderChanged.AddUObject(this, &ThisClass::OnOrderChanged);
 }
 
-void URecipeOrderQueueWidget::NativeDestruct()
+void UItemOrderQueueWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
 
@@ -20,7 +20,7 @@ void URecipeOrderQueueWidget::NativeDestruct()
 	GameState->OnOrderChanged.RemoveAll(this);
 }
 
-void URecipeOrderQueueWidget::OnOrderChanged(const FOrder& Order)
+void UItemOrderQueueWidget::OnOrderChanged(const FItemOrder& Order)
 {
 	switch (Order.State)
 	{
