@@ -132,10 +132,27 @@ void UNetworkSoundSubsystem::BroadcastStopOnServer(int32 Handle)
 
 void UNetworkSoundSubsystem::RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp)
 {
-	if (AudioComp)
+	if (!AudioComp)
 	{
-		ActiveSounds.Add(Handle, AudioComp);
+		return;
 	}
+
+	// Never clobber a live entry. The map holds the only reference to the AudioComponent that
+	// PlayNetworkedSound() spawned locally; overwriting it leaves that sound playing with nothing
+	// able to stop it, which for a looping sound means it never stops at all.
+	if (HasActiveSound(Handle))
+	{
+		AudioComp->Stop();
+		return;
+	}
+
+	ActiveSounds.Add(Handle, AudioComp);
+}
+
+bool UNetworkSoundSubsystem::HasActiveSound(int32 Handle) const
+{
+	const TWeakObjectPtr<UAudioComponent>* Found = ActiveSounds.Find(Handle);
+	return Found && Found->IsValid();
 }
 
 void UNetworkSoundSubsystem::StopRemoteSound(int32 Handle)

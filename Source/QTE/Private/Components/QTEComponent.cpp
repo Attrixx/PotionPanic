@@ -26,6 +26,20 @@ UQTEComponent::UQTEComponent()
 
 UQTEComponent::~UQTEComponent() = default;
 
+UQTEComponent::FRuntimeCallScope::FRuntimeCallScope(UQTEComponent& InOwner)
+	: Owner(InOwner)
+{
+	++Owner.RuntimeCallDepth;
+}
+
+UQTEComponent::FRuntimeCallScope::~FRuntimeCallScope()
+{
+	if (--Owner.RuntimeCallDepth == 0)
+	{
+		Owner.RuntimePendingRelease.Reset();
+	}
+}
+
 void UQTEComponent::SetupInputComponent_Implementation(UEnhancedInputComponent* EIC)
 {
 	IInputBindable::SetupInputComponent_Implementation(EIC);
@@ -62,9 +76,13 @@ void UQTEComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 	if (!ShouldDeferFinishToAuthority())
 	{
-		if (ActiveQTERuntime && ActiveQTERuntime->TryAutoCompleteHoldStep() && !IsQTERunning())
+		if (ActiveQTERuntime)
 		{
-			return;
+			FRuntimeCallScope RuntimeCall(*this);
+			if (ActiveQTERuntime->TryAutoCompleteHoldStep() && !IsQTERunning())
+			{
+				return;
+			}
 		}
 
 		if (RuntimeState.GlobalTimeRemaining <= 0.f && ActiveDefinition->GetEffectiveGlobalTimeout() > 0.f)
@@ -75,6 +93,23 @@ void UQTEComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorCo
 
 		if (RuntimeState.EffectiveStepTimeout > 0.f && RuntimeState.StepTimeRemaining <= 0.f)
 		{
+			FinishQTE(EQTEState::Timeout);
+			return;
+		}
+
+		// Neither the definition nor the current step bounds this QTE in time. Without the
+		// failsafe the player stays locked out of movement and interaction for good.
+		if (FailsafeTimeoutSeconds > 0.f
+			&& RuntimeState.ElapsedTime >= FailsafeTimeoutSeconds
+			&& RuntimeState.EffectiveStepTimeout <= 0.f
+			&& ActiveDefinition->GetEffectiveGlobalTimeout() <= 0.f)
+		{
+			UE_LOG(MS_QTEComponent,
+				Warning,
+				TEXT("QTE '%s' on '%s' has no timeout configured and hit the %.1fs failsafe. Set GlobalTimeoutSeconds on the definition, or bUseStepTimeout and StepTimeoutSeconds on the step."),
+				*GetNameSafe(ActiveDefinition),
+				*GetNameSafe(GetOwner()),
+				FailsafeTimeoutSeconds);
 			FinishQTE(EQTEState::Timeout);
 			return;
 		}
@@ -164,7 +199,10 @@ bool UQTEComponent::StartQTEInternal(UQTEDefinitionDataAsset* InDefinition, UObj
 	}
 
 	SetComponentTickEnabled(true);
-	ActiveQTERuntime->Start();
+	{
+		FRuntimeCallScope RuntimeCall(*this);
+		ActiveQTERuntime->Start();
+	}
 
 	OnQTEStarted.Broadcast(RuntimeState);
 	OnQTEStepChanged.Broadcast(RuntimeState);
@@ -246,8 +284,10 @@ bool UQTEComponent::SubmitInputPressed(const UInputAction* InputAction)
 	if (ShouldForwardAuthorityInput())
 		Server_SubmitAuthorityPressedInput(AuthoritySession.GetActiveRequestId(), RuntimeState.CurrentStepIndex);
 
-	if (!GetCurrentStep()) return false;
-	return ActiveQTERuntime ? ActiveQTERuntime->HandlePressed(InputAction) : false;
+	if (!GetCurrentStep() || !ActiveQTERuntime) return false;
+
+	FRuntimeCallScope RuntimeCall(*this);
+	return ActiveQTERuntime->HandlePressed(InputAction);
 }
 
 bool UQTEComponent::SubmitInputReleased(const UInputAction* InputAction)
@@ -257,14 +297,18 @@ bool UQTEComponent::SubmitInputReleased(const UInputAction* InputAction)
 	if (ShouldForwardAuthorityInput())
 		Server_SubmitAuthorityReleasedInput(AuthoritySession.GetActiveRequestId(), RuntimeState.CurrentStepIndex);
 
-	if (!GetCurrentStep()) return false;
-	return ActiveQTERuntime ? ActiveQTERuntime->HandleReleased(InputAction) : false;
+	if (!GetCurrentStep() || !ActiveQTERuntime) return false;
+
+	FRuntimeCallScope RuntimeCall(*this);
+	return ActiveQTERuntime->HandleReleased(InputAction);
 }
 
 bool UQTEComponent::SubmitInputTriggered(const UInputAction* InputAction)
 {
-	if (!IsQTERunning() || !InputAction || !GetCurrentStep()) return false;
-	return ActiveQTERuntime ? ActiveQTERuntime->HandleTriggered(InputAction) : false;
+	if (!IsQTERunning() || !InputAction || !GetCurrentStep() || !ActiveQTERuntime) return false;
+
+	FRuntimeCallScope RuntimeCall(*this);
+	return ActiveQTERuntime->HandleTriggered(InputAction);
 }
 
 // ============================================================
@@ -511,6 +555,13 @@ void UQTEComponent::ClearActiveSessionReferences()
 {
 	RemoveInputMappingContext();
 	ActiveDefinition = nullptr;
+
+	// FinishQTE is reachable from inside an FQTERuntime method, where releasing the runtime would
+	// free the object whose method is still on the stack. FRuntimeCallScope owns the release then.
+	if (RuntimeCallDepth > 0)
+	{
+		RuntimePendingRelease = MoveTemp(ActiveQTERuntime);
+	}
 	ActiveQTERuntime.Reset();
 	SourceObject.Reset();
 	InstigatorActor.Reset();

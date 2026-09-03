@@ -241,6 +241,7 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
 			{
 				SoundSubsystem->StopNetworkedSound(OnActivityGoindSoundHandle);
+				OnActivityGoindSoundHandle = -1;
 			}
 		}
 		break;
@@ -255,6 +256,7 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
 			{
 				SoundSubsystem->StopNetworkedSound(OnActivityGoindSoundHandle);
+				OnActivityGoindSoundHandle = -1;
 			}
 		}
 		break;

@@ -145,5 +145,5 @@ private:
 	/** Guards TryStartMatchingActivity against the re-entrancy caused by moving an item onto ItemHolder. */
 	bool bStartingActivity = false;
 	
-	int32 OnActivityGoindSoundHandle;
+	int32 OnActivityGoindSoundHandle = -1;
 };

@@ -181,7 +181,13 @@ void FQTEAuthoritySession::HandleClientCancel(int32 RequestId)
 	if (GetOwnerComponent().IsQTERunning())
 	{
 		GetOwnerComponent().CancelQTE();
+		return;
 	}
+
+	// The mirror already finished locally and deferred its outcome to the authority, which then
+	// cancelled instead of completing: no Client_CompleteAuthorityQTE will ever arrive to apply a
+	// result. Drop the definition and runtime that the deferred FinishQTE deliberately kept alive.
+	GetOwnerComponent().ClearActiveSessionReferences();
 }
 
 void FQTEAuthoritySession::HandleClientComplete(int32 RequestId, const FQTEAuthorityResult& AuthorityResult)

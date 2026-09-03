@@ -86,6 +86,13 @@ public:
 	void RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp);
 
 	/**
+	 * True when this machine already holds a live AudioComponent for Handle, i.e. it originated
+	 * the sound through PlayNetworkedSound(). ANetworkSoundRelay uses this to skip its multicast
+	 * locally. Not intended for direct use.
+	 */
+	bool HasActiveSound(int32 Handle) const;
+
+	/**
 	 * Called by ANetworkSoundRelay on remote clients to stop a registered AudioComponent.
 	 * Not intended for direct use — call StopNetworkedSound() instead.
 	 */

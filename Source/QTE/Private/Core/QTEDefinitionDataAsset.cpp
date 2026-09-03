@@ -205,16 +205,17 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 			Result = EDataValidationResult::Invalid;
 		}
 
-		if (Step.StepType == EQTEStepType::Hold || Step.StepType == EQTEStepType::Mash)
+		// Gameplay input is gated on IsQTERunning() (AAlchemistBase::ShouldBlockGameplayInput),
+		// so a QTE the player can never finish locks them out of movement and interaction with no
+		// way back. Every step type needs a way to end on its own, Press included.
+		const bool bHasGlobalTimeout = Configuration.GlobalTimeoutSeconds > 0.f;
+		const bool bHasStepTimeout = Step.bUseStepTimeout && Step.StepTimeoutSeconds > 0.f;
+		if (!bHasGlobalTimeout && !bHasStepTimeout)
 		{
-			const bool bHasGlobalTimeout = Configuration.GlobalTimeoutSeconds > 0.f;
-			const bool bHasStepTimeout = Step.bUseStepTimeout && Step.StepTimeoutSeconds > 0.f;
-			if (!bHasGlobalTimeout && !bHasStepTimeout)
-			{
-				Context.AddWarning(FText::Format(
-					FText::FromString("Step {0} has no timeout configured. This QTE can run indefinitely if the player never completes it."),
-					FText::AsNumber(StepIndex)));
-			}
+			Context.AddError(FText::Format(
+				FText::FromString("Step {0} has no timeout. Set Configuration.GlobalTimeoutSeconds, or the step's bUseStepTimeout and StepTimeoutSeconds. A QTE that never ends locks the player out of all gameplay input."),
+				FText::AsNumber(StepIndex)));
+			Result = EDataValidationResult::Invalid;
 		}
 	}
 
