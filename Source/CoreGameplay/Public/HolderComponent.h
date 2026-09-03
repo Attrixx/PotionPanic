@@ -25,6 +25,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	UObject* GetCarriable() const { return Carriable.Get(); }
 
+	/**
+	 * Try to pick up the given Carriable object.
+	 * If it is held by another HolderComponent, success depends on whether that component allows stealing.
+	 * @return true on success. 
+	 */
 	UFUNCTION(BlueprintCallable)
 	bool TryPickup(UObject* NewCarriable);
 

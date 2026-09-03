@@ -43,14 +43,7 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 	{
 		if (auto* OtherHolder = Cast<UHolderComponent>(Parent))
 		{
-			if (OtherHolder->bAllowStealing)
-			{
-				OtherHolder->Release();
-			}
-			else
-			{
-				return false;
-			}
+			return OtherHolder->bAllowStealing && OtherHolder->TransferTo(this);
 		}
 	}
 
@@ -162,13 +155,22 @@ bool UHolderComponent::TransferTo(UHolderComponent* Target)
 		return false;
 
 	UObject* Moving = Carriable.Get();
+	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(Moving);
+	if (!Primitive)
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
+		return false;
+	}
 
-	// Detach rather than Release: the Carriable is attached again on the very next line, so it
-	// must not snap to the ground or start simulating on the way out.
-	Detach();
+	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	LocallyAppliedCarriable.Reset();
+	Carriable.Reset();
 
 	if (Target->TryPickup(Moving))
+	{
+		OnCarriableChanged.Broadcast(this);
 		return true;
+	}
 
 	// Put it back. A failed transfer leaves both holders exactly as they were.
 	TryPickup(Moving);
