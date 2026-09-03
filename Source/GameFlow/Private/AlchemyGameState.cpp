@@ -3,9 +3,9 @@
 #include "AlchemyGameState.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
-#include "ItemActor.h"
 #include "ItemAsset.h"
 #include <Net/UnrealNetwork.h>
+#include <Kismet/KismetArrayLibrary.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
@@ -251,6 +251,7 @@ void AAlchemyGameState::StartRound()
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
 	SetActorTickEnabled(true);
+	OnRoundStarted.Broadcast(*Round);
 }
 
 void AAlchemyGameState::UpdateOrders()
@@ -300,6 +301,9 @@ void AAlchemyGameState::ShiftPendingOrders(double Shift)
 
 void AAlchemyGameState::EndRound()
 {
+	const FRound* Round = GetCurrentRound();
+	check(Round);
+	
 	SetActorTickEnabled(false);
 
 	const TArray<FItemOrder> EndedOrders = MoveTemp(RoundOrders);
@@ -311,8 +315,20 @@ void AAlchemyGameState::EndRound()
 		OnOrderChanged.Broadcast(Order);
 	}
 	
-	OnRoundEnded.Broadcast();
-	// TODO: Start Next round or End Level
+	
+	OnRoundEnded.Broadcast(*Round);
+	
+	if (Round->NextRounds.IsEmpty())
+	{
+		// Listeners will pop a menu to quit, restart, etc.
+		OnLevelComplete.Broadcast();
+		return;
+	}
+	
+	// TODO: Give the choice to players
+	int32 Rand = FMath::RandRange(0, Round->NextRounds.Num() - 1);
+	int32 NextRound = Round->NextRounds[Rand];
+	SetCurrentRound(NextRound);
 }
 
 void AAlchemyGameState::SetOrderState(FItemOrder& Order, EOrderState NewState)

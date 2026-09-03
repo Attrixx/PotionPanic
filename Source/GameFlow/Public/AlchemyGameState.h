@@ -10,7 +10,8 @@
 
 class UWorldData;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnRoundEndedDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundDelegate, const FRound&, Round);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLevelCompleteDelegate);
 
 /**
  * 
@@ -51,7 +52,13 @@ public:
 	FOrderDelegate OnOrderChanged;
 	
 	UPROPERTY(BlueprintAssignable)
-	FOnRoundEndedDelegate OnRoundEnded;
+	FRoundDelegate OnRoundStarted;
+	
+	UPROPERTY(BlueprintAssignable)
+	FRoundDelegate OnRoundEnded;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnLevelCompleteDelegate OnLevelComplete;
 
 private:
 
