@@ -223,11 +223,11 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 		{
 			if (StationAsset->OnInteractSound)
 			{
-				SoundSubsystem->PlayNetworkedSound(StationAsset->OnInteractSound, GetActorLocation(), this);
+				SoundSubsystem->PlayLocalSound(StationAsset->OnInteractSound, GetActorLocation());
 			}
 			if (StationAsset->OnActivityGoingSound)
 			{
-				OnActivityGoindSoundHandle = SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivityGoingSound, GetActorLocation(), this);
+				OnActivityGoindSoundHandle = SoundSubsystem->PlayLocalSound(StationAsset->OnActivityGoingSound, GetActorLocation());
 			}
 		}
 		break;
@@ -236,7 +236,7 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 		{
 			if (StationAsset->OnActivitySuccessSound)
 			{
-				SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivitySuccessSound, GetActorLocation(), this);
+				SoundSubsystem->PlayLocalSound(StationAsset->OnActivitySuccessSound, GetActorLocation());
 			}
 			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
 			{
@@ -251,7 +251,7 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 		{
 			if (StationAsset->OnActivityFailedSound)
 			{
-				SoundSubsystem->PlayNetworkedSound(StationAsset->OnActivityFailedSound, GetActorLocation(), this);
+				SoundSubsystem->PlayLocalSound(StationAsset->OnActivityFailedSound, GetActorLocation());
 			}
 			if (StationAsset->OnActivityGoingSound && OnActivityGoindSoundHandle != -1)
 			{

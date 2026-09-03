@@ -72,12 +72,12 @@ private:
 
 public:
 
-	float GetDifficultyMultiplier();
-	float GetEffectiveGlobalTimeout();
-	float GetEffectiveStepTimeout(const FQTEStepDefinition& Step);
-	float GetEffectiveTolerance(const FQTEStepDefinition& Step);
-	float GetEffectiveHoldTime(const FQTEStepDefinition& Step);
-	int32 GetEffectiveMashTarget(const FQTEStepDefinition& Step);
+	float GetDifficultyMultiplier() const;
+	float GetEffectiveGlobalTimeout() const;
+	float GetEffectiveStepTimeout(const FQTEStepDefinition& Step) const;
+	float GetEffectiveTolerance(const FQTEStepDefinition& Step) const;
+	float GetEffectiveHoldTime(const FQTEStepDefinition& Step) const;
+	int32 GetEffectiveMashTarget(const FQTEStepDefinition& Step) const;
 	const FQTEOutcomeConfiguration* GetOutcomeConfiguration(EQTEState FinalState);
 	EQTEGrade ResolveGrade(const FQTERuntimeState& RuntimeState, EQTEState FinalState);
 	FText ResolveOutcomeMessage(EQTEState FinalState, const FText& OverrideMessage);

@@ -28,6 +28,7 @@ void FQTERuntime::RefreshRuntimeState()
 	if (!CurrentStep)
 	{
 		RuntimeState.CurrentStepIndex = INDEX_NONE;
+		RuntimeState.CurrentInputAction = nullptr;
 		RuntimeState.EffectiveMashTarget = 0;
 		RuntimeState.EffectiveHoldTime = 0.f;
 		RuntimeState.EffectiveStepTimeout = 0.f;
@@ -45,6 +46,7 @@ void FQTERuntime::RefreshRuntimeState()
 		return;
 	}
 
+	RuntimeState.CurrentInputAction = CurrentStep->InputAction;
 	RuntimeState.EffectiveTolerance = Definition.GetEffectiveTolerance(*CurrentStep);
 	RuntimeState.EffectiveHoldTime = Definition.GetEffectiveHoldTime(*CurrentStep);
 	RuntimeState.EffectiveMashTarget = Definition.GetEffectiveMashTarget(*CurrentStep);
