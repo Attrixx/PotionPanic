@@ -5,13 +5,15 @@
 #include "Engine/Texture2D.h"
 #include "LevelProgressionTypes.generated.h"
 
+class UWorld;
+
 USTRUCT(BlueprintType)
 struct FLevelStaticData : public FTableRowBase
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	FString LevelName;
+	TSoftObjectPtr<UWorld> Level;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText LevelDisplayName;
@@ -20,7 +22,10 @@ struct FLevelStaticData : public FTableRowBase
 	int LevelNumber;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSoftObjectPtr<UTexture2D> LevelTexture;
+	TSoftObjectPtr<UTexture2D> LevelPreviewTexture;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSoftObjectPtr<UTexture2D> LevelLoadingTexture;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float TargetScoreToUnlockNextLevel = 0.0f;
@@ -44,7 +49,7 @@ struct FLevelData
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FString LevelName;
+	TSoftObjectPtr<UWorld> Level;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText LevelDisplayName;

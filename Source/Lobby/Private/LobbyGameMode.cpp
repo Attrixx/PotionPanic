@@ -17,6 +17,11 @@ ALobbyGameMode::ALobbyGameMode()
 {
 	GameStateClass = ALobbyGameState::StaticClass();
 	PlayerStateClass = ALobbyPlayerState::StaticClass();
+
+	// Seamless travel keeps the (Steam) NetDriver alive across the transition. A hard travel from a
+	// listen server tears it down and the next map fails to re-Listen on the still-bound Steam P2P
+	// vport (NetDriverListenFailure), which bounces everyone back to the startup map.
+	bUseSeamlessTravel = true;
 }
 
 void ALobbyGameMode::BeginPlay()

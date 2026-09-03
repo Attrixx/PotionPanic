@@ -18,6 +18,7 @@ public class Lobby : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"EnhancedInput",
+			"EngineSettings",
 			"InputCore",
 			"LevelSequence",
 			"MovieScene",

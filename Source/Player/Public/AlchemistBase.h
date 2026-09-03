@@ -20,6 +20,8 @@ class UInterfaceActorFilter;
 class UQTEComponent;
 class UQTEWidgetBase;
 class UQTEDisplayComponent;
+class USoundBase;
+class UNetworkSoundComponent;
 struct FInputActionValue;
 
 
@@ -90,6 +92,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+	TObjectPtr<UNetworkSoundComponent> NetworkSoundComponent;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputMappingContext> MovementMappingContext;
 
@@ -111,6 +116,24 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> DashSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> DropSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> PickupSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> ThrowSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> CollideSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
+	TObjectPtr<USoundBase> StunSound;
+
 public:
 
 	UFUNCTION(BlueprintPure, Category = "QTE")
@@ -130,6 +153,8 @@ private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
 	bool ShouldBlockGameplayInput() const;
+
+	int32 PlayNetworkedSound(USoundBase* Sound);
 
 private: // Input
 	

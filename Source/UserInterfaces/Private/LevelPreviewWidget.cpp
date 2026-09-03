@@ -38,7 +38,7 @@ void ULevelPreviewWidget::SetLevelData(const FLevelData& InLevelData)
 	}
 	if (LevelNameText)
 	{
-		LevelNameText->SetText(FText::FromString(InLevelData.LevelName));
+		LevelNameText->SetText(InLevelData.LevelDisplayName);
 	}
 	if (LevelScoreText)
 	{

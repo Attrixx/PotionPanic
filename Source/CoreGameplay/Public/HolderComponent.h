@@ -55,6 +55,12 @@ private:
 	UFUNCTION()
 	void OnRep_Carriable();
 
+	// Applies (bCarried) or reverts (!bCarried) the physics/collision state of a
+	// Carriable's primitive. Runs on both authority (from TryPickup/Release) and
+	// remote clients (from OnRep_Carriable), since collision profiles and physics
+	// simulation state are not replicated.
+	void ApplyCarriedState(UObject* InCarriable, bool bCarried);
+
 protected:
 
 	// Can another Holder take from this one?
@@ -99,4 +105,9 @@ private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_Carriable)
 	TWeakObjectPtr<UObject> Carriable;
+
+	// The Carriable whose carried-state we last applied locally. Not replicated:
+	// it lets OnRep_Carriable revert the previous Carriable's state on release,
+	// without relying on the (unreliable for object refs) RepNotify old-value param.
+	TWeakObjectPtr<UObject> LocallyAppliedCarriable;
 };

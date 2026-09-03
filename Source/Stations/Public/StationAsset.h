@@ -41,6 +41,17 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bCanStoreItems = true;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<USoundBase> OnInteractSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<USoundBase> OnActivityGoingSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<USoundBase> OnActivitySuccessSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<USoundBase> OnActivityFailedSound;
 
 #if WITH_EDITOR
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;

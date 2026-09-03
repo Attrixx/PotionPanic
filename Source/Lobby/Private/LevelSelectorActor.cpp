@@ -4,6 +4,7 @@
 #include "AlchemistBase.h"
 #include "LevelProgressionSubsystem.h"
 #include "LevelSelectorUIInterface.h"
+#include "LoadingScreenSubsystem.h"
 #include "Net/UnrealNetwork.h"
 
 #include "Components/BoxComponent.h"
@@ -200,7 +201,7 @@ void ALevelSelectorActor::OnOpenDoorTriggerEndOverlap(UPrimitiveComponent* Overl
 
 void ALevelSelectorActor::OnLevelLoadTriggerOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (!HasAuthority() || IsLocked() || !OtherActor || GetLevelName().IsEmpty())
+	if (!HasAuthority() || IsLocked() || !OtherActor || LevelData.Level.IsNull())
 	{
 		return;
 	}
@@ -210,8 +211,35 @@ void ALevelSelectorActor::OnLevelLoadTriggerOverlap(UPrimitiveComponent* Overlap
 	}
 	if (UWorld* World = GetWorld())
 	{
-		World->ServerTravel(GetLevelName());
+		Multicast_ShowLoadingScreen();
+		World->ServerTravel(LevelData.Level.ToSoftObjectPath().GetLongPackageName());
 	}
+}
+
+void ALevelSelectorActor::Multicast_ShowLoadingScreen_Implementation()
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (ULoadingScreenSubsystem* LoadingScreen = GameInstance->GetSubsystem<ULoadingScreenSubsystem>())
+		{
+			LoadingScreen->ShowLoadingScreen(LoadingScreenWidgetClass, GetLevelLoadingTexture());
+		}
+	}
+}
+
+UTexture2D* ALevelSelectorActor::GetLevelLoadingTexture() const
+{
+	if (!LevelDataTable || LevelID.IsNone())
+	{
+		return nullptr;
+	}
+
+	static const FString ContextString(TEXT("ALevelSelectorActor::GetLevelLoadingTexture"));
+	if (const FLevelStaticData* StaticData = LevelDataTable->FindRow<FLevelStaticData>(LevelID, ContextString))
+	{
+		return StaticData->LevelLoadingTexture.LoadSynchronous();
+	}
+	return nullptr;
 }
 
 void ALevelSelectorActor::UpdateLevelData()

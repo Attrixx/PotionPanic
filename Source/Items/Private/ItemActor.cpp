@@ -3,6 +3,7 @@
 #include "ItemActor.h"
 #include "ItemAsset.h"
 #include "ItemTags.h"
+#include "NetworkSoundSubsystem.h"
 #include <Net/UnrealNetwork.h>
 #include <Components/StaticMeshComponent.h>
 #include <Components/AudioComponent.h>
@@ -56,6 +57,13 @@ void AItemActor::NotifyHit(UPrimitiveComponent* MyComp, AActor* Other, UPrimitiv
 	{
 		// TODO: Implement breakable items
 		UE_LOGFMT(MS_ItemActor, Warning, "Breakable items are not implemented.");
+		/*if (ItemAsset && ItemAsset->BreakSound)
+		{
+			if (UNetworkSoundSubsystem* SoundSys = GetGameInstance()->GetSubsystem<UNetworkSoundSubsystem>())
+			{
+				SoundSys->PlayNetworkedSound(ItemAsset->BreakSound, GetActorLocation(), this);
+			}
+		}*/
 	}
 
 	constexpr float GroundCollisionThreshold = 0.8f;
@@ -126,6 +134,6 @@ void AItemActor::ApplyItemAsset()
 	Niagara->SetAsset(ItemAsset->NiagaraSystem);
 	Niagara->Activate(true);
 
-	Audio->SetSound(ItemAsset->Sound);
+	Audio->SetSound(ItemAsset->LoopSound);
 	Audio->Activate(true);
 }
