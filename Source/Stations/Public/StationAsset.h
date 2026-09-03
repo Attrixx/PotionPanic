@@ -32,7 +32,16 @@ public:
 	/** If false the station will never take from the instigator, even if the activity allows it. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	bool bCanEverTakeItemFromInstigator = true;
-	
+
+	/**
+	 * If false the station's holder is a pass-through, never a storage spot: it won't catch
+	 * overlapping items, and any item still on it once an activity concludes is handed back
+	 * to the instigator, or ejected if that fails.
+	 * Set to false for stations that only consume, like a delivery counter or a bin.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bCanStoreItems = true;
+
 #if WITH_EDITOR
 	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif

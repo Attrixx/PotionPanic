@@ -30,7 +30,19 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	UObject* Release(FVector Velocity = FVector::ZeroVector);
-	
+
+	/**
+	 * Releases the held Carriable and throws it away with EjectForce.
+	 * Use it to get rid of an item the holder must not keep.
+	 * @returns The ejected Carriable, or null if the holder was empty.
+	 */
+	UFUNCTION(BlueprintCallable)
+	UObject* Eject();
+
+	/** Enables or disables catching Carriables that begin overlapping this holder. */
+	UFUNCTION(BlueprintCallable)
+	void SetCatchAllowed(bool bAllowed) { bIsCatchAllowed = bAllowed; }
+
 	UPROPERTY(BlueprintAssignable)
 	FHolderCarriableDelegate OnCarriableChanged;
 
@@ -76,6 +88,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(ClampMin=0), Category="Holder Component")
 	float SnapToGroundMaxDistance = 200.f;
+
+	/**
+	 * Launch velocity applied by Eject, in this holder's local space (X forward, Z up).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Holder Component")
+	FVector EjectForce = FVector(168.f, 0.f, 291.f);
 
 private:
 

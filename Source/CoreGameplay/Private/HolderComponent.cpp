@@ -131,14 +131,10 @@ UObject* UHolderComponent::Release(FVector Velocity)
 			bSnapped = true;
 		}
 	}
-	else
-	{
-		Primitive->SetPhysicsLinearVelocity(Velocity, false);
-	}
-
 	if (!bSnapped)
 	{
 		Primitive->SetSimulatePhysics(true);
+		Primitive->SetPhysicsLinearVelocity(Velocity, false);
 	}
 
 	auto OldCarriable = Carriable.Get();
@@ -146,6 +142,12 @@ UObject* UHolderComponent::Release(FVector Velocity)
 
 	OnCarriableChanged.Broadcast(this);
 	return OldCarriable;
+}
+
+
+UObject* UHolderComponent::Eject()
+{
+	return Release(GetComponentTransform().TransformVectorNoScale(EjectForce));
 }
 
 
