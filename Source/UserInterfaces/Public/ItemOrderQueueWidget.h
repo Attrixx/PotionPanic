@@ -4,15 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "CommonUserWidget.h"
-#include "RecipeOrderQueueWidget.generated.h"
+#include "ItemOrderQueueWidget.generated.h"
 
-struct FOrder;
+struct FItemOrder;
 
 /**
  * 
  */
 UCLASS(Abstract)
-class USERINTERFACES_API URecipeOrderQueueWidget : public UCommonUserWidget
+class USERINTERFACES_API UItemOrderQueueWidget : public UCommonUserWidget
 {
 	GENERATED_BODY()
 	
@@ -23,12 +23,12 @@ protected:
 	
 private:
 	
-	void OnOrderChanged(const FOrder& Order);
+	void OnOrderChanged(const FItemOrder& Order);
 	
 protected:
 	
 	UFUNCTION(BlueprintImplementableEvent)
-	UWidget* CreateOrderWidget(const FOrder& Order);
+	UWidget* CreateOrderWidget(const FItemOrder& Order);
 	
 	UFUNCTION(BlueprintImplementableEvent)
 	void CancelOrderWidget(UWidget* Widget);

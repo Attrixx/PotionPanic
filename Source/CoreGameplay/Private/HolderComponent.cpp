@@ -43,14 +43,7 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 	{
 		if (auto* OtherHolder = Cast<UHolderComponent>(Parent))
 		{
-			if (OtherHolder->bAllowStealing)
-			{
-				OtherHolder->Release();
-			}
-			else
-			{
-				return false;
-			}
+			return OtherHolder->bAllowStealing && OtherHolder->TransferTo(this);
 		}
 	}
 
@@ -128,6 +121,60 @@ UObject* UHolderComponent::Release(FVector Velocity)
 UObject* UHolderComponent::Eject()
 {
 	return Release(GetComponentTransform().TransformVectorNoScale(EjectForce));
+}
+
+UObject* UHolderComponent::Detach()
+{
+	if (!Carriable.IsValid())
+		return nullptr;
+
+	UObject* OldCarriable = Carriable.Get();
+
+	if (UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(OldCarriable))
+	{
+		Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	}
+	else
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
+	}
+
+	// Restores the standalone collision profile, but leaves physics simulation off: the caller
+	// either re-attaches the Carriable right away, or is not in a world that could simulate it.
+	ApplyCarriedState(OldCarriable, false);
+	LocallyAppliedCarriable.Reset();
+	Carriable.Reset();
+
+	OnCarriableChanged.Broadcast(this);
+	return OldCarriable;
+}
+
+bool UHolderComponent::TransferTo(UHolderComponent* Target)
+{
+	if (!Target || Target == this || !Carriable.IsValid() || Target->GetCarriable())
+		return false;
+
+	UObject* Moving = Carriable.Get();
+	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(Moving);
+	if (!Primitive)
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
+		return false;
+	}
+
+	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	LocallyAppliedCarriable.Reset();
+	Carriable.Reset();
+
+	if (Target->TryPickup(Moving))
+	{
+		OnCarriableChanged.Broadcast(this);
+		return true;
+	}
+
+	// Put it back. A failed transfer leaves both holders exactly as they were.
+	TryPickup(Moving);
+	return false;
 }
 
 

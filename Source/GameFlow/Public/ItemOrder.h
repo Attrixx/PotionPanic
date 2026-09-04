@@ -3,12 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Order.generated.h"
+#include "ItemOrder.generated.h"
 
 class UItemAsset;
 
-UENUM()
-enum class EOrderState
+UENUM(BlueprintType)
+enum class EOrderState : uint8
 {
 	Pending,
 	Placed,
@@ -18,7 +18,7 @@ enum class EOrderState
 };
 
 USTRUCT(BlueprintType)
-struct GAMEFLOW_API FOrder
+struct GAMEFLOW_API FItemOrder
 {
 	GENERATED_BODY()
 
@@ -38,4 +38,4 @@ struct GAMEFLOW_API FOrder
 	double MaxDuration;
 };
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOrderDelegate, const FOrder&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOrderDelegate, const FItemOrder&);

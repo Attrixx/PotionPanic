@@ -3,9 +3,11 @@
 #include "AlchemyGameState.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
-#include "ItemActor.h"
 #include "ItemAsset.h"
 #include <Net/UnrealNetwork.h>
+#include <GameFramework/PlayerController.h>
+#include <TimerManager.h>
+#include <Kismet/KismetArrayLibrary.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
@@ -94,13 +96,13 @@ bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
 	}
 
 	const float RoundTime = GetRoundTime();
-	FOrder* Soonest = nullptr;
+	FItemOrder* Soonest = nullptr;
 	double SoonestRemainingTime = 0.0;
 	int32 PlacedCount = 0;
 	double NextPendingStartTime = 0.0;
 	bool bAnyPending = false;
 
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		switch (Order.State)
 		{
@@ -197,11 +199,34 @@ void AAlchemyGameState::SetCurrentRound(int32 Index)
 		return;
 	}
 
+	// A load still in flight would apply its own layout and start its own round on top of this
+	// one, so it is dropped rather than raced.
+	CancelPendingRoundStart();
+
 	CurrentRound = Index;
 	FOnRoundAppliedDelegate OnRoundApplied;
 	OnRoundApplied.BindDynamic(this, &ThisClass::OnCurrentRoundApplied);
-	URoundLoader::LoadAndApplyRound(this, *Round, OnRoundApplied);
-	// TODO: Fix load twice without guard
+	RoundLoader = URoundLoader::LoadAndApplyRound(this, *Round, OnRoundApplied);
+
+	// A round with nothing left to stream is applied from inside the call above.
+	if (RoundLoader && !RoundLoader->IsPending())
+		RoundLoader = nullptr;
+}
+
+void AAlchemyGameState::CancelPendingRoundStart()
+{
+	if (RoundLoader)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Dropping the load of round {0}, still in flight.", CurrentRound);
+		RoundLoader->Cancel();
+		RoundLoader = nullptr;
+	}
+
+	if (RoundStartWaitHandle.IsValid())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Dropping the pending start of round {0}.", CurrentRound);
+		GetWorldTimerManager().ClearTimer(RoundStartWaitHandle);
+	}
 }
 
 const FRound* AAlchemyGameState::GetCurrentRound() const
@@ -211,8 +236,61 @@ const FRound* AAlchemyGameState::GetCurrentRound() const
 
 void AAlchemyGameState::OnCurrentRoundApplied()
 {
-	CreateOrders();
-	StartRound(); // TODO: Wait for everyone ready
+	RoundLoader = nullptr;
+
+	// The round is ready on the server, but starting it now would run its clock while the clients
+	// are still streaming the level in. Hold it until they are all there, or until the wait times
+	// out: one client that never reports in must not keep the others waiting forever.
+	RoundStartWaitDeadline = GetServerWorldTimeSeconds() + MaxRoundStartWaitTime;
+	GetWorldTimerManager().SetTimer(RoundStartWaitHandle,
+		FTimerDelegate::CreateUObject(this, &ThisClass::TryStartRound),
+		RoundStartWaitPollInterval,
+		true);
+
+	TryStartRound();
+}
+
+bool AAlchemyGameState::AreAllPlayersReady()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+		return false;
+
+	// The world data can finish loading before the first controller exists: a round nobody is
+	// there to see must not burn its clock either.
+	bool bAnyPlayer = false;
+
+	for (auto It = World->GetPlayerControllerIterator(); It; ++It)
+	{
+		APlayerController* PC = It->Get();
+		if (!IsValid(PC))
+			continue;
+
+		bAnyPlayer = true;
+
+		// Engine-side signal, the same one CanRestartPlayer gates on. Split-screen child
+		// connections carry their own, so every local player counts on its own.
+		if (!PC->HasClientLoadedCurrentWorld())
+			return false;
+	}
+
+	return bAnyPlayer;
+}
+
+void AAlchemyGameState::TryStartRound()
+{
+	const bool bEveryoneReady = AreAllPlayersReady();
+	if (!bEveryoneReady && GetServerWorldTimeSeconds() < RoundStartWaitDeadline)
+		return;
+
+	if (!bEveryoneReady)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning,
+			"Starting round {0} after {1}s: not every client is ready.", CurrentRound, MaxRoundStartWaitTime);
+	}
+
+	GetWorldTimerManager().ClearTimer(RoundStartWaitHandle);
+	StartRound();
 }
 
 void AAlchemyGameState::CreateOrders()
@@ -248,9 +326,15 @@ void AAlchemyGameState::StartRound()
 	const FRound* Round = GetCurrentRound();
 	check(Round);
 
+	// Created here rather than on round load so the orders reach the clients in the same update as
+	// the round timing they are read against: an order list without it resolves against the
+	// previous round's start time, and the clients would place and expire every order at once.
+	CreateOrders();
+
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
 	SetActorTickEnabled(true);
+	OnRoundStarted.Broadcast(*Round);
 }
 
 void AAlchemyGameState::UpdateOrders()
@@ -258,7 +342,7 @@ void AAlchemyGameState::UpdateOrders()
 	const float RoundTime = GetRoundTime();
 	bool bAnyOrderLeft = false;
 
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		// An order with a tiny MaxDuration may go through both transitions in the same update.
 		if (Order.State == EOrderState::Pending && RoundTime >= Order.StartTime)
@@ -286,7 +370,7 @@ void AAlchemyGameState::ShiftPendingOrders(double Shift)
 		return;
 
 	int32 ShiftedCount = 0;
-	for (FOrder& Order : RoundOrders)
+	for (FItemOrder& Order : RoundOrders)
 	{
 		if (Order.State == EOrderState::Pending)
 		{
@@ -300,36 +384,51 @@ void AAlchemyGameState::ShiftPendingOrders(double Shift)
 
 void AAlchemyGameState::EndRound()
 {
+	const FRound* Round = GetCurrentRound();
+	check(Round);
+	
 	SetActorTickEnabled(false);
 
-	const TArray<FOrder> EndedOrders = MoveTemp(RoundOrders);
+	const TArray<FItemOrder> EndedOrders = MoveTemp(RoundOrders);
 	RoundOrders.Reset();
 
-	for (FOrder Order : EndedOrders)
+	for (FItemOrder Order : EndedOrders)
 	{
 		Order.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(Order);
 	}
 	
-	OnRoundEnded.Broadcast();
-	// TODO: Start Next round or End Level
+	
+	OnRoundEnded.Broadcast(*Round);
+	
+	if (Round->NextRounds.IsEmpty())
+	{
+		// Listeners will pop a menu to quit, restart, etc.
+		OnLevelComplete.Broadcast();
+		return;
+	}
+	
+	// TODO: Give the choice to players
+	int32 Rand = FMath::RandRange(0, Round->NextRounds.Num() - 1);
+	int32 NextRound = Round->NextRounds[Rand];
+	SetCurrentRound(NextRound);
 }
 
-void AAlchemyGameState::SetOrderState(FOrder& Order, EOrderState NewState)
+void AAlchemyGameState::SetOrderState(FItemOrder& Order, EOrderState NewState)
 {
 	Order.State = NewState;
 	OnOrderChanged.Broadcast(Order);
 }
 
-void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
+void AAlchemyGameState::OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrders)
 {
-	auto FindById = [](const TArray<FOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FOrder*
+	auto FindById = [](const TArray<FItemOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FItemOrder*
 	{
 		// Indexes should stay stable across updates 
 		if (Orders.IsValidIndex(IndexHint) && Orders[IndexHint].OrderId == OrderId)
 			return &Orders[IndexHint];
 		// Fallback to full search
-		return Orders.FindByPredicate([OrderId](const FOrder& Order) { return Order.OrderId == OrderId; });
+		return Orders.FindByPredicate([OrderId](const FItemOrder& Order) { return Order.OrderId == OrderId; });
 	};
 
 	// The server drives its own tick from StartRound/EndRound; the clients follow the order list.
@@ -337,8 +436,8 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 
 	for (int32 i = 0; i < RoundOrders.Num(); ++i)
 	{
-		const FOrder& Order = RoundOrders[i];
-		const FOrder* OldOrder = FindById(OldRoundOrders, Order.OrderId, i);
+		const FItemOrder& Order = RoundOrders[i];
+		const FItemOrder* OldOrder = FindById(OldRoundOrders, Order.OrderId, i);
 
 		// Unknown ids count as changed: the order appeared with this update.
 		if (!OldOrder || OldOrder->State != Order.State)
@@ -347,12 +446,12 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FOrder>& OldRoundOrders)
 
 	for (int32 i = 0; i < OldRoundOrders.Num(); ++i)
 	{
-		const FOrder& OldOrder = OldRoundOrders[i];
+		const FItemOrder& OldOrder = OldRoundOrders[i];
 		if (FindById(RoundOrders, OldOrder.OrderId, i))
 			continue;
 
 		// The order left the round without an outcome of its own.
-		FOrder DeletedOrder = OldOrder;
+		FItemOrder DeletedOrder = OldOrder;
 		DeletedOrder.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(DeletedOrder);
 	}

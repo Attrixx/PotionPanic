@@ -28,13 +28,21 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
 	static URoundLoader* LoadAndApplyRound(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete);
 		
+	/** Drops the pending load: neither the round nor the completion callback is applied. */
 	UFUNCTION(BlueprintCallable)
-	void Cancel() const;
-	
+	void Cancel();
+
+	/** True while the load is in flight, so still worth cancelling. */
+	UFUNCTION(BlueprintPure)
+	bool IsPending() const { return bPending; }
+
 private:
 	
 	void StartLoading(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete);
 	void OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRound Round, FOnRoundAppliedDelegate OnComplete);
 	
 	TSharedPtr<FStreamableHandle> StreamableHandle;
+
+	/** Cleared by whichever of the completion and the cancellation happens first. */
+	bool bPending = true;
 };

@@ -28,10 +28,20 @@ URoundLoader* URoundLoader::LoadAndApplyRound(UObject* WorldContextObject, const
 	return nullptr;
 }
 
-void URoundLoader::Cancel() const
+void URoundLoader::Cancel()
 {
+	if (!bPending)
+		return;
+
+	bPending = false;
+
 	if (StreamableHandle.IsValid())
+	{
 		StreamableHandle->CancelHandle();
+		StreamableHandle.Reset();
+	}
+
+	RemoveFromRoot();
 }
 
 void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round, FOnRoundAppliedDelegate OnComplete)
@@ -74,6 +84,13 @@ void URoundLoader::StartLoading(UObject* WorldContextObject, const FRound& Round
 
 void URoundLoader::OnAssetsLoaded(TWeakObjectPtr<> WeakContext, FRound Round, FOnRoundAppliedDelegate OnComplete)
 {
+	// CancelHandle unbinds the completion delegate, but a load already through is past cancelling
+	// and a delegate already queued still fires: bPending is what decides whether this still applies.
+	if (!bPending)
+		return;
+
+	bPending = false;
+
 	ON_SCOPE_EXIT
 	{
 		StreamableHandle.Reset();

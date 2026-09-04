@@ -25,6 +25,11 @@ public:
 	UFUNCTION(BlueprintPure)
 	UObject* GetCarriable() const { return Carriable.Get(); }
 
+	/**
+	 * Try to pick up the given Carriable object.
+	 * If it is held by another HolderComponent, success depends on whether that component allows stealing.
+	 * @return true on success. 
+	 */
 	UFUNCTION(BlueprintCallable)
 	bool TryPickup(UObject* NewCarriable);
 
@@ -38,6 +43,23 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable)
 	UObject* Eject();
+
+	/**
+	 * Drops the held Carriable where it stands, skipping the ground snapping and the physics
+	 * Release re-enables. Use it when the Carriable is about to be attached somewhere else, or
+	 * outside a game world where physics does not run.
+	 * @returns The detached Carriable, or null if the holder was empty.
+	 */
+	UFUNCTION(BlueprintCallable)
+	UObject* Detach();
+
+	/**
+	 * Hands the held Carriable over to Target. Neither holder needs bAllowStealing: this is a
+	 * hand-over, not a steal.
+	 * @returns True on success. On failure nothing moved and the Carriable stays on this holder.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool TransferTo(UHolderComponent* Target);
 
 	/** Enables or disables catching Carriables that begin overlapping this holder. */
 	UFUNCTION(BlueprintCallable)

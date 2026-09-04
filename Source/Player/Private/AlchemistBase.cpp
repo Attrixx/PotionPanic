@@ -8,7 +8,9 @@
 #include "InputBindable.h"
 #include "Carriable.h"
 #include "ActorFilters/InteractableActorFilter.h"
-#include "ActorFilters/InterfaceActorFilter.h"
+#include "ActorFilters/CarriableActorFilter.h"
+#include "ActorFilters/FreeHolderActorFilter.h"
+#include "CoreGameplayLibrary.h"
 #include "Components/QTEComponent.h"
 #include "Components/QTEDisplayComponent.h"
 #include "NetworkSoundComponent.h"
@@ -40,8 +42,11 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	InteractableFilter = CreateDefaultSubobject<UInteractableActorFilter>(TEXT("Interactable Filter"));
 	InteractableFilter->Instigator = this;
 
-	CarriableFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Carriable Filter"));
-	CarriableFilter->Interface = UCarriable::StaticClass();
+	CarriableFilter = CreateDefaultSubobject<UCarriableActorFilter>(TEXT("Carriable Filter"));
+	CarriableFilter->Ignored = this;
+
+	FreeHolderFilter = CreateDefaultSubobject<UFreeHolderActorFilter>(TEXT("Free Holder Filter"));
+	FreeHolderFilter->Ignored = this;
 	
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
@@ -134,6 +139,15 @@ void AAlchemistBase::BeginPlay()
 	}
 
 	// TODO: Register SetActorCustomDepthEnabled on RangeComponent
+
+#if WITH_EDITORONLY_DATA
+	if (bDebugTrackActorFilters)
+	{
+		RangeComponent->TrackFilter(InteractableFilter);
+		RangeComponent->TrackFilter(CarriableFilter);
+		RangeComponent->TrackFilter(FreeHolderFilter);
+	}
+#endif
 }
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -329,12 +343,16 @@ void AAlchemistBase::Input_PickupOrDrop()
 
 	if (HolderComponent->GetCarriable())
 	{
-		Server_Drop();
-		PlayNetworkedSound(DropSound);
+		// Items are never put on the ground: they go from holder to holder, or they get thrown.
+		if (AActor* Receiver = RangeComponent->FindBestMatchingActor(FreeHolderFilter))
+		{
+			Server_Place(Receiver);
+			PlayNetworkedSound(DropSound);
+		}
 	}
-	else if (AActor* Carriable = RangeComponent->FindBestMatchingActor(CarriableFilter))
+	else if (AActor* Candidate = RangeComponent->FindBestMatchingActor(CarriableFilter))
 	{
-		Server_Pickup(Carriable);
+		Server_Pickup(Candidate);
 		PlayNetworkedSound(PickupSound);
 	}
 }
@@ -367,27 +385,57 @@ void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 	}
 }
 
-void AAlchemistBase::Server_Pickup_Implementation(AActor* Carriable)
+void AAlchemistBase::Server_Pickup_Implementation(AActor* Candidate)
 {
 	if (ShouldBlockGameplayInput())
 	{
 		return;
 	}
 
-	if (Carriable && Carriable->Implements<UCarriable>() && RangeComponent->IsActorInRange(Carriable))
+	if (!Candidate || !RangeComponent->IsActorInRange(Candidate))
 	{
-		HolderComponent->TryPickup(Carriable);
+		return;
+	}
+
+	// Candidate is either a loose Carriable itself, or an actor whose occupied holder is offering
+	// one up (a station, or another player). Resolve to the actual object either way, and let
+	// TryPickup decide whether taking it from there is allowed: same bAllowStealing rule as any
+	// other holder-to-holder steal.
+	UObject* Target = Candidate->Implements<UCarriable>() ? Candidate : nullptr;
+
+	if (!Target)
+	{
+		if (UHolderComponent* SourceHolder = UCoreGameplayLibrary::FindComponentInAttachChain<UHolderComponent>(Candidate))
+		{
+			Target = SourceHolder->GetCarriable();
+		}
+	}
+
+	if (Target)
+	{
+		HolderComponent->TryPickup(Target);
 	}
 }
 
-void AAlchemistBase::Server_Drop_Implementation()
+void AAlchemistBase::Server_Place_Implementation(AActor* Receiver)
 {
 	if (ShouldBlockGameplayInput())
 	{
 		return;
 	}
 
-	HolderComponent->Release();
+	if (!Receiver || !RangeComponent->IsActorInRange(Receiver))
+	{
+		return;
+	}
+
+	UHolderComponent* TargetHolder = UCoreGameplayLibrary::FindComponentInAttachChain<UHolderComponent>(Receiver);
+	if (!TargetHolder || TargetHolder == HolderComponent)
+	{
+		return;
+	}
+
+	HolderComponent->TransferTo(TargetHolder);
 }
 
 void AAlchemistBase::Server_Throw_Implementation(FVector Direction)

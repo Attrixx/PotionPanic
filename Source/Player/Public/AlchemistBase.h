@@ -16,7 +16,8 @@ class UPhysicalAnimationComponent;
 class UInputMappingContext;
 class UInputAction;
 class UInteractableActorFilter;
-class UInterfaceActorFilter;
+class UCarriableActorFilter;
+class UFreeHolderActorFilter;
 class UQTEComponent;
 class UQTEWidgetBase;
 class UQTEDisplayComponent;
@@ -74,8 +75,28 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
 	TObjectPtr<UInteractableActorFilter> InteractableFilter;
 
+	/**
+	 * Matches anything the player can pick up: a loose item, or an occupied holder (a station, or
+	 * another player) willing to give up what it has. Both go through this one filter so the range
+	 * component's priority ranking applies uniformly to either kind.
+	 */
 	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
-	TObjectPtr<UInterfaceActorFilter> CarriableFilter;
+	TObjectPtr<UCarriableActorFilter> CarriableFilter;
+
+	/** Items are never left on the ground: putting one down means finding a holder to put it on. */
+	UPROPERTY(BlueprintReadOnly, Category = "Actor Filter")
+	TObjectPtr<UFreeHolderActorFilter> FreeHolderFilter;
+
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Tracks InteractableFilter, CarriableFilter and FreeHolderFilter with RangeComponent, even
+	 * though they are otherwise only ever queried one-shot via FindBestMatchingActor. Tracking is
+	 * what feeds RangeComponent's own bShowDebugBestActors display, so this is what puts these
+	 * filters' best match on screen alongside it.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Debug")
+	bool bDebugTrackActorFilters = false;
+#endif
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UPhysicalAnimationComponent> PhysicalAnimationComponent;
@@ -168,11 +189,13 @@ private: // Input
 	UFUNCTION(Server, Reliable)
 	void Server_Interact(AActor* Interactable);
 
+	/** Takes what Candidate offers: itself if it is a loose Carriable, or whatever occupies its holder. */
 	UFUNCTION(Server, Reliable)
-	void Server_Pickup(AActor* Carriable);
+	void Server_Pickup(AActor* Candidate);
 
+	/** Hands the carried item over to Receiver's holder. Nothing happens if it cannot take it. */
 	UFUNCTION(Server, Reliable)
-	void Server_Drop();
+	void Server_Place(AActor* Receiver);
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
