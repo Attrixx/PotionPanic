@@ -42,5 +42,5 @@ protected:
 private:
 	
 	UPROPERTY()
-	TMap<uint32, UWidget*> OrderWidgetByOrderId;
+	TMap<int32, UWidget*> OrderWidgetByOrderId;
 };

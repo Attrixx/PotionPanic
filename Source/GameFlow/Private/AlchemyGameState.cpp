@@ -49,8 +49,8 @@ UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRo
 
 AAlchemyGameState::AAlchemyGameState()
 {
-	// Ticks on server and clients alike, and only while the current round has orders left to
-	// resolve. The server enables it in StartRound, the clients in OnRep_RoundOrders.
+	// Server side only, and only while the current round has orders left to resolve: StartRound
+	// enables it and EndRound turns it back off. Clients never enable it, so it stays off there.
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 }
@@ -70,6 +70,7 @@ void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(AAlchemyGameState, RoundStartTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundEndTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundOrders);
+	DOREPLIFETIME(AAlchemyGameState, Score);
 }
 
 void AAlchemyGameState::SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData)
@@ -89,6 +90,11 @@ float AAlchemyGameState::GetRoundTime() const
 float AAlchemyGameState::GetRoundRemainingTime() const
 {
 	return RoundEndTime - GetServerWorldTimeSeconds();
+}
+
+int64 AAlchemyGameState::GetScoreToSucceed() const
+{
+	return WorldData ? WorldData->ScoreToSucceed : 0;
 }
 
 bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
@@ -143,7 +149,13 @@ bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
 	if (!Soonest)
 		return false;
 
-	UE_LOGFMT(MS_AlchemyGameState, Log, "Order completed by delivering {0}.", ItemAsset ? ItemAsset->ItemName.ToString() : "NULL");
+	// Scored before the state change so the order carries its points into OnOrderChanged.
+	Soonest->Score = ScoreForOrder(*Soonest, SoonestRemainingTime);
+
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Order completed by delivering {0}, worth {1} points ({2}s left).",
+		ItemAsset ? ItemAsset->ItemName.ToString() : "NULL", Soonest->Score, SoonestRemainingTime);
+
+	AddScore(Soonest->Score);
 	SetOrderState(*Soonest, EOrderState::Completed);
 
 	// That was the last thing to work on: pull the tail forward so the players don't idle.
@@ -184,6 +196,11 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 
 	if (!HasAuthority())
 		return;
+
+	// This world is the level: its first round starts a fresh run, so the tally starts over too.
+	Score = 0;
+	LevelCompletedOrders = 0;
+	LevelFailedOrders = 0;
 
 	SetCurrentRound(0);
 }
@@ -322,6 +339,12 @@ void AAlchemyGameState::CreateOrders()
 			.StartTime = RecipeInterval * i,
 			.MaxDuration = 30.f, // TODO: Parameter this (nb of steps x difficulty?)
 		};
+
+		// A null item here means the round data asked for something RoundLoader did not resolve.
+		UE_LOGFMT(MS_AlchemyGameState, Log, "Created order #{0} for {1}, placed at {2}s.",
+			RoundOrders[i].OrderId,
+			LastPickedItem ? *LastPickedItem->GetName() : TEXT("NULL"),
+			RoundOrders[i].StartTime);
 	}
 }
 
@@ -338,7 +361,7 @@ void AAlchemyGameState::StartRound()
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
 	SetActorTickEnabled(true);
-	OnRoundStarted.Broadcast(*Round);
+	Multicast_OnRoundStarted(CurrentRound);
 }
 
 void AAlchemyGameState::UpdateOrders()
@@ -357,7 +380,7 @@ void AAlchemyGameState::UpdateOrders()
 
 		bAnyOrderLeft |= Order.State == EOrderState::Pending || Order.State == EOrderState::Placed;
 	}
-
+	
 	// Ending the round clears RoundOrders, which the clients pick up through OnRep_RoundOrders.
 	// Doing it locally there would broadcast every deletion twice.
 	if (!HasAuthority())
@@ -397,19 +420,42 @@ void AAlchemyGameState::EndRound()
 	const TArray<FItemOrder> EndedOrders = MoveTemp(RoundOrders);
 	RoundOrders.Reset();
 
+	// Anything the players did not deliver counts against them, whether it expired on its own
+	// timer or was still open when the round ran out of time.
+	int32 CompletedCount = 0;
+	for (const FItemOrder& Order : EndedOrders)
+	{
+		if (Order.State == EOrderState::Completed)
+			++CompletedCount;
+	}
+
+	LevelCompletedOrders += CompletedCount;
+	LevelFailedOrders += EndedOrders.Num() - CompletedCount;
+
 	for (FItemOrder Order : EndedOrders)
 	{
 		Order.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(Order);
 	}
-	
-	
-	OnRoundEnded.Broadcast(*Round);
-	
+
+
+	Multicast_OnRoundEnded(CurrentRound);
+
 	if (Round->NextRounds.IsEmpty())
 	{
+		FLevelResult Result;
+		Result.Score = Score;
+		Result.ScoreToSucceed = GetScoreToSucceed();
+		Result.bSucceeded = Result.Score >= Result.ScoreToSucceed;
+		Result.CompletedOrders = LevelCompletedOrders;
+		Result.FailedOrders = LevelFailedOrders;
+
+		UE_LOGFMT(MS_AlchemyGameState, Log, "Level over: {0} with {1}/{2} points, {3} order(s) delivered and {4} missed.",
+			Result.bSucceeded ? TEXT("won") : TEXT("lost"),
+			Result.Score, Result.ScoreToSucceed, Result.CompletedOrders, Result.FailedOrders);
+
 		// Listeners will pop a menu to quit, restart, etc.
-		OnLevelComplete.Broadcast();
+		Multicast_OnLevelComplete(Result);
 		return;
 	}
 	
@@ -449,18 +495,56 @@ void AAlchemyGameState::SetOrderState(FItemOrder& Order, EOrderState NewState)
 	OnOrderChanged.Broadcast(Order);
 }
 
+int32 AAlchemyGameState::ScoreForOrder(const FItemOrder& Order, double RemainingTime) const
+{
+	const FRound* Round = GetCurrentRound();
+	if (!Round || Order.MaxDuration <= 0.0)
+		return 0;
+
+	const double RemainingRatio = FMath::Clamp(RemainingTime / Order.MaxDuration, 0.0, 1.0);
+	return FMath::RoundToInt32(FMath::Lerp<double>(Round->MinOrderScore, Round->MaxOrderScore, RemainingRatio));
+}
+
+void AAlchemyGameState::AddScore(int32 Delta)
+{
+	Score += Delta;
+	OnScoreChanged.Broadcast(Score, Delta);
+}
+
+void AAlchemyGameState::OnRep_Score(int64 OldScore)
+{
+	OnScoreChanged.Broadcast(Score, static_cast<int32>(Score - OldScore));
+}
+
 void AAlchemyGameState::OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrders)
 {
-	auto FindById = [](const TArray<FItemOrder>& Orders, uint32 OrderId, int32 IndexHint) -> const FItemOrder*
+	auto FindById = [](const TArray<FItemOrder>& Orders, int32 OrderId, int32 IndexHint) -> const FItemOrder*
 	{
-		// Indexes should stay stable across updates 
+		// Indexes should stay stable across updates
 		if (Orders.IsValidIndex(IndexHint) && Orders[IndexHint].OrderId == OrderId)
 			return &Orders[IndexHint];
 		// Fallback to full search
 		return Orders.FindByPredicate([OrderId](const FItemOrder& Order) { return Order.OrderId == OrderId; });
 	};
 
-	// The server drives its own tick from StartRound/EndRound; the clients follow the order list.
+	if (UE_LOG_ACTIVE(MS_AlchemyGameState, Verbose))
+	{
+		FString Summary;
+		for (const FItemOrder& Order : RoundOrders)
+		{
+			// A null item is an unresolved net reference: the order replicated, but this client
+			// cannot address the asset it asks for and will not be able to display it.
+			Summary += FString::Printf(TEXT("[#%u %s %s] "),
+				Order.OrderId,
+				*UEnum::GetValueAsString(Order.State),
+				Order.Item ? *Order.Item->GetName() : TEXT("UNRESOLVED-ITEM"));
+		}
+
+		UE_LOGFMT(MS_AlchemyGameState, Verbose,
+			"OnRep_RoundOrders on round {0}: {1} order(s), was {2}, round time {3}. {4}",
+			CurrentRound, RoundOrders.Num(), OldRoundOrders.Num(), GetRoundTime(), Summary);
+	}
+
 	SetActorTickEnabled(!RoundOrders.IsEmpty());
 
 	for (int32 i = 0; i < RoundOrders.Num(); ++i)
@@ -484,4 +568,33 @@ void AAlchemyGameState::OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrde
 		DeletedOrder.State = EOrderState::SystemDeleted;
 		OnOrderChanged.Broadcast(DeletedOrder);
 	}
+}
+
+void AAlchemyGameState::Multicast_OnRoundStarted_Implementation(int32 RoundIndex)
+{
+	const FRound* Round = WorldData ? WorldData->GetRoundAt(RoundIndex) : nullptr;
+	if (!Round)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Cannot broadcast OnRoundStarted: round {0} is not resolvable yet.", RoundIndex);
+		return;
+	}
+
+	OnRoundStarted.Broadcast(*Round);
+}
+
+void AAlchemyGameState::Multicast_OnRoundEnded_Implementation(int32 RoundIndex)
+{
+	const FRound* Round = WorldData ? WorldData->GetRoundAt(RoundIndex) : nullptr;
+	if (!Round)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Cannot broadcast OnRoundEnded: round {0} is not resolvable yet.", RoundIndex);
+		return;
+	}
+
+	OnRoundEnded.Broadcast(*Round);
+}
+
+void AAlchemyGameState::Multicast_OnLevelComplete_Implementation(const FLevelResult& Result)
+{
+	OnLevelComplete.Broadcast(Result);
 }

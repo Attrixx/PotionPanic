@@ -64,6 +64,17 @@ struct GAMEFLOW_API FRound
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = 0))
 	float MaxTimeWithoutPlacedOrder = 3.f;
 
+	/**
+	 * Points a completed order is worth when it is delivered the instant it is placed.
+	 * An order delivered later is worth less, down to MinOrderScore on the deadline.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Score", meta = (ClampMin = 0))
+	int32 MaxOrderScore = 100;
+
+	/** Points a completed order is worth when it is delivered as its timer runs out. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Score", meta = (ClampMin = 0))
+	int32 MinOrderScore = 25;
+
 	/** Rounds that may follow this one, as indices in the owning UWorldData. Empty means last round. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<int32> NextRounds;

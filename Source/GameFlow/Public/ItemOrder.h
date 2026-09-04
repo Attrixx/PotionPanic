@@ -22,7 +22,13 @@ struct GAMEFLOW_API FItemOrder
 {
 	GENERATED_BODY()
 
-	uint32 OrderId;
+	/**
+	 * Identifies the order for its whole life, including across the network.
+	 * The UPROPERTY is what puts it on the wire: an unreflected member does not replicate, and
+	 * every order would reach the clients sharing the same id.
+	 */
+	UPROPERTY(BlueprintReadOnly)
+	int32 OrderId = 0;
 
 	/** The item that has to be delivered to complete this order. */
 	UPROPERTY(BlueprintReadOnly)
@@ -36,6 +42,10 @@ struct GAMEFLOW_API FItemOrder
 
 	UPROPERTY(BlueprintReadOnly)
 	double MaxDuration;
+
+	/** Points this order awarded, set when it is completed and left at zero otherwise. */
+	UPROPERTY(BlueprintReadOnly)
+	int32 Score = 0;
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOrderDelegate, const FItemOrder&);

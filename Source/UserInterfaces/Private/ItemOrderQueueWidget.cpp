@@ -2,7 +2,10 @@
 
 #include "ItemOrderQueueWidget.h"
 #include "AlchemyGameState.h"
+#include "ItemAsset.h"
 #include "Components/PanelWidget.h"
+
+DEFINE_LOG_CATEGORY_STATIC(MS_ItemOrderQueueWidget, Log, All);
 
 void UItemOrderQueueWidget::NativeOnInitialized()
 {
@@ -32,7 +35,9 @@ void UItemOrderQueueWidget::OnOrderChanged(const FItemOrder& Order)
 
 	case EOrderState::Placed:
 	{
-		check(!OrderWidgetByOrderId.Contains(Order.OrderId));
+		if (OrderWidgetByOrderId.Contains(Order.OrderId))
+			break;
+
 		UWidget* Widget = CreateOrderWidget(Order);
 		OrderWidgetByOrderId.Add(Order.OrderId, Widget);
 	}
@@ -40,15 +45,17 @@ void UItemOrderQueueWidget::OnOrderChanged(const FItemOrder& Order)
 
 	case EOrderState::Cancelled:
 	{
-		UWidget* Widget = OrderWidgetByOrderId.FindAndRemoveChecked(Order.OrderId);
-		CancelOrderWidget(Widget);
+		UWidget* Widget;
+		if (OrderWidgetByOrderId.RemoveAndCopyValue(Order.OrderId, Widget))
+			CancelOrderWidget(Widget);
 	}
 	break;
 
 	case EOrderState::Completed:
 	{
-		UWidget* Widget = OrderWidgetByOrderId.FindAndRemoveChecked(Order.OrderId);
-		CompleteOrderWidget(Widget);
+		UWidget* Widget;
+		if (OrderWidgetByOrderId.RemoveAndCopyValue(Order.OrderId, Widget))
+			CompleteOrderWidget(Widget);
 	}
 	break;
 
