@@ -7,6 +7,8 @@
 #include "LevelResult.h"
 #include "LevelResultWidget.generated.h"
 
+class AGameStateBase;
+
 /**
  * End screen of a level: waits for the game state to report the run over, then hands the
  * outcome to Blueprint to display. Created hidden, it shows itself through ShowLevelResult.
@@ -30,6 +32,17 @@ protected:
 
 private:
 
+	/** @return False when the world has no AAlchemyGameState yet, nothing having been bound. */
+	bool TryBindToGameState();
+
+	/** Retries the binding when the world receives the game state this widget was waiting for. */
+	void OnGameStateSet(AGameStateBase* NewGameState);
+
 	UFUNCTION()
 	void OnLevelComplete(const FLevelResult& Result);
+
+private:
+
+	/** Valid only while waiting for the game state, so the wait can be dropped once it is over. */
+	FDelegateHandle GameStateSetHandle;
 };
