@@ -7,7 +7,6 @@
 #include "ActivityExecutionState.h"
 #include "ActivityExecutor.generated.h"
 
-class AItemActor;
 class UActivityAsset;
 class UActivityStep;
 class UActivityEvaluator;
@@ -44,11 +43,9 @@ public:
      * Automatically cancel any currently ongoing activity.
 	 * @param Activity Activity The asset defining the activity structure (Steps, Evaluator, Conclusion).
 	 * @param Instigator The optional actor that initiated the activity.
-	 * @param SecondaryItem The second ingredient the instigator keeps carrying, when the activity
-	 *        declares SecondaryInputTags. Consumed once the activity concludes.
 	 */
 	UFUNCTION(BlueprintCallable)
-	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr, AItemActor* SecondaryItem = nullptr);
+	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr);
 
 	/**
 	 * Forwards an interaction event to the currently executing activity step.
@@ -81,7 +78,6 @@ private:
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
 	void ContinueExecution();
 	void OnStepFinished(const FActivityStepResult& Result);
-	void ConsumeSecondaryItem();
 	void Conclude(EActivityExecutionStatus Status); // Conclude and broadcast the status change
 	void Reset(EActivityExecutionStatus Status); // Reset and broadcast the status change
 

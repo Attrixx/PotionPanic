@@ -95,10 +95,8 @@ public:
 	 * Finds the activity matching this station's current state.
 	 * @param OutSourceHolder The holder the matched item is currently on, if it's not already
 	 *        this station's ItemHolder (i.e. it came from InInstigator). Null otherwise.
-	 * @param OutSecondaryItem The item InInstigator keeps carrying as the activity's second
-	 *        ingredient, when the matched activity asks for one. Null otherwise.
 	 */
-	UActivityAsset* FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder, AItemActor*& OutSecondaryItem) const;
+	UActivityAsset* FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const;
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);

@@ -25,30 +25,6 @@ EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Contex
 		Result = EDataValidationResult::Invalid;
 	}
 
-	if (!SecondaryInputTags.IsEmpty())
-	{
-		if (SecondaryInputTags.HasTag(GameTags::Activity))
-		{
-			Context.AddError(FText::FromString(
-				"Secondary input tags describe an item carried by the instigator, so they cannot hold an activity tag."));
-			Result = EDataValidationResult::Invalid;
-		}
-
-		if (!SecondaryInputTags.HasTag(GameTags::Item))
-		{
-			Context.AddError(FText::FromString("Secondary input tags must have at least one item tag."));
-			Result = EDataValidationResult::Invalid;
-		}
-
-		if (SecondaryInputTags.HasTag(GameTags::Item_None))
-		{
-			Context.AddError(FText::FromString(FString::Format(
-				TEXT("{0} means no item at all, which cannot describe a carried ingredient. Leave SecondaryInputTags empty for a single-item activity."),
-				{GameTags::Item_None.GetTag().ToString()})));
-			Result = EDataValidationResult::Invalid;
-		}
-	}
-
 	for (const UActivityStepSettings* Settings : ActivitySteps)
 	{
 		if (IsValid(Settings))
