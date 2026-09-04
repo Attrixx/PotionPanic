@@ -1,4 +1,4 @@
-#include "ActivityAsset.h"
+﻿#include "ActivityAsset.h"
 #include "ActivityConclusion.h"
 #include "ActivityEvaluator.h"
 #include "ActivityStepSettings.h"
@@ -10,12 +10,6 @@
 EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Context) const
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
-
-	if (!InputTags.HasTag(GameTags::Activity))
-	{
-		Context.AddError(FText::FromString("Input tags must have at least one activity tag."));
-		Result = EDataValidationResult::Invalid;
-	}
 
 	if (!InputTags.HasTag(GameTags::Item))
 	{
