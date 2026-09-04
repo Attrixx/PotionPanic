@@ -43,9 +43,11 @@ public:
      * Automatically cancel any currently ongoing activity.
 	 * @param Activity Activity The asset defining the activity structure (Steps, Evaluator, Conclusion).
 	 * @param Instigator The optional actor that initiated the activity.
+	 * @param bItemTakenFromInstigator Whether the item on the holder was taken out of the
+	 *        instigator's hands to start this activity, rather than already sitting there.
 	 */
 	UFUNCTION(BlueprintCallable)
-	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr);
+	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr, bool bItemTakenFromInstigator = false);
 
 	/**
 	 * Forwards an interaction event to the currently executing activity step.
@@ -76,6 +78,13 @@ private:
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
+
+	/**
+	 * Points the state at Instigator and re-reads its holder and carried item. Called on start and
+	 * on every interact: the instigator may have swapped, dropped or consumed what it carries, and
+	 * a pointer kept from the previous call would go stale.
+	 */
+	void RefreshInstigator(AActor* Instigator);
 	void ContinueExecution();
 	void OnStepFinished(const FActivityStepResult& Result);
 	void Conclude(EActivityExecutionStatus Status); // Conclude and broadcast the status change

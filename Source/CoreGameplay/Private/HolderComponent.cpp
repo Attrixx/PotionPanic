@@ -113,6 +113,13 @@ UObject* UHolderComponent::Release(FVector Velocity)
 	auto OldCarriable = Carriable.Get();
 	Carriable.Reset();
 
+	// A velocity is what separates a throw from a drop, and the only distinction the Carriable
+	// itself cares about. Ejecting counts as a throw: it is one, just not a player's.
+	if (!Velocity.IsNearlyZero())
+	{
+		ICarriable::Execute_OnThrow(OldCarriable, Velocity);
+	}
+
 	OnCarriableChanged.Broadcast(this);
 	return OldCarriable;
 }

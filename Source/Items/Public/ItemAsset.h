@@ -7,9 +7,7 @@
 #include "GameplayTagContainer.h"
 #include "ItemAsset.generated.h"
 
-class UStaticMesh;
-class UNiagaraSystem;
-class USoundBase;
+class AItemVisualActor;
 
 /**
  * 
@@ -33,15 +31,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item"))
 	FGameplayTagContainer ItemTags;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
+	/** Radius of the capsule AItemActor uses as its collision and physics body. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor", meta = (ClampMin = 0))
+	float BodyRadius = 20.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<UNiagaraSystem> NiagaraSystem = nullptr;
+	/** Half height of that capsule, measured from its centre. Clamped up to the radius. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor", meta = (ClampMin = 0))
+	float BodyHalfHeight = 20.f;
 
+	/** Can a player throw this item away, or must it be handed over to a holder? */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<USoundBase> LoopSound = nullptr;
+	bool bCanBeThrown = true;
 
+	/**
+	 * How the item looks and sounds. Everything cosmetic -- meshes, Niagara, audio -- is composed
+	 * in this Blueprint; the asset itself carries no mesh, system or sound.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Actor")
-	TObjectPtr<USoundBase> BreakSound = nullptr;
+	TSubclassOf<AItemVisualActor> VisualActorClass;
 };

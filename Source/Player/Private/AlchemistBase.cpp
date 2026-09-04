@@ -365,7 +365,8 @@ void AAlchemistBase::Input_Throw()
 		return;
 	}
 
-	if (HolderComponent->GetCarriable())
+	UObject* Carriable = HolderComponent->GetCarriable();
+	if (Carriable && ICarriable::Execute_CanBeThrown(Carriable))
 	{
 		Server_Throw(GetActorForwardVector());
 		PlayNetworkedSound(ThrowSound);
@@ -440,7 +441,13 @@ void AAlchemistBase::Server_Place_Implementation(AActor* Receiver)
 
 void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 {
-	if (!ShouldBlockGameplayInput())
+	if (ShouldBlockGameplayInput())
+	{
+		return;
+	}
+
+	UObject* Carriable = HolderComponent->GetCarriable();
+	if (Carriable && ICarriable::Execute_CanBeThrown(Carriable))
 	{
 		HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
 	}

@@ -11,11 +11,26 @@ EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Contex
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
 
-	if (!InputTags.HasTag(GameTags::Item))
+	if (!StationItemTags.HasTag(GameTags::Item))
 	{
 		Context.AddError(FText::FromString(FString::Format(
-			TEXT("Input tags must have at least one item tag. Use {0} if you wish to not take any item as input."),
+			TEXT("Station item tags must have at least one item tag. Use {0} if the activity runs on an empty station."),
 			{GameTags::Item_None.GetTag().ToString()})));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	if (!InstigatorItemTags.IsEmpty() && !InstigatorItemTags.HasTag(GameTags::Item))
+	{
+		Context.AddError(FText::FromString("Instigator item tags is not empty but holds no item tag."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	if (bCanTakeItemFromInstigator && !InstigatorItemTags.IsEmpty())
+	{
+		// A taken item is matched against StationItemTags: it is the station's item by the time the
+		// activity runs, and the instigator is left empty-handed.
+		Context.AddError(FText::FromString(
+			"bCanTakeItemFromInstigator requires an empty InstigatorItemTags: the taken item is matched against StationItemTags."));
 		Result = EDataValidationResult::Invalid;
 	}
 

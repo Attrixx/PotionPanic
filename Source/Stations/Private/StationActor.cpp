@@ -9,6 +9,7 @@
 #include "StationVisualActor.h"
 #include "NetworkSoundSubsystem.h"
 
+#include <Components/BoxComponent.h>
 #include <Components/ChildActorComponent.h>
 #include <Net/UnrealNetwork.h>
 
@@ -19,6 +20,11 @@ AStationActor::AStationActor()
 	PrimaryActorTick.bCanEverTick = false;
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+
+	// Every station is a box; only its size varies, and that comes from the station asset.
+	Body = CreateDefaultSubobject<UBoxComponent>(TEXT("Body"));
+	Body->SetupAttachment(RootComponent);
+	Body->SetGenerateOverlapEvents(true);
 
 	ItemHolder = CreateDefaultSubobject<UHolderComponent>(TEXT("Item Holder"));
 	ItemHolder->SetupAttachment(RootComponent);
@@ -52,6 +58,42 @@ void AStationActor::BeginPlay()
 	Executor->Initialize(ItemHolder);
 	ItemHolder->OnCarriableChanged.AddDynamic(this, &AStationActor::Holder_OnCarriableChanged);
 	Executor->OnExecutionStatusChanged.AddDynamic(this, &AStationActor::Executor_OnExecutionStatusChanged);
+
+	// After the bindings: the starting item must go through Holder_OnCarriableChanged like any
+	// other, so a station that cannot store it reacts to it now rather than keeping it forever.
+	SpawnStartingItem();
+}
+
+void AStationActor::SpawnStartingItem()
+{
+	// Items are replicated: the server spawns them, clients receive them.
+	if (!HasAuthority() || !StartingItem)
+	{
+		return;
+	}
+
+	if (!StartingItemClass)
+	{
+		UE_LOGFMT(MS_StationActor, Error, "'{0}' has a starting item but no actor class to spawn it in.", GetName());
+		return;
+	}
+
+	AItemActor* NewItem = GetWorld()->SpawnActor<AItemActor>(StartingItemClass);
+	if (!NewItem)
+	{
+		UE_LOGFMT(MS_StationActor, Error, "'{0}' failed to spawn its starting item.", GetName());
+		return;
+	}
+
+	NewItem->SetItemAsset(StartingItem);
+
+	// Spawned at the world origin until the holder takes it: a refusal here would leave it lying
+	// there, so it goes rather than littering the level.
+	if (!ItemHolder->TryPickup(NewItem))
+	{
+		UE_LOGFMT(MS_StationActor, Error, "'{0}' could not take its starting item onto its holder.", GetName());
+		NewItem->Destroy();
+	}
 }
 
 void AStationActor::Interact_Implementation(AActor* InInstigator)
@@ -125,7 +167,7 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 		}
 	}
 
-	Executor->StartActivity(Activity, InInstigator);
+	Executor->StartActivity(Activity, InInstigator, SourceHolder != nullptr);
 }
 
 UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const
@@ -140,48 +182,50 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 	URecipeSystem* RecipeSystem = GetWorld()->GetSubsystem<URecipeSystem>();
 	check(RecipeSystem);
 
-	auto MatchWith = [&](const AItemActor* Item)
+	// Empty hands are a state an activity can require, not the absence of one: they match as
+	// Item.None rather than as nothing at all.
+	auto TagsOf = [](const AItemActor* Item)
 	{
-		FGameplayTagContainer InteractionTags = StationAsset->ImplementedActivities;
-		if (Item)
-		{
-			InteractionTags.AppendTags(Item->GetItemTags());
-		}
-		else
-		{
-			InteractionTags.AddTag(GameTags::Item_None);
-		}
-
-		return RecipeSystem->FindActivityByInputTags(InteractionTags);
+		return Item ? Item->GetItemTags() : FGameplayTagContainer(GameTags::Item_None);
 	};
 
+	UHolderComponent* InstigatorHolder = InInstigator ? InInstigator->FindComponentByClass<UHolderComponent>() : nullptr;
+	const AItemActor* InstigatorItem = InstigatorHolder ? Cast<AItemActor>(InstigatorHolder->GetCarriable()) : nullptr;
+
+	// No instigator at all is not the same state as an instigator with empty hands: an activity
+	// requiring Item.None from the player requires a player. An empty container satisfies an activity
+	// that leaves InstigatorItemTags empty, and nothing else.
+	const FGameplayTagContainer InstigatorTags = InInstigator ? TagsOf(InstigatorItem) : FGameplayTagContainer();
+
 	// The station's own item comes first: it is already in place, and it occupies the station
-	// whether or not it matches anything, so there is no falling back on an empty-handed activity.
+	// whether or not it matches anything, so there is nothing to take from the instigator.
 	if (const AItemActor* OwnItem = Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
-		return MatchWith(OwnItem);
+		return RecipeSystem->FindActivity(TagsOf(OwnItem), StationAsset->ImplementedActivities, InstigatorTags);
 	}
 
-	// Then whatever the instigator is holding, if the station and the activity both accept it.
-	if (InInstigator && StationAsset->bCanEverTakeItemFromInstigator)
+	// The station's holder is free. Taking the instigator's item onto it comes next: the item is
+	// matched as the station's own, and the instigator ends up empty-handed.
+	if (InstigatorItem && StationAsset->bCanEverTakeItemFromInstigator)
 	{
-		if (UHolderComponent* InstigatorHolder = InInstigator->FindComponentByClass<UHolderComponent>())
+		UActivityAsset* Activity = RecipeSystem->FindActivity(
+			TagsOf(InstigatorItem),
+			StationAsset->ImplementedActivities,
+			FGameplayTagContainer(GameTags::Item_None));
+
+		if (Activity && Activity->bCanTakeItemFromInstigator)
 		{
-			if (const AItemActor* InstigatorItem = Cast<AItemActor>(InstigatorHolder->GetCarriable()))
-			{
-				UActivityAsset* Activity = MatchWith(InstigatorItem);
-				if (Activity && Activity->bCanTakeItemFromInstigator)
-				{
-					OutSourceHolder = InstigatorHolder;
-					return Activity;
-				}
-			}
+			OutSourceHolder = InstigatorHolder;
+			return Activity;
 		}
 	}
 
-	// Nothing usable in hand: fall back on what the station does empty-handed. Reaching this with
-	// full hands is nominal, the item just has no use here.
-	return MatchWith(nullptr);
+	// Nothing was taken: fall back on what this station does empty, with the instigator keeping
+	// whatever it holds. Reaching this with full hands is nominal, the item just has no use here.
+	return RecipeSystem->FindActivity(
+		FGameplayTagContainer(GameTags::Item_None),
+		StationAsset->ImplementedActivities,
+		InstigatorTags);
 }
 
 void AStationActor::Holder_OnCarriableChanged(UHolderComponent* Holder)
@@ -332,18 +376,33 @@ void AStationActor::ApplyStationAsset()
 
 	if (VisualActor->GetChildActorClass() != VisualClass)
 	{
-		ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 		VisualActor->SetChildActorClass(VisualClass);
+	}
+
+	// A station with no asset keeps whatever the class defaults hold, rather than collapsing to a
+	// zero-sized box nothing can touch.
+	if (StationAsset)
+	{
+		const FVector BodyExtent = StationAsset->BodyExtent;
+		Body->SetBoxExtent(BodyExtent);
+		Body->SetRelativeLocation(FVector(0.f, 0.f, BodyExtent.Z));
 	}
 
 	if (AStationVisualActor* Visual = Cast<AStationVisualActor>(VisualActor->GetChildActor()))
 	{
+		Visual->SetStationActor(this);
+
 		FName SocketName = NAME_None;
 		USceneComponent* Anchor = Visual->GetItemAnchor(SocketName);
 
 		if (ItemHolder->GetAttachParent() != Anchor || ItemHolder->GetAttachSocketName() != SocketName)
 		{
-			ItemHolder->AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SocketName);
+			// IncludingScale, not NotIncludingScale: the latter is KeepWorld on scale, which preserves
+			// whatever scale the holder currently has. Construction script instance data restores
+			// that value, so a visual that was once scaled leaves the holder permanently resized --
+			// and the holder's scale is its overlap radius. SnapToTarget resets it to 1 every time.
+			ItemHolder->AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetIncludingScale, SocketName);
 		}
 	}
 }
