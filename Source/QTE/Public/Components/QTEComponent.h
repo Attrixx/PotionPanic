@@ -100,6 +100,7 @@ public:
 	void BroadcastQTEUpdated();
 	void ApplyAuthorityCompletionToLocalMirror(const FQTEAuthorityResult& AuthorityResult);
 	float GetAuthorityMirrorReadyTimeoutSeconds() const;
+	float GetDifficultyScale() const;
 	void HandleAuthorityMirrorReadyTimeout();
 	void HandleEnhancedInputStarted(const FInputActionInstance& Instance);
 	void HandleEnhancedInputTriggered(const FInputActionInstance& Instance);
@@ -165,11 +166,28 @@ private:
 		uint32 CanceledHandle = 0;
 	};
 
+	/**
+	 * Marks that an FQTERuntime method is on the stack. FinishQTE is reachable from inside one
+	 * (a mistake, or the last step completing) and clears ActiveQTERuntime, which would free the
+	 * object whose method is still running. While this scope is open that release is deferred to
+	 * RuntimePendingRelease and happens once the outermost runtime call returns.
+	 */
+	struct FRuntimeCallScope
+	{
+		explicit FRuntimeCallScope(UQTEComponent& InOwner);
+		~FRuntimeCallScope();
+
+	private:
+		UQTEComponent& Owner;
+	};
+
 	TObjectPtr<UQTEDefinitionDataAsset> ActiveDefinition = nullptr;
 	FQTERuntimeState RuntimeState;
 	FQTEResult LastResult;
 	FQTEAuthoritySession AuthoritySession;
 	TUniquePtr<FQTERuntime> ActiveQTERuntime;
+	TUniquePtr<FQTERuntime> RuntimePendingRelease;
+	int32 RuntimeCallDepth = 0;
 	TWeakObjectPtr<UObject> SourceObject;
 	TWeakObjectPtr<AActor> InstigatorActor;
 
@@ -179,6 +197,29 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "QTE|Authority", meta = (ClampMin = 0.1))
 	float AuthorityMirrorReadyTimeoutSeconds = 1.0f;
+
+	/**
+	 * Backstop for a definition that configures no timeout at all. Gameplay input is gated on
+	 * IsQTERunning() (AAlchemistBase::ShouldBlockGameplayInput), so a QTE that can never end
+	 * locks the player out of the game for good. Data validation rejects such definitions; this
+	 * catches anything that reaches a cooked build anyway. Set to 0 to disable.
+	 */
+	UPROPERTY(EditDefaultsOnly, Category = "QTE|Safety", meta = (ClampMin = 0.0))
+	float FailsafeTimeoutSeconds = 30.f;
+
+	/**
+	 * Stacks on top of each definition's own DifficultyMultiplier, so game progression can tighten
+	 * every QTE this player runs without touching a single asset. 1 leaves definitions as authored.
+	 * Set it from Blueprint when a round starts; it is read each time the effective timings are
+	 * recomputed, so a change lands immediately.
+	 *
+	 * Only the authority's value decides an outcome: the client mirror is there for responsiveness
+	 * and its result is overwritten by ApplyAuthorityCompletionToLocalMirror. A scale that differs
+	 * between the two is therefore cosmetic, not a desync, but it will look wrong to the player.
+	 */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "QTE|Difficulty",
+		meta = (ClampMin = 0.1, AllowPrivateAccess = "true"))
+	float DifficultyScale = 1.f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "QTE|Debug")
 	bool bDrawMashDebugFeedback = false;

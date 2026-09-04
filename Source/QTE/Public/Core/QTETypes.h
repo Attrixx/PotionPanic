@@ -97,12 +97,20 @@ struct QTE_API FQTEConfiguration
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE", meta = (ClampMin = 0))
 	float InputToleranceSeconds = 0.1f;
 
+	/**
+	 * Mistakes tolerated before the QTE fails. At 0 the first mistake already ends it, which is
+	 * what bFailOnAnyMistake does -- so leave that one off and drive the tolerance from here.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE", meta = (ClampMin = 0))
 	int32 MaxMistakes = 0;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE")
 	bool bCountUnexpectedPressedInputAsMistake = true;
 
+	/**
+	 * Fails on the first mistake whatever MaxMistakes says. Redundant at MaxMistakes = 0, and
+	 * above it silently throws the allowance away -- prefer setting MaxMistakes alone.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "QTE")
 	bool bFailOnAnyMistake = false;
 
@@ -162,6 +170,14 @@ struct QTE_API FQTERuntimeState
 
 	UPROPERTY(BlueprintReadOnly, Category = "QTE")
 	EQTEType QTEType = EQTEType::Press;
+
+	/**
+	 * InputAction of the step being played, so a widget can show its key straight from the state
+	 * it is already handed, instead of reaching back into the component for live data that may
+	 * have been cleared by the time the broadcast lands. Null when no step is current.
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = "QTE")
+	TObjectPtr<UInputAction> CurrentInputAction = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, Category = "QTE")
 	EQTEState Status = EQTEState::None;

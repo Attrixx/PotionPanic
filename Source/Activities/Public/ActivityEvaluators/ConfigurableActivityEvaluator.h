@@ -1,10 +1,13 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "ActivityEvaluator.h"
 #include "ConfigurableActivityEvaluator.generated.h"
+
+class FDataValidationContext;
+enum class EDataValidationResult : uint8;
 
 UENUM()
 enum class EScoreManagementMethod : uint8
@@ -23,7 +26,13 @@ UCLASS(DisplayName = "Configurable")
 class ACTIVITIES_API UConfigurableActivityEvaluator : public UActivityEvaluator
 {
 	GENERATED_BODY()
-	
+
+public:
+
+#if WITH_EDITOR
+	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
+#endif
+
 protected:
 	
 	FActivityEvaluationResult EvaluateStep_Implementation(const FActivityExecutionState& State, const FActivityStepResult& StepResult) const override;

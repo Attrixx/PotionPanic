@@ -1,4 +1,4 @@
-﻿#include "ActivityAsset.h"
+#include "ActivityAsset.h"
 #include "ActivityConclusion.h"
 #include "ActivityEvaluator.h"
 #include "ActivityStepSettings.h"

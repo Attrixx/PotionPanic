@@ -68,7 +68,16 @@ public:
 
 private:
 
+	/** One input the owning client sent before the authority QTE was running. */
+	struct FPendingInput
+	{
+		int32 StepIndex = INDEX_NONE;
+		bool bPressed = false;
+	};
+
 	UQTEComponent& GetOwnerComponent() const;
+	void BufferPendingInput(int32 StepIndex, bool bPressed);
+	void FlushPendingInputs();
 	void StartMirrorReadyTimeout(int32 RequestId);
 	void ClearMirrorReadyTimeout();
 	void FailRequest(int32 RequestId, const FText& FailureMessage, bool bNotifyOwningClient);
@@ -82,6 +91,13 @@ private:
 	// definition and leave a dangling pointer.
 	TStrongObjectPtr<UQTEDefinitionDataAsset> PendingDefinition;
 	TWeakObjectPtr<AActor> PendingSourceActor;
+	/**
+	 * Input received from the owning client while the authority was still waiting for its
+	 * mirror-ready confirmation, replayed once the authoritative QTE starts. Without it the start
+	 * round trip is a dead zone: the client mirror already accepts presses while the authority
+	 * does not, so the first presses of a mash count locally and never on the server.
+	 */
+	TArray<FPendingInput> PendingInputs;
 	FTimerHandle MirrorReadyTimeoutHandle;
 	int32 NextRequestId = 1;
 	int32 ActiveRequestId = INDEX_NONE;

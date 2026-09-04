@@ -205,17 +205,67 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 			Result = EDataValidationResult::Invalid;
 		}
 
-		if (Step.StepType == EQTEStepType::Hold || Step.StepType == EQTEStepType::Mash)
+		// Gameplay input is gated on IsQTERunning() (AAlchemistBase::ShouldBlockGameplayInput),
+		// so a QTE the player can never finish locks them out of movement and interaction with no
+		// way back. Every step type needs a way to end on its own, Press included.
+		const bool bHasGlobalTimeout = Configuration.GlobalTimeoutSeconds > 0.f;
+		const bool bHasStepTimeout = Step.bUseStepTimeout && Step.StepTimeoutSeconds > 0.f;
+		if (!bHasGlobalTimeout && !bHasStepTimeout)
 		{
-			const bool bHasGlobalTimeout = Configuration.GlobalTimeoutSeconds > 0.f;
-			const bool bHasStepTimeout = Step.bUseStepTimeout && Step.StepTimeoutSeconds > 0.f;
-			if (!bHasGlobalTimeout && !bHasStepTimeout)
+			Context.AddError(FText::Format(
+				FText::FromString("Step {0} has no timeout. Set Configuration.GlobalTimeoutSeconds, or the step's bUseStepTimeout and StepTimeoutSeconds. A QTE that never ends locks the player out of all gameplay input."),
+				FText::AsNumber(StepIndex)));
+			Result = EDataValidationResult::Invalid;
+		}
+
+		// DifficultyMultiplier pulls the two sides apart: it multiplies the required hold time and
+		// divides the timeouts. So a hold only fits while GlobalTimeout > HoldTime * Multiplier^2,
+		// and raising the difficulty can make a step mathematically impossible without any single
+		// field looking wrong. The step timeout bounds this step alone; the global one is shared
+		// across every step, so with several steps clearing this check is necessary, not sufficient.
+		const float EffectiveStepBudget = GetEffectiveStepTimeout(Step) > 0.f
+			? GetEffectiveStepTimeout(Step)
+			: GetEffectiveGlobalTimeout();
+
+		if (Step.StepType == EQTEStepType::Hold && EffectiveStepBudget > 0.f)
+		{
+			const float EffectiveHold = GetEffectiveHoldTime(Step);
+			if (EffectiveHold >= EffectiveStepBudget)
 			{
-				Context.AddWarning(FText::Format(
-					FText::FromString("Step {0} has no timeout configured. This QTE can run indefinitely if the player never completes it."),
-					FText::AsNumber(StepIndex)));
+				Context.AddError(FText::Format(
+					FText::FromString("Step {0} cannot be completed: holding takes {1}s but only {2}s are allowed (RequiredHoldTime {3}s x DifficultyMultiplier {4}, against a timeout divided by that same multiplier)."),
+					FText::AsNumber(StepIndex),
+					FText::AsNumber(EffectiveHold),
+					FText::AsNumber(EffectiveStepBudget),
+					FText::AsNumber(Step.RequiredHoldTimeSeconds),
+					FText::AsNumber(GetDifficultyMultiplier())));
+				Result = EDataValidationResult::Invalid;
 			}
 		}
+
+		if (Step.StepType == EQTEStepType::Mash && EffectiveStepBudget > 0.f)
+		{
+			// Sustained mashing tops out around 6-8 presses per second; past that the step is
+			// theoretically clearable but not by a human hand.
+			constexpr float MaxSustainablePressesPerSecond = 8.f;
+			const float RequiredRate = static_cast<float>(GetEffectiveMashTarget(Step)) / EffectiveStepBudget;
+			if (RequiredRate > MaxSustainablePressesPerSecond)
+			{
+				Context.AddWarning(FText::Format(
+					FText::FromString("Step {0} asks for {1} presses per second ({2} presses in {3}s). Sustained mashing tops out around 8."),
+					FText::AsNumber(StepIndex),
+					FText::AsNumber(RequiredRate),
+					FText::AsNumber(GetEffectiveMashTarget(Step)),
+					FText::AsNumber(EffectiveStepBudget)));
+			}
+		}
+	}
+
+	if (Configuration.bFailOnAnyMistake && Configuration.MaxMistakes > 0)
+	{
+		Context.AddWarning(FText::Format(
+			FText::FromString("bFailOnAnyMistake overrides MaxMistakes: the QTE ends on the first mistake and the allowance of {0} is ignored. Clear one of the two."),
+			FText::AsNumber(Configuration.MaxMistakes)));
 	}
 
 	if (Steps.Num() == 1)
@@ -244,51 +294,51 @@ EDataValidationResult UQTEDefinitionDataAsset::IsDataValid(FDataValidationContex
 }
 #endif
 
-float UQTEDefinitionDataAsset::GetDifficultyMultiplier()
+float UQTEDefinitionDataAsset::GetDifficultyMultiplier(float RuntimeScale) const
 {
-	return FMath::Max(0.1f, Configuration.DifficultyMultiplier);
+	return FMath::Max(0.1f, Configuration.DifficultyMultiplier * FMath::Max(0.1f, RuntimeScale));
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveGlobalTimeout()
+float UQTEDefinitionDataAsset::GetEffectiveGlobalTimeout(float RuntimeScale) const
 {
 	if (Configuration.GlobalTimeoutSeconds <= 0.f)
 	{
 		return 0.f;
 	}
 
-	return Configuration.GlobalTimeoutSeconds / GetDifficultyMultiplier();
+	return Configuration.GlobalTimeoutSeconds / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveStepTimeout(const FQTEStepDefinition& Step)
+float UQTEDefinitionDataAsset::GetEffectiveStepTimeout(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	if (!Step.bUseStepTimeout || Step.StepTimeoutSeconds <= 0.f)
 	{
 		return 0.f;
 	}
 
-	return Step.StepTimeoutSeconds / GetDifficultyMultiplier();
+	return Step.StepTimeoutSeconds / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveTolerance(const FQTEStepDefinition& Step)
+float UQTEDefinitionDataAsset::GetEffectiveTolerance(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	const float BaseTolerance = Step.bOverrideTolerance
 		? Step.ToleranceOverrideSeconds
 		: Configuration.InputToleranceSeconds;
 
-	return BaseTolerance / GetDifficultyMultiplier();
+	return BaseTolerance / GetDifficultyMultiplier(RuntimeScale);
 }
 
-float UQTEDefinitionDataAsset::GetEffectiveHoldTime(const FQTEStepDefinition& Step)
+float UQTEDefinitionDataAsset::GetEffectiveHoldTime(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	return Step.StepType == EQTEStepType::Hold
-		? Step.RequiredHoldTimeSeconds * GetDifficultyMultiplier()
+		? Step.RequiredHoldTimeSeconds * GetDifficultyMultiplier(RuntimeScale)
 		: 0.f;
 }
 
-int32 UQTEDefinitionDataAsset::GetEffectiveMashTarget(const FQTEStepDefinition& Step)
+int32 UQTEDefinitionDataAsset::GetEffectiveMashTarget(const FQTEStepDefinition& Step, float RuntimeScale) const
 {
 	return Step.StepType == EQTEStepType::Mash
-		? FMath::Max(1, FMath::CeilToInt(static_cast<float>(Step.RequiredMashCount) * GetDifficultyMultiplier()))
+		? FMath::Max(1, FMath::CeilToInt(static_cast<float>(Step.RequiredMashCount) * GetDifficultyMultiplier(RuntimeScale)))
 		: 0;
 }
 

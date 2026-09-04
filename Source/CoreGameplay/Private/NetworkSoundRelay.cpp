@@ -40,21 +40,27 @@ void ANetworkSoundRelay::Multicast_PlaySound_Implementation(USoundBase* Sound, F
 		return;
 	}
 
+	UGameInstance* GI = GetGameInstance();
+	UNetworkSoundSubsystem* SoundSys = GI ? GI->GetSubsystem<UNetworkSoundSubsystem>() : nullptr;
+
+	// Same case, for a sound whose instigator is not a Pawn (a station, a prop): there is no
+	// PlayerState to compare against, so the check above misses it and the machine that already
+	// played the sound plays it a second time. Registering that second component would then
+	// overwrite the local one in ActiveSounds and leave the original looping forever.
+	if (SoundSys && SoundSys->HasActiveSound(Handle))
+	{
+		return;
+	}
+
 	// Spawn the sound so we get an AudioComponent back, allowing it to be stopped later.
 	UAudioComponent* AudioComp = UGameplayStatics::SpawnSoundAtLocation(
 		this, Sound, Location, FRotator::ZeroRotator, RemoteVolumeMultiplier
 	);
 
 	// Register the component with the subsystem so StopNetworkedSound() can reach it.
-	if (AudioComp)
+	if (AudioComp && SoundSys)
 	{
-		if (UGameInstance* GI = GetGameInstance())
-		{
-			if (UNetworkSoundSubsystem* SoundSys = GI->GetSubsystem<UNetworkSoundSubsystem>())
-			{
-				SoundSys->RegisterRemoteSound(Handle, AudioComp);
-			}
-		}
+		SoundSys->RegisterRemoteSound(Handle, AudioComp);
 	}
 }
 

@@ -52,6 +52,7 @@ int32 FQTEAuthoritySession::Start(UQTEDefinitionDataAsset* InDefinition, AActor*
 
 	const int32 RequestId = NextRequestId++;
 	ActiveRequestId = RequestId;
+	PendingInputs.Reset();
 
 	if (const APawn* OwnerPawn = Cast<APawn>(OwnerActor); OwnerPawn && !OwnerPawn->IsLocallyControlled())
 	{
@@ -86,6 +87,7 @@ void FQTEAuthoritySession::Cancel(int32 RequestId)
 	{
 		PendingDefinition.Reset();
 		PendingSourceActor.Reset();
+		PendingInputs.Reset();
 		ClearMirrorReadyTimeout();
 		GetOwnerComponent().Client_CancelAuthorityQTE(RequestId);
 	}
@@ -137,6 +139,7 @@ void FQTEAuthoritySession::Resolve(const FQTEAuthorityResult& AuthorityResult)
 
 		PendingDefinition.Reset();
 		PendingSourceActor.Reset();
+		PendingInputs.Reset();
 		ActiveRequestId = INDEX_NONE;
 		GetOwnerComponent().OnQTEAuthorityFinished.Broadcast(ResolvedRequestId, AuthorityResult);
 	}
@@ -181,7 +184,13 @@ void FQTEAuthoritySession::HandleClientCancel(int32 RequestId)
 	if (GetOwnerComponent().IsQTERunning())
 	{
 		GetOwnerComponent().CancelQTE();
+		return;
 	}
+
+	// The mirror already finished locally and deferred its outcome to the authority, which then
+	// cancelled instead of completing: no Client_CompleteAuthorityQTE will ever arrive to apply a
+	// result. Drop the definition and runtime that the deferred FinishQTE deliberately kept alive.
+	GetOwnerComponent().ClearActiveSessionReferences();
 }
 
 void FQTEAuthoritySession::HandleClientComplete(int32 RequestId, const FQTEAuthorityResult& AuthorityResult)
@@ -226,6 +235,56 @@ void FQTEAuthoritySession::HandleServerConfirmReady(int32 RequestId)
 	if (!GetOwnerComponent().StartQTEInternal(DefinitionToStart, SourceActorToStart, Cast<AActor>(GetOwnerComponent().GetOwner())))
 	{
 		FailRequest(RequestId, FText::FromString(TEXT("Failed to start authoritative QTE.")), true);
+		return;
+	}
+
+	FlushPendingInputs();
+}
+
+void FQTEAuthoritySession::BufferPendingInput(int32 StepIndex, bool bPressed)
+{
+	// Bounded: a client that keeps sending while the handshake stalls must not grow this forever.
+	constexpr int32 MaxPendingInputs = 32;
+	if (PendingInputs.Num() >= MaxPendingInputs)
+	{
+		return;
+	}
+
+	PendingInputs.Add(FPendingInput{StepIndex, bPressed});
+}
+
+void FQTEAuthoritySession::FlushPendingInputs()
+{
+	if (PendingInputs.IsEmpty())
+	{
+		return;
+	}
+
+	const TArray<FPendingInput> Inputs = MoveTemp(PendingInputs);
+	PendingInputs.Reset();
+
+	for (const FPendingInput& Input : Inputs)
+	{
+		// Replaying can finish the QTE outright: a Press, or the last press of a short mash.
+		if (!GetOwnerComponent().IsQTERunning())
+		{
+			break;
+		}
+
+		const FQTEStepDefinition* CurrentStep = GetOwnerComponent().GetCurrentStep();
+		if (!CurrentStep || !CurrentStep->InputAction || Input.StepIndex != GetOwnerComponent().GetRuntimeState().CurrentStepIndex)
+		{
+			continue;
+		}
+
+		if (Input.bPressed)
+		{
+			GetOwnerComponent().SubmitInputPressed(CurrentStep->InputAction);
+		}
+		else
+		{
+			GetOwnerComponent().SubmitInputReleased(CurrentStep->InputAction);
+		}
 	}
 }
 
@@ -255,7 +314,20 @@ void FQTEAuthoritySession::HandleServerPressedInput(int32 RequestId, int32 StepI
 		*GetNameSafe(ExpectedInputAction),
 		GetOwnerComponent().IsQTERunning());
 
-	if (ActiveRequestId != RequestId || !GetOwnerComponent().IsQTERunning() || StepIndex != GetOwnerComponent().GetRuntimeState().CurrentStepIndex || !ExpectedInputAction)
+	if (ActiveRequestId != RequestId)
+	{
+		return;
+	}
+
+	// The authority accepted the request but is still waiting on the mirror-ready confirmation,
+	// so its own QTE has not started yet. Hold the input rather than dropping it.
+	if (!GetOwnerComponent().IsQTERunning() && PendingDefinition)
+	{
+		BufferPendingInput(StepIndex, true);
+		return;
+	}
+
+	if (!GetOwnerComponent().IsQTERunning() || StepIndex != GetOwnerComponent().GetRuntimeState().CurrentStepIndex || !ExpectedInputAction)
 	{
 		return;
 	}
@@ -276,7 +348,18 @@ void FQTEAuthoritySession::HandleServerReleasedInput(int32 RequestId, int32 Step
 		*GetNameSafe(ExpectedInputAction),
 		GetOwnerComponent().IsQTERunning());
 
-	if (ActiveRequestId != RequestId || !GetOwnerComponent().IsQTERunning() || StepIndex != GetOwnerComponent().GetRuntimeState().CurrentStepIndex || !ExpectedInputAction)
+	if (ActiveRequestId != RequestId)
+	{
+		return;
+	}
+
+	if (!GetOwnerComponent().IsQTERunning() && PendingDefinition)
+	{
+		BufferPendingInput(StepIndex, false);
+		return;
+	}
+
+	if (!GetOwnerComponent().IsQTERunning() || StepIndex != GetOwnerComponent().GetRuntimeState().CurrentStepIndex || !ExpectedInputAction)
 	{
 		return;
 	}
@@ -335,6 +418,7 @@ void FQTEAuthoritySession::FailRequest(int32 RequestId, const FText& FailureMess
 	ClearMirrorReadyTimeout();
 	PendingDefinition.Reset();
 	PendingSourceActor.Reset();
+	PendingInputs.Reset();
 
 	FQTEAuthorityResult FailedResult;
 	FailedResult.Outcome = EQTEState::Failure;

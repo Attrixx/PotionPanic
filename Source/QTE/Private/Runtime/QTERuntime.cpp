@@ -24,16 +24,19 @@ void FQTERuntime::RefreshRuntimeState()
 {
 	const FQTEStepDefinition* CurrentStep = GetCurrentStep();
 	FQTERuntimeState& RuntimeState = OwnerComponent.GetMutableRuntimeState();
+	// Read every refresh rather than cached at start, so raising the scale mid-round lands at once.
+	const float DifficultyScale = OwnerComponent.GetDifficultyScale();
 
 	if (!CurrentStep)
 	{
 		RuntimeState.CurrentStepIndex = INDEX_NONE;
+		RuntimeState.CurrentInputAction = nullptr;
 		RuntimeState.EffectiveMashTarget = 0;
 		RuntimeState.EffectiveHoldTime = 0.f;
 		RuntimeState.EffectiveStepTimeout = 0.f;
 		RuntimeState.EffectiveTolerance = 0.f;
 		RuntimeState.StepTimeRemaining = 0.f;
-		const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
+		const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout(DifficultyScale);
 		RuntimeState.EffectiveGlobalTimeout = GlobalTimeout;
 		RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 			? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)
@@ -45,11 +48,12 @@ void FQTERuntime::RefreshRuntimeState()
 		return;
 	}
 
-	RuntimeState.EffectiveTolerance = Definition.GetEffectiveTolerance(*CurrentStep);
-	RuntimeState.EffectiveHoldTime = Definition.GetEffectiveHoldTime(*CurrentStep);
-	RuntimeState.EffectiveMashTarget = Definition.GetEffectiveMashTarget(*CurrentStep);
-	RuntimeState.EffectiveStepTimeout = Definition.GetEffectiveStepTimeout(*CurrentStep);
-	const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout();
+	RuntimeState.CurrentInputAction = CurrentStep->InputAction;
+	RuntimeState.EffectiveTolerance = Definition.GetEffectiveTolerance(*CurrentStep, DifficultyScale);
+	RuntimeState.EffectiveHoldTime = Definition.GetEffectiveHoldTime(*CurrentStep, DifficultyScale);
+	RuntimeState.EffectiveMashTarget = Definition.GetEffectiveMashTarget(*CurrentStep, DifficultyScale);
+	RuntimeState.EffectiveStepTimeout = Definition.GetEffectiveStepTimeout(*CurrentStep, DifficultyScale);
+	const float GlobalTimeout = Definition.GetEffectiveGlobalTimeout(DifficultyScale);
 	RuntimeState.EffectiveGlobalTimeout = GlobalTimeout;
 	RuntimeState.GlobalTimeRemaining = GlobalTimeout > 0.f
 		? FMath::Max(GlobalTimeout - RuntimeState.ElapsedTime, 0.f)

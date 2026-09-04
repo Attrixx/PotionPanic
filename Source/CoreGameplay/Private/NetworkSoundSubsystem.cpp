@@ -77,6 +77,31 @@ int32 UNetworkSoundSubsystem::PlayNetworkedSound(USoundBase* Sound, FVector Loca
 	return Handle;
 }
 
+int32 UNetworkSoundSubsystem::PlayLocalSound(USoundBase* Sound, FVector Location)
+{
+	if (!Sound)
+	{
+		UE_LOG(LogNetworkSound, Warning, TEXT("PlayLocalSound: Sound is null, skipping."));
+		return -1;
+	}
+
+	UWorld* World = GetGameInstance()->GetWorld();
+	if (!World)
+	{
+		return -1;
+	}
+
+	const int32 Handle = --NextLocalHandle;
+
+	if (UAudioComponent* AudioComp = UGameplayStatics::SpawnSoundAtLocation(
+			World, Sound, Location, FRotator::ZeroRotator, 1.0f))
+	{
+		ActiveSounds.Add(Handle, AudioComp);
+	}
+
+	return Handle;
+}
+
 void UNetworkSoundSubsystem::StopNetworkedSound(int32 Handle)
 {
 	if (Handle == -1)
@@ -86,6 +111,13 @@ void UNetworkSoundSubsystem::StopNetworkedSound(int32 Handle)
 
 	// ── 1. Stop locally ──
 	StopRemoteSound(Handle);
+
+	// A local-only handle never left this machine: there is nothing to relay, and no other machine
+	// holds this key.
+	if (Handle < 0)
+	{
+		return;
+	}
 
 	// ── 2. Route the stop through the same component that started the sound ──
 	if (TWeakObjectPtr<UNetworkSoundComponent>* CompPtr = ActiveSoundComponents.Find(Handle))
@@ -132,10 +164,27 @@ void UNetworkSoundSubsystem::BroadcastStopOnServer(int32 Handle)
 
 void UNetworkSoundSubsystem::RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp)
 {
-	if (AudioComp)
+	if (!AudioComp)
 	{
-		ActiveSounds.Add(Handle, AudioComp);
+		return;
 	}
+
+	// Never clobber a live entry. The map holds the only reference to the AudioComponent that
+	// PlayNetworkedSound() spawned locally; overwriting it leaves that sound playing with nothing
+	// able to stop it, which for a looping sound means it never stops at all.
+	if (HasActiveSound(Handle))
+	{
+		AudioComp->Stop();
+		return;
+	}
+
+	ActiveSounds.Add(Handle, AudioComp);
+}
+
+bool UNetworkSoundSubsystem::HasActiveSound(int32 Handle) const
+{
+	const TWeakObjectPtr<UAudioComponent>* Found = ActiveSounds.Find(Handle);
+	return Found && Found->IsValid();
 }
 
 void UNetworkSoundSubsystem::StopRemoteSound(int32 Handle)

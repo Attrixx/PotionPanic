@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "ActivityExecutor.h"
 #include "HolderComponent.h"
@@ -204,6 +204,14 @@ void UActivityExecutor::OnStepFinished(const FActivityStepResult& StepResult)
 
 void UActivityExecutor::Conclude(EActivityExecutionStatus Status)
 {
+	// Status: 0 NotStarted, 1 Ongoing, 2 Success, 3 Failed, 4 Canceled.
+	UE_LOGFMT(MS_ActivityExecutor, Log, "Conclude on {0}: status {1}, score {2}, item {3}, conclusion {4}.",
+		GetNameSafe(GetOwner()),
+		static_cast<int32>(Status),
+		State.Score,
+		GetNameSafe(State.Item.Get()),
+		GetNameSafe(Conclusion));
+
 	State.Status = Status;
 	Conclusion->Conclude(State);
 	OnExecutionStatusChanged.Broadcast(this, Status);

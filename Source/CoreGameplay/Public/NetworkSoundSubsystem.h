@@ -65,6 +65,21 @@ public:
 	void StopNetworkedSound(int32 Handle);
 
 	/**
+	 * Plays a sound on this machine only, with no relay. Returns a handle for
+	 * StopNetworkedSound(), or -1 on failure.
+	 *
+	 * Use it when the event driving the sound is ALREADY replicated, a station reacting to its own
+	 * replicated activity status being the typical case. Every machine then plays its own copy off
+	 * that replicated state, and relaying on top only duplicates it: the originating machine hears
+	 * it twice, and every remote machine hears both its own copy and the multicast one.
+	 *
+	 * PlayNetworkedSound() stays the right call for a sound one machine alone knows about,
+	 * typically a player action, where the relay is what carries it to everyone else.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Sound|Network")
+	int32 PlayLocalSound(USoundBase* Sound, FVector Location);
+
+	/**
 	 * Called by UNetworkSoundComponent on the server after its Server_RelaySound RPC fires.
 	 * Triggers the NetMulticast on ANetworkSoundRelay.
 	 * Not intended for direct use — call PlayNetworkedSound() instead.
@@ -84,6 +99,13 @@ public:
 	 * Not intended for direct use.
 	 */
 	void RegisterRemoteSound(int32 Handle, UAudioComponent* AudioComp);
+
+	/**
+	 * True when this machine already holds a live AudioComponent for Handle, i.e. it originated
+	 * the sound through PlayNetworkedSound(). ANetworkSoundRelay uses this to skip its multicast
+	 * locally. Not intended for direct use.
+	 */
+	bool HasActiveSound(int32 Handle) const;
 
 	/**
 	 * Called by ANetworkSoundRelay on remote clients to stop a registered AudioComponent.
@@ -117,4 +139,11 @@ private:
 
 	/** Per-machine counter incremented each time a sound is played. */
 	int32 NextHandle = 0;
+
+	/**
+	 * Counter for PlayLocalSound, walking down from -2 (-1 being the invalid handle). Keeping
+	 * local-only handles in their own negative range means they can never collide with networked
+	 * ones, which are built from the instigator PlayerId and are always >= 0.
+	 */
+	int32 NextLocalHandle = -1;
 };

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -103,6 +103,7 @@ private:
 
 	/** Reports every remaining order as deleted, drops them and stops ticking. Server only. */
 	void EndRound();
+	void CancelOngoingStationActivities();
 
 	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
 	void SetOrderState(FItemOrder& Order, EOrderState NewState);
