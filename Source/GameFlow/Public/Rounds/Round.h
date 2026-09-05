@@ -24,6 +24,14 @@ struct GAMEFLOW_API FRoundOrderable
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float BaseProbability = 0.f;
+
+	/**
+	 * How long, in seconds, customers wait for this item once its order is placed. It is also what
+	 * the order's score is measured against: delivered the instant it is placed it is worth the
+	 * round's MaxOrderScore, delivered as this runs out, MinOrderScore.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = 0))
+	float TimeToComplete = 30.f;
 };
 
 USTRUCT(BlueprintType)

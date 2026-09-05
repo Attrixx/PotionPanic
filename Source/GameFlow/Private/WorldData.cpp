@@ -139,6 +139,17 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 			}
 		}
 
+		for (const FRoundOrderable& Orderable : Round.Orderables)
+		{
+			// An order with no time to run is placed and expired in the same update, and scores
+			// nothing: ScoreForOrder returns 0 on a non-positive duration.
+			if (Orderable.TimeToComplete <= 0.f)
+			{
+				Error(i, TEXT("Contains an orderable item whose TimeToComplete is not greater than zero."));
+				break;
+			}
+		}
+
 		if (!Round.Orderables.ContainsByPredicate([](const FRoundOrderable& O) { return O.BaseProbability > 0.f; }))
 		{
 			Error(i, TEXT("Every orderable item has a zero probability."));

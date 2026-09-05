@@ -17,10 +17,15 @@ DEFINE_LOG_CATEGORY_STATIC(MS_AlchemyGameState, Log, All);
 
 namespace
 {
-UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRoundOrderable>& AllItems, UItemAsset* LastPickedItem)
+FRoundOrderable PickNextOrderable(TArray<FRoundOrderable>& ItemBag, const TArray<FRoundOrderable>& AllItems, UItemAsset* LastPickedItem)
 {
 	if (ItemBag.IsEmpty())
 		ItemBag = AllItems;
+
+	// Nothing to draw from: the round has no orderable carrying a weight. Data validation catches
+	// it, but a round loaded anyway must not index into an empty bag.
+	if (ItemBag.IsEmpty())
+		return FRoundOrderable();
 
 	float TotalWeight = 0.f;
 	for (const FRoundOrderable& Orderable : ItemBag)
@@ -41,9 +46,9 @@ UItemAsset* PickNextOrderItem(TArray<FRoundOrderable>& ItemBag, const TArray<FRo
 	if (ItemBag.Num() > 1 && ItemBag[PickedIndex].Asset.Get() == LastPickedItem)
 		PickedIndex = (PickedIndex + 1) % ItemBag.Num();
 
-	UItemAsset* PickedItem = ItemBag[PickedIndex].Asset.Get();
+	FRoundOrderable Picked = ItemBag[PickedIndex];
 	ItemBag.RemoveAtSwap(PickedIndex);
-	return PickedItem;
+	return Picked;
 }
 }
 
@@ -329,7 +334,8 @@ void AAlchemyGameState::CreateOrders()
 	RoundOrders.SetNumUninitialized(Round->OrderCount);
 	for (int32 i = 0; i < Round->OrderCount; ++i)
 	{
-		LastPickedItem = PickNextOrderItem(ItemBag, WeightedItems, LastPickedItem);
+		const FRoundOrderable Picked = PickNextOrderable(ItemBag, WeightedItems, LastPickedItem);
+		LastPickedItem = Picked.Asset.Get();
 
 		RoundOrders[i] =
 		{
@@ -337,7 +343,7 @@ void AAlchemyGameState::CreateOrders()
 			.Item = LastPickedItem,
 			.State = EOrderState::Pending,
 			.StartTime = RecipeInterval * i,
-			.MaxDuration = 30.f, // TODO: Parameter this (nb of steps x difficulty?)
+			.MaxDuration = Picked.TimeToComplete,
 		};
 
 		// A null item here means the round data asked for something RoundLoader did not resolve.
