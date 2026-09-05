@@ -7,6 +7,8 @@
 #include "Interactable.h"
 #include "StationVisualActor.generated.h"
 
+class AStationActor;
+
 /**
  * Base class for a station's visual representation.
  *
@@ -15,20 +17,26 @@
  * Subclass in Blueprint to compose any combination of meshes, Niagara, etc.
  */
 UCLASS(Abstract, Blueprintable)
-class STATIONS_API AStationVisualActor : public AActor, public IInteractable
+class STATIONS_API AStationVisualActor : public AActor
 {
 	GENERATED_BODY()
 	
 public:
+	
+	AStationVisualActor();
 
 	/**
 	 * Get the ItemHolder attach parent and socket
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category = "Stations")
 	USceneComponent* GetItemAnchor(FName& OutSocketName) const;
-	
+
+	/** Called by AStationActor as soon as it spawns this visual. */
+	void SetStationActor(AStationActor* InStationActor) { StationActor = InStationActor; }
+
 protected:
 
-	void Interact_Implementation(AActor* InInstigator) override;
-	bool CanInteract_Implementation(AActor* InInstigator) const override;
+	/** The station this visual belongs to. Set as soon as the station spawns it. */
+	UPROPERTY(BlueprintReadOnly, Transient, Category = "Stations")
+	TObjectPtr<AStationActor> StationActor;
 };

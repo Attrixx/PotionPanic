@@ -14,6 +14,9 @@ public class UserInterfaces : ModuleRules
 			"UMG",
 			"CommonUI",
 			"CommonInput",
+
+			// Public: LevelResultWidget.h exposes GameFlow's FLevelResult in its API.
+			"GameFlow",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
@@ -31,7 +34,7 @@ public class UserInterfaces : ModuleRules
 
 			"HidApi",
 			"Lobby",
-			"GameFlow"
+			"Items",
 		});
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)

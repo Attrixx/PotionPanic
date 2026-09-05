@@ -26,6 +26,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TSubclassOf<AStationVisualActor> VisualActorClass;
 
+	/**
+	 * Half size of the station's collision box, so 100x100x40 is (50, 50, 20). Always applied with
+	 * a relative location of (0, 0, Z), which rests the box on the station's origin plane.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = 0))
+	FVector BodyExtent = FVector(50.f, 50.f, 20.f);
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Activity"))
 	FGameplayTagContainer ImplementedActivities;
 	

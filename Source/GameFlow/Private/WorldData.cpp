@@ -139,6 +139,17 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 			}
 		}
 
+		for (const FRoundOrderable& Orderable : Round.Orderables)
+		{
+			// An order with no time to run is placed and expired in the same update, and scores
+			// nothing: ScoreForOrder returns 0 on a non-positive duration.
+			if (Orderable.TimeToComplete <= 0.f)
+			{
+				Error(i, TEXT("Contains an orderable item whose TimeToComplete is not greater than zero."));
+				break;
+			}
+		}
+
 		if (!Round.Orderables.ContainsByPredicate([](const FRoundOrderable& O) { return O.BaseProbability > 0.f; }))
 		{
 			Error(i, TEXT("Every orderable item has a zero probability."));
@@ -158,6 +169,9 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 			}
 		}
 
+		if (Round.MinOrderScore > Round.MaxOrderScore)
+			Error(i, TEXT("MinOrderScore is above MaxOrderScore: a late delivery would beat an early one."));
+
 		for (const int32 NextIndex : Round.NextRounds)
 		{
 			if (!Rounds.IsValidIndex(NextIndex))
@@ -165,6 +179,20 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 				Error(i, *FString::Printf(TEXT("Refers to an out of bounds next round [%d]."), NextIndex));
 			}
 		}
+	}
+
+	// Summed over every round rather than over one path through them: a target above even that
+	// cannot be reached whichever branches the run takes.
+	int64 MaxReachableScore = 0;
+	for (const FRound& Round : Rounds)
+		MaxReachableScore += static_cast<int64>(Round.OrderCount) * Round.MaxOrderScore;
+
+	if (ScoreToSucceed > MaxReachableScore)
+	{
+		Context.AddError(FText::FromString(FString::Printf(
+			TEXT("ScoreToSucceed (%lld) is above what every round together can award (%lld): this world cannot be won."),
+			ScoreToSucceed, MaxReachableScore)));
+		Result = EDataValidationResult::Invalid;
 	}
 
 	// Walk the progression graph from the first round: any round left White is unreachable.

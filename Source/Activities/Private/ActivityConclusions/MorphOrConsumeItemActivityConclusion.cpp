@@ -2,6 +2,7 @@
 
 #include "ActivityConclusions/MorphOrConsumeItemActivityConclusion.h"
 #include "ActivityExecutionState.h"
+#include "ActivityHolderTarget.h"
 #include "ItemActor.h"
 #include "ItemAsset.h"
 
@@ -38,7 +39,9 @@ void UMorphOrConsumeItemActivityConclusion::Conclude_Implementation(const FActiv
 		return;
 	}
 
-	if (!ActivityState.Item.IsValid())
+	const FActivityTargetHolders Targets(ActivityState, Target);
+	AItemActor* TargetItem = Targets.FindCarriedItem();
+	if (!TargetItem)
 	{
 		UE_LOGFMT(MS_MorphOrConsumeItem, Error, "Cannot morph Null item.");
 		return;
@@ -46,10 +49,10 @@ void UMorphOrConsumeItemActivityConclusion::Conclude_Implementation(const FActiv
 
 	if (ItemAsset)
 	{
-		ActivityState.Item->SetItemAsset(ItemAsset);
+		TargetItem->SetItemAsset(ItemAsset);
 	}
 	else
 	{
-		ActivityState.Item->Destroy();
+		TargetItem->Destroy();
 	}
 }

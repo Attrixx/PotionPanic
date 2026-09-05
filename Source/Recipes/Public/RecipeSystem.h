@@ -31,11 +31,17 @@ public:
 	// void RemoveRecipe(URecipeAsset* Recipe);
 
 	/**
-	 * Finds an activity matching the given tags.
-	 * @param Tags Item tags and activity tags.
+	 * Finds the first activity whose three input containers are all satisfied. An empty container
+	 * on the activity accepts anything, which is how an activity declares it needs no station or
+	 * does not care what the instigator carries.
+	 * @param StationItemTags Tags of the item on the station's holder, or Item.None for an empty one.
+	 * @param ActivityTags Activities the station implements.
+	 * @param InstigatorItemTags Tags of the item the instigator carries, or Item.None for empty hands.
 	 * @return The found activity, or nullptr.
 	 */
-	UActivityAsset* FindActivityByInputTags(const FGameplayTagContainer& Tags) const;
+	UActivityAsset* FindActivity(const FGameplayTagContainer& StationItemTags,
+	                             const FGameplayTagContainer& ActivityTags,
+	                             const FGameplayTagContainer& InstigatorItemTags) const;
 
 	UFUNCTION(BlueprintCallable)
 	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }

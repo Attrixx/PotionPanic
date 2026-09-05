@@ -15,11 +15,5 @@ public class Items : ModuleRules
 			
 			"CoreGameplay"
 		});
-
-
-		PrivateDependencyModuleNames.AddRange(new string[]
-		{
-			"Niagara",
-		});
 	}
 }

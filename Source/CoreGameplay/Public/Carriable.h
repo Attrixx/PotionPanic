@@ -39,6 +39,10 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
 	void OnThrow(FVector Velocity);
+
+	/** @return Whether a holder is allowed to throw this Carriable away. Defaults to true. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Carriable")
+	bool CanBeThrown() const;
 	
 protected: // Default implementations
 	
@@ -48,4 +52,5 @@ protected: // Default implementations
 	virtual void OnPickup_Implementation(USceneComponent* AttachComponent);
 	virtual void OnDrop_Implementation();
 	virtual void OnThrow_Implementation(FVector Velocity);
+	virtual bool CanBeThrown_Implementation() const;
 };

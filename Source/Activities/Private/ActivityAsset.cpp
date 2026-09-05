@@ -1,4 +1,4 @@
-#include "ActivityAsset.h"
+﻿#include "ActivityAsset.h"
 #include "ActivityConclusion.h"
 #include "ActivityEvaluator.h"
 #include "ActivityStepSettings.h"
@@ -11,17 +11,26 @@ EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Contex
 {
 	EDataValidationResult Result = Super::IsDataValid(Context);
 
-	if (!InputTags.HasTag(GameTags::Activity))
+	if (!StationItemTags.HasTag(GameTags::Item))
 	{
-		Context.AddError(FText::FromString("Input tags must have at least one activity tag."));
+		Context.AddError(FText::FromString(FString::Format(
+			TEXT("Station item tags must have at least one item tag. Use {0} if the activity runs on an empty station."),
+			{GameTags::Item_None.GetTag().ToString()})));
 		Result = EDataValidationResult::Invalid;
 	}
 
-	if (!InputTags.HasTag(GameTags::Item))
+	if (!InstigatorItemTags.IsEmpty() && !InstigatorItemTags.HasTag(GameTags::Item))
 	{
-		Context.AddError(FText::FromString(FString::Format(
-			TEXT("Input tags must have at least one item tag. Use {0} if you wish to not take any item as input."),
-			{GameTags::Item_None.GetTag().ToString()})));
+		Context.AddError(FText::FromString("Instigator item tags is not empty but holds no item tag."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	if (TakeFromInstigator != EActivityTakeFromInstigator::Never && !InstigatorItemTags.IsEmpty())
+	{
+		// A taken item is matched against StationItemTags: it is the station's item by the time the
+		// activity runs, and the instigator is left empty-handed.
+		Context.AddError(FText::FromString(
+			"Taking the instigator's item requires an empty InstigatorItemTags: the taken item is matched against StationItemTags."));
 		Result = EDataValidationResult::Invalid;
 	}
 

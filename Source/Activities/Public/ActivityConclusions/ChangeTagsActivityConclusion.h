@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ActivityConclusion.h"
+#include "ActivityHolderTarget.h"
 #include "GameplayTagContainer.h"
 #include "ChangeTagsActivityConclusion.generated.h"
 
@@ -17,7 +18,8 @@ enum class EChangeTagsMethod : uint8
 };
 
 /**
- * 
+ * Edits the tags of a carried item: the one sitting on the station, the one the instigator holds,
+ * or the first of the two that carries anything, depending on Target.
  */
 UCLASS(DisplayName = "Change Tags")
 class ACTIVITIES_API UChangeTagsActivityConclusion : public UActivityConclusion
@@ -25,6 +27,10 @@ class ACTIVITIES_API UChangeTagsActivityConclusion : public UActivityConclusion
 	GENERATED_BODY()
 
 	void Conclude_Implementation(const FActivityExecutionState& ActivityState) const override;
+
+	/** Whose item is retagged, and in which order the two holders are tried. */
+	UPROPERTY(EditAnywhere, Category="")
+	EActivityHolderTarget Target = EActivityHolderTarget::Origin;
 
 	UPROPERTY(EditAnywhere, Category="")
 	EChangeTagsMethod OnSuccessMethod = EChangeTagsMethod::DoNothing;

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/GameStateBase.h"
 #include "ItemOrder.h"
+#include "LevelResult.h"
 #include "Rounds/Round.h"
 #include "Engine/TimerHandle.h"
 #include "AlchemyGameState.generated.h"
@@ -13,7 +14,8 @@ class UWorldData;
 class URoundLoader;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundDelegate, const FRound&, Round);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLevelCompleteDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLevelCompleteDelegate, const FLevelResult&, Result);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FScoreDelegate, int64, NewScore, int32, Delta);
 
 /**
  * 
@@ -42,6 +44,14 @@ public:
 	UFUNCTION(BlueprintCallable)
 	const TArray<FItemOrder>& GetRoundOrders() const { return RoundOrders; }
 
+	/** Points gathered since the level started, across every round played so far. */
+	UFUNCTION(BlueprintCallable)
+	int64 GetScore() const { return Score; }
+
+	/** Points the level asks for to be won. Zero until the world data is there. */
+	UFUNCTION(BlueprintCallable)
+	int64 GetScoreToSucceed() const;
+
 	/**
 	 * Completes the placed order expiring the soonest among those asking for the delivered item.
 	 * Server only.
@@ -61,6 +71,10 @@ public:
 	
 	UPROPERTY(BlueprintAssignable)
 	FOnLevelCompleteDelegate OnLevelComplete;
+
+	/** Fires on every machine whenever a delivery moves the score, Delta being what it added. */
+	UPROPERTY(BlueprintAssignable)
+	FScoreDelegate OnScoreChanged;
 
 private:
 
@@ -92,9 +106,9 @@ private:
 	void StartRound();
 
 	/**
-	 * Places pending orders and cancels expired ones, based on the current round time.
-	 * Runs on clients too: they reach the same transitions from replicated data, and
-	 * OnRep_RoundOrders corrects them whenever they drift. Only the server ends the round.
+	 * Places pending orders and cancels expired ones, based on the current round time, then ends
+	 * the round once nothing is left to resolve. Server only: the clients learn every transition
+	 * through OnRep_RoundOrders instead, so that RoundOrders never differs from the authority's.
 	 */
 	void UpdateOrders();
 
@@ -107,10 +121,37 @@ private:
 
 	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
 	void SetOrderState(FItemOrder& Order, EOrderState NewState);
-	
+
+	/**
+	 * What completing Order right now is worth: MaxOrderScore when it is delivered the instant it
+	 * is placed, MinOrderScore on its deadline, scaling with the time left in between.
+	 */
+	int32 ScoreForOrder(const FItemOrder& Order, double RemainingTime) const;
+
+	/** Adds Delta to the score and notifies local listeners, OnRep_Score doing it for the clients. */
+	void AddScore(int32 Delta);
+
+	UFUNCTION()
+	void OnRep_Score(int64 OldScore);
+
 	UFUNCTION()
 	void OnRep_RoundOrders(const TArray<FItemOrder>& OldRoundOrders);
-	
+
+	/**
+	 * Relays OnRoundStarted/OnRoundEnded/OnLevelComplete to every client: as plain
+	 * BlueprintAssignable delegates they only fire locally, and StartRound/EndRound only ever
+	 * run on the server. The round is resent as an index rather than as an FRound since every
+	 * machine can already resolve it from WorldData.
+	 */
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnRoundStarted(int32 RoundIndex);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnRoundEnded(int32 RoundIndex);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnLevelComplete(const FLevelResult& Result);
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_SoftWorldData)
@@ -148,7 +189,15 @@ private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_RoundOrders)
 	TArray<FItemOrder> RoundOrders;
-	
-	uint32 GenOrderId() { return OrderIdCounter++; }
-	uint32 OrderIdCounter;
+
+	/** Points gathered since the level started. Replicated so the HUD can count along live. */
+	UPROPERTY(ReplicatedUsing=OnRep_Score)
+	int64 Score = 0;
+
+	/** Level-wide order tallies, kept on the server and shipped out with the level result. */
+	int32 LevelCompletedOrders = 0;
+	int32 LevelFailedOrders = 0;
+
+	int32 GenOrderId() { return OrderIdCounter++; }
+	int32 OrderIdCounter = 0;
 };

@@ -8,10 +8,12 @@
 #include "StationActor.generated.h"
 
 class AItemActor;
+class UItemAsset;
 class UStationAsset;
 class UHolderComponent;
 class UActivityExecutor;
 class UActivityAsset;
+class UBoxComponent;
 
 /**
  * AStationActor — Base class for all interactable station actors.
@@ -109,7 +111,21 @@ public:
 
 	void ApplyStationAsset();
 
+	/** @return The item this station starts play holding, or null when it starts empty. */
+	UFUNCTION(BlueprintPure)
+	UItemAsset* GetStartingItem() const { return StartingItem; }
+
+	/** @return This station's collision body. Never null. */
+	UFUNCTION(BlueprintPure)
+	UBoxComponent* GetBody() const { return Body; }
+
 private:
+
+	/**
+	 * Spawns StartingItem into ItemHolder on the authority. Runs from BeginPlay, so the item lands
+	 * on the holder like any other and goes through the station's usual reaction to being filled.
+	 */
+	void SpawnStartingItem();
 
 	/**
 	 * Gets rid of an item the current station asset refuses to store. Ejects it in a game world,
@@ -117,11 +133,18 @@ private:
 	 */
 	void DropItemRefusedByAsset();
 
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<AItemActor> ItemClass;
-
 	UPROPERTY(EditInstanceOnly, ReplicatedUsing = OnRep_StationAsset)
 	TObjectPtr<UStationAsset> StationAsset;
+
+	/** Item this station starts play holding. Null leaves it empty. */
+	UPROPERTY(EditAnywhere, Category = "Station")
+	TObjectPtr<UItemAsset> StartingItem;
+
+	/**
+	 * Actor class the starting item is spawned into.
+	 */
+	UPROPERTY(EditAnywhere, Category = "Station")
+	TSubclassOf<AItemActor> StartingItemClass;
 
 	/**
 	 * Identifies this station's role in the layout system.
@@ -129,6 +152,14 @@ private:
 	 */
 	UPROPERTY(EditInstanceOnly, meta = (Categories = "StationSlot"))
 	FGameplayTag StationSlot;
+
+	/**
+	 * Collision body, the same box on every station. Visual actors have their collision switched
+	 * off entirely, so this is the station's only collision: what blocks players, and what puts
+	 * the station in interaction range.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UBoxComponent> Body;
 
 	/** 3D anchor and ownership point for items processed by this station. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -144,6 +175,12 @@ private:
 
 	/** Guards TryStartMatchingActivity against the re-entrancy caused by moving an item onto ItemHolder. */
 	bool bStartingActivity = false;
+
+	/**
+	 * Set while running an activity that took the instigator's item under TakeAndReturn: whatever
+	 * is left on the holder when it ends goes back to the instigator.
+	 */
+	bool bReturnItemToInstigator = false;
 	
 	int32 OnActivityGoindSoundHandle = -1;
 };

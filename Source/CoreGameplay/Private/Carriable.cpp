@@ -28,3 +28,9 @@ void ICarriable::OnDrop_Implementation()
 void ICarriable::OnThrow_Implementation(FVector Velocity)
 {
 }
+
+bool ICarriable::CanBeThrown_Implementation() const
+{
+	return true;
+}
+

@@ -2,7 +2,10 @@
 
 #include "ActivityConclusions/ChangeTagsActivityConclusion.h"
 #include "ActivityExecutionState.h"
+#include "ActivityHolderTarget.h"
 #include "ItemActor.h"
+
+DEFINE_LOG_CATEGORY_STATIC(MS_ChangeTags, Log, All);
 
 void UChangeTagsActivityConclusion::Conclude_Implementation(const FActivityExecutionState& ActivityState) const
 {
@@ -25,24 +28,34 @@ void UChangeTagsActivityConclusion::Conclude_Implementation(const FActivityExecu
 		return;
 	}
 
+	// Nothing to touch: do not demand a holder carrying an item for a no-op.
+	if (Method == EChangeTagsMethod::DoNothing)
+		return;
+
+	const FActivityTargetHolders Targets(ActivityState, Target);
+	AItemActor* TargetItem = Targets.FindCarriedItem();
+	if (!TargetItem)
+	{
+		UE_LOGFMT(MS_ChangeTags, Error, "Cannot change the tags of a Null item.");
+		return;
+	}
+
 	switch (Method)
 	{
-	case EChangeTagsMethod::DoNothing:
+	case EChangeTagsMethod::SetTags:
+		TargetItem->SetItemTags(*Container);
 		break;
 
-	case EChangeTagsMethod::SetTags:
-		if (ActivityState.Item.IsValid())
-			ActivityState.Item->SetItemTags(*Container);
-		break;
-		
 	case EChangeTagsMethod::AddTags:
-		if (ActivityState.Item.IsValid())
-			ActivityState.Item->AppendItemTags(*Container);
+		TargetItem->AppendItemTags(*Container);
 		break;
-		
+
 	case EChangeTagsMethod::RemoveTags:
-		if (ActivityState.Item.IsValid())
-			ActivityState.Item->RemoveItemTag(*Container);
+		TargetItem->RemoveItemTag(*Container);
+		break;
+
+	default:
+		checkNoEntry();
 		break;
 	}
 }

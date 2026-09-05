@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -26,12 +26,6 @@ UCLASS(DisplayName = "Configurable")
 class ACTIVITIES_API UConfigurableActivityEvaluator : public UActivityEvaluator
 {
 	GENERATED_BODY()
-
-public:
-
-#if WITH_EDITOR
-	EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
-#endif
 
 protected:
 	

@@ -23,12 +23,19 @@ void URecipeSystem::ClearRecipes()
 	Activities.Empty();
 }
 
-UActivityAsset* URecipeSystem::FindActivityByInputTags(const FGameplayTagContainer& Tags) const
+UActivityAsset* URecipeSystem::FindActivity(const FGameplayTagContainer& StationItemTags,
+                                            const FGameplayTagContainer& ActivityTags,
+                                            const FGameplayTagContainer& InstigatorItemTags) const
 {
 	for (UActivityAsset* Activity : Activities)
 	{
 		check(Activity);
-		if (Tags.HasAll(Activity->InputTags))
+
+		// HasAll against an empty container is true, so an activity leaves an axis unconstrained
+		// by leaving its container empty.
+		if (StationItemTags.HasAll(Activity->StationItemTags)
+			&& ActivityTags.HasAll(Activity->ActivityTags)
+			&& InstigatorItemTags.HasAll(Activity->InstigatorItemTags))
 		{
 			// Returns the first transformation that matches
 			return Activity;

@@ -47,7 +47,7 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 	Holder->OnCarriableChanged.AddDynamic(this, &UActivityExecutor::Holder_OnCarriableChanged);
 }
 
-void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator)
+void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator)
 {
 	if (!State.Holder.IsValid())
 	{
@@ -64,7 +64,12 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 	Cancel();
 
 	State.Item = Cast<AItemActor>(State.Holder->GetCarriable()); // null item is valid
-	State.LastInstigator = Instigator; // null instigator is valid
+	State.bItemTakenFromInstigator = bItemTakenFromInstigator;
+
+	// A fresh activity starts with a single instigator, whoever it turns out to be.
+	State.LastInstigator = nullptr; // null instigator is valid
+	State.bInstigatorChanged = false;
+	RefreshInstigator(Instigator);
 
 	Steps.Reset(Activity->ActivitySteps.Num()); // Step.Num() == 0 is valid
 	for (UActivityStepSettings* Settings : Activity->ActivitySteps)
@@ -115,8 +120,7 @@ void UActivityExecutor::Interact(AActor* Instigator)
 {
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
-		if (Instigator)
-			State.LastInstigator = Instigator;
+		RefreshInstigator(Instigator);
 
 		check(CurrentStepIndex < Steps.Num());
 		Steps[CurrentStepIndex]->OnInteract(Instigator);
@@ -139,6 +143,26 @@ void UActivityExecutor::Cancel()
 EActivityExecutionStatus UActivityExecutor::GetExecutionStatus() const
 {
 	return State.Status;
+}
+
+void UActivityExecutor::RefreshInstigator(AActor* Instigator)
+{
+	if (Instigator && Instigator != State.LastInstigator.Get())
+	{
+		// A second player taking the activity over: what the item's origin says about where it
+		// should go back is no longer about whoever is standing here now. IsExplicitlyNull, not
+		// IsValid: an instigator that was destroyed since still counts as one we had.
+		State.bInstigatorChanged |= !State.LastInstigator.IsExplicitlyNull();
+		State.LastInstigator = Instigator;
+	}
+
+	// Re-read even when the instigator did not change: it may have handed over, thrown or used up
+	// what it was carrying since the last interact.
+	AActor* Current = State.LastInstigator.Get();
+	UHolderComponent* Holder = Current ? Current->FindComponentByClass<UHolderComponent>() : nullptr;
+
+	State.InstigatorHolder = Holder;
+	State.InstigatorItem = Holder ? Cast<AItemActor>(Holder->GetCarriable()) : nullptr;
 }
 
 void UActivityExecutor::Holder_OnCarriableChanged(UHolderComponent* Holder)

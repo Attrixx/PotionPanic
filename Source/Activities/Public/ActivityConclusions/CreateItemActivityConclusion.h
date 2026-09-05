@@ -4,13 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "ActivityConclusion.h"
+#include "ActivityHolderTarget.h"
 #include "CreateItemActivityConclusion.generated.h"
 
 class AItemActor;
 class UItemAsset;
 
 /**
- * 
+ * Spawns an item and hands it to a holder: the station's, the instigator's, or the first of the two
+ * that is free, depending on Target. When every candidate holder is full the item is still spawned,
+ * but dropped at the preferred holder instead of being handed over.
  */
 UCLASS(DisplayName = "Create Item")
 class ACTIVITIES_API UCreateItemActivityConclusion : public UActivityConclusion
@@ -30,7 +33,11 @@ public:
 protected:
 
 	void Conclude_Implementation(const FActivityExecutionState& ActivityState) const override;
-	
+
+	/** Which holder receives the new item, and in which order the two are tried. */
+	UPROPERTY(EditAnywhere, Category="")
+	EActivityHolderTarget Target = EActivityHolderTarget::Origin;
+
 	UPROPERTY(EditAnywhere, Category="")
 	TSubclassOf<AItemActor> ItemClass;
 	

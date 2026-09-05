@@ -2,6 +2,7 @@
 
 #include "ActivityConclusions/CreateItemActivityConclusion.h"
 #include "ActivityExecutionState.h"
+#include "ActivityHolderTarget.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
 #include "ItemAsset.h"
@@ -64,23 +65,40 @@ void UCreateItemActivityConclusion::Conclude_Implementation(const FActivityExecu
 		return;
 	}
 
+	// Nothing to create: do not demand a receiving holder for a no-op.
 	if (!ItemAsset)
 		return;
 
-	UWorld* World = ActivityState.Holder->GetWorld();
+	const FActivityTargetHolders Targets(ActivityState, Target);
+	if (Targets.IsEmpty())
+	{
+		// Target names only holders that are not there: an Instigator target on an activity that
+		// concluded without one, typically.
+		UE_LOGFMT(MS_CreateItem, Error, "No holder to receive the new item. Nothing created.");
+		return;
+	}
+
+	UWorld* World = Targets.GetPreferred()->GetWorld();
 	check(World);
 
-	if (auto* NewItem = World->SpawnActor<AItemActor>(ItemClass))
-	{
-		NewItem->SetItemAsset(ItemAsset);
-		if (!ActivityState.Holder->TryPickup(NewItem))
-		{
-			UE_LOGFMT(MS_CreateItem, Error, "Holder cannot pickup the new item. Teleporting it.");
-			NewItem->SetActorLocation(ActivityState.Holder->GetComponentLocation());
-		}
-	}
-	else
+	auto* NewItem = World->SpawnActor<AItemActor>(ItemClass);
+	if (!NewItem)
 	{
 		UE_LOGFMT(MS_CreateItem, Error, "Failed to spawn item actor {0}.", ItemClass->GetName());
+		return;
 	}
+
+	NewItem->SetItemAsset(ItemAsset);
+
+	if (UHolderComponent* Receiver = Targets.FindFreeHolder())
+	{
+		Receiver->TryPickup(NewItem);
+		return;
+	}
+
+	// Every candidate holder is already carrying something: the instigator kept its item and the
+	// station stayed occupied too. The item exists and must not vanish, so it goes to the floor at
+	// the preferred holder instead of being handed over.
+	UE_LOGFMT(MS_CreateItem, Warning, "Every target holder is full. Dropping the new item.");
+	NewItem->SetActorLocation(Targets.GetPreferred()->GetComponentLocation());
 }

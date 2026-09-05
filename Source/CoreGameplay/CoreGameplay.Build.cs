@@ -11,6 +11,7 @@ public class CoreGameplay : ModuleRules
             "Core",
             "CoreUObject",
             "Engine",
+            "GameplayTags",
             "OnlineSubsystem",
             "EnhancedInput",
             "CommonUI",
