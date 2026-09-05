@@ -11,8 +11,6 @@
 #include "ActorFilters/CarriableActorFilter.h"
 #include "ActorFilters/FreeHolderActorFilter.h"
 #include "CoreGameplayLibrary.h"
-#include "Components/QTEComponent.h"
-#include "Components/QTEDisplayComponent.h"
 #include "NetworkSoundComponent.h"
 #include "NetworkSoundSubsystem.h"
 #include <EnhancedInputComponent.h>
@@ -58,11 +56,6 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	// Enable CustomDepth to have player color and outline when behing walls
 	GetMesh()->SetRenderCustomDepth(true);
 	GetMesh()->SetCustomDepthStencilValue(1);
-
-	QTEComponent = CreateDefaultSubobject<UQTEComponent>(TEXT("QTE Component"));
-
-	QTEDisplayComponent = CreateDefaultSubobject<UQTEDisplayComponent>(TEXT("QTE Display"));
-	QTEDisplayComponent->SetupAttachment(RootComponent);
 
 	NetworkSoundComponent = CreateDefaultSubobject<UNetworkSoundComponent>(TEXT("Network Sound"));
 }
@@ -242,24 +235,11 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 	}
 }
 
-UObject* AAlchemistBase::GetQTESourceObject_Implementation() const
-{
-	return RangeComponent->FindBestMatchingActor(InteractableFilter);
-}
-
-void AAlchemistBase::ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass)
-{
-	QTEDisplayComponent->ShowQTEActivityStep(InQTEComponent, InWidgetClass);
-}
-
-void AAlchemistBase::HideQTEActivityStep_Implementation()
-{
-	QTEDisplayComponent->HideQTEActivityStep();
-}
-
 bool AAlchemistBase::ShouldBlockGameplayInput() const
 {
-	return QTEComponent && QTEComponent->IsQTERunning();
+	// TODO: re-hook once the activity module drives the input-capturing steps. Every gameplay
+	// input handler already funnels through here, so wiring it back is a one-liner.
+	return false;
 }
 
 int32 AAlchemistBase::PlayNetworkedSound(USoundBase* Sound)

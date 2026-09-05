@@ -6,8 +6,6 @@
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistCustomizationAsset.h"
-#include "Core/QTESourceProvider.h"
-#include "Widgets/QTEActivityDisplay.h"
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
@@ -18,16 +16,13 @@ class UInputAction;
 class UInteractableActorFilter;
 class UCarriableActorFilter;
 class UFreeHolderActorFilter;
-class UQTEComponent;
-class UQTEWidgetBase;
-class UQTEDisplayComponent;
 class USoundBase;
 class UNetworkSoundComponent;
 struct FInputActionValue;
 
 
 UCLASS(Abstract)
-class PLAYER_API AAlchemistBase : public ACharacter, public IQTESourceProvider, public IQTEActivityDisplay
+class PLAYER_API AAlchemistBase : public ACharacter
 {
 	GENERATED_BODY()
 
@@ -107,12 +102,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FPhysicalAnimationData PhysicalAnimationData;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UQTEComponent> QTEComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UNetworkSoundComponent> NetworkSoundComponent;
 
@@ -155,24 +144,11 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
 	TObjectPtr<USoundBase> StunSound;
 
-public:
-
-	UFUNCTION(BlueprintPure, Category = "QTE")
-	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
-
-	UFUNCTION(BlueprintPure, Category = "QTE")
-	UQTEDisplayComponent* GetQTEDisplayComponent() const { return QTEDisplayComponent; }
-
-	// IQTESourceProvider
-	UObject* GetQTESourceObject_Implementation() const override;
-
-	// IQTEActivityDisplay
-	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
-	void HideQTEActivityStep_Implementation() override;
-
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
+
+	/** True while an ongoing activity owns the player's inputs, so gameplay actions must be ignored. */
 	bool ShouldBlockGameplayInput() const;
 
 	int32 PlayNetworkedSound(USoundBase* Sound);

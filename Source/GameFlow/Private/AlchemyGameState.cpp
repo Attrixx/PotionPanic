@@ -478,14 +478,13 @@ void AAlchemyGameState::CancelOngoingStationActivities()
 		return;
 	}
 
-	// An activity left running past the round is not just untidy: while its QTE step is alive,
-	// AAlchemistBase::ShouldBlockGameplayInput() reads UQTEComponent::IsQTERunning() and gates
-	// every gameplay input, so the player stays frozen through the whole transition while the
-	// station's looping sound carries over into the end-of-round screen.
+	// An activity left running past the round is not just untidy: a step that captures the player's
+	// inputs keeps them frozen through the whole transition, and the station's looping sound carries
+	// over into the end-of-round screen.
 	//
 	// Cancelling from the authority propagates on its own: the executor cancels its current step,
-	// which cancels the authority QTE, which tells the owning client to drop its mirror. Executors
-	// that are not running ignore the call.
+	// which releases whatever that step had taken over on the owning client. Executors that are not
+	// running ignore the call.
 	for (TActorIterator<AStationActor> It(GetWorld()); It; ++It)
 	{
 		if (UActivityExecutor* Executor = It->GetActivityExecutor())
