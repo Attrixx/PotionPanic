@@ -7,6 +7,24 @@
 #include "GameplayTagContainer.h"
 #include "ActivityAsset.generated.h"
 
+/** What an activity is allowed to do with the item the instigator carries. */
+UENUM(BlueprintType)
+enum class EActivityTakeFromInstigator : uint8
+{
+	/** The instigator keeps its item: this activity only ever runs on what the station already holds. */
+	Never,
+
+	/** The item moves onto the station's holder to start the activity, and stays the station's. */
+	Take,
+
+	/**
+	 * Same, but whatever the station still holds when the activity ends goes back to the instigator.
+	 * A conclusion that consumed the item leaves nothing to return, and a morphed item comes back
+	 * as what it became.
+	 */
+	TakeAndReturn,
+};
+
 class UActivityStepSettings;
 class UActivityEvaluator;
 class UActivityConclusion;
@@ -41,19 +59,19 @@ public:
 
 	/**
 	 * Tags the item the instigator carries must have. Leave EMPTY to ignore what it holds -- which
-	 * is what bCanTakeItemFromInstigator requires, since the item it describes is about to become
-	 * the station's own.
+	 * is what taking that item requires, since the item it describes is about to become the
+	 * station's own.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item"))
 	FGameplayTagContainer InstigatorItemTags;
 
 	/**
-	 * If true the activity can start by taking the instigator's item onto the station's holder, as
-	 * long as that item satisfies StationItemTags. Mutually exclusive with InstigatorItemTags: the
-	 * stolen item is matched against the station's requirements, not the instigator's.
+	 * Whether the activity may start by taking the instigator's item onto the station's holder, and
+	 * whether it hands it back at the end. Anything but Never is mutually exclusive with
+	 * InstigatorItemTags: a taken item is matched against StationItemTags, not the instigator's.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool bCanTakeItemFromInstigator = true;
+	EActivityTakeFromInstigator TakeFromInstigator = EActivityTakeFromInstigator::Take;
 
 	// Steps to execute after starting the activity.
 	// If there is none, starting this activity instantly concludes it with success.

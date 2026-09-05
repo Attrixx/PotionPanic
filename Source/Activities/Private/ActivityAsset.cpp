@@ -25,12 +25,12 @@ EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Contex
 		Result = EDataValidationResult::Invalid;
 	}
 
-	if (bCanTakeItemFromInstigator && !InstigatorItemTags.IsEmpty())
+	if (TakeFromInstigator != EActivityTakeFromInstigator::Never && !InstigatorItemTags.IsEmpty())
 	{
 		// A taken item is matched against StationItemTags: it is the station's item by the time the
 		// activity runs, and the instigator is left empty-handed.
 		Context.AddError(FText::FromString(
-			"bCanTakeItemFromInstigator requires an empty InstigatorItemTags: the taken item is matched against StationItemTags."));
+			"Taking the instigator's item requires an empty InstigatorItemTags: the taken item is matched against StationItemTags."));
 		Result = EDataValidationResult::Invalid;
 	}
 

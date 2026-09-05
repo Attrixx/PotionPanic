@@ -175,6 +175,12 @@ private:
 
 	/** Guards TryStartMatchingActivity against the re-entrancy caused by moving an item onto ItemHolder. */
 	bool bStartingActivity = false;
+
+	/**
+	 * Set while running an activity that took the instigator's item under TakeAndReturn: whatever
+	 * is left on the holder when it ends goes back to the instigator.
+	 */
+	bool bReturnItemToInstigator = false;
 	
 	int32 OnActivityGoindSoundHandle = -1;
 };

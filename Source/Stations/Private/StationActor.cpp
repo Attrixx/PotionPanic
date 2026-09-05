@@ -167,6 +167,9 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 		}
 	}
 
+	bReturnItemToInstigator = SourceHolder != nullptr
+		&& Activity->TakeFromInstigator == EActivityTakeFromInstigator::TakeAndReturn;
+
 	Executor->StartActivity(Activity, InInstigator, SourceHolder != nullptr);
 }
 
@@ -213,7 +216,7 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 			StationAsset->ImplementedActivities,
 			FGameplayTagContainer(GameTags::Item_None));
 
-		if (Activity && Activity->bCanTakeItemFromInstigator)
+		if (Activity && Activity->TakeFromInstigator != EActivityTakeFromInstigator::Never)
 		{
 			OutSourceHolder = InstigatorHolder;
 			return Activity;
@@ -311,28 +314,41 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 		return;
 	}
 
-	if (!StationAsset || StationAsset->bCanStoreItems)
+	const bool bWasBorrowed = std::exchange(bReturnItemToInstigator, false);
+	const bool bIsStorage = StationAsset && StationAsset->bCanStoreItems;
+	if (!bWasBorrowed && bIsStorage)
 	{
 		return;
 	}
 
 	if (!ItemHolder->GetCarriable())
 	{
-		// Nominal case for a pass-through station: the conclusion consumed the item.
+		// Nothing left to hand back or push out: the item was consumed.
 		return;
 	}
-
-	// The activity left the item behind, but this station is not a storage spot.
-	AActor* LastInstigator = InExecutor->GetExecutionState().LastInstigator.Get();
-	UHolderComponent* InstigatorHolder = LastInstigator ? LastInstigator->FindComponentByClass<UHolderComponent>() : nullptr;
 
 	// Moving the item off this station re-enters through Holder_OnCarriableChanged: the leftover is
 	// on its way out, it must not start a new activity here on the way.
 	TGuardValue<bool> ReentrancyGuard(bStartingActivity, true);
 
-	if (!InstigatorHolder || !ItemHolder->TransferTo(InstigatorHolder))
+	const FActivityExecutionState& State = InExecutor->GetExecutionState();
+	UHolderComponent* InstigatorHolder = State.InstigatorHolder.Get();
+
+	if (InstigatorHolder && ItemHolder->TransferTo(InstigatorHolder))
+	{
+		return;
+	}
+
+	// A borrowed item the instigator cannot take back stays put, unless this station is no storage
+	// spot -- then it has to go somewhere, and the floor is the only option left.
+	if (!bIsStorage)
 	{
 		ItemHolder->Eject();
+	}
+	else
+	{
+		UE_LOGFMT(MS_StationActor, Warning,
+			"'{0}' could not hand its borrowed item back: the instigator is gone or full.", GetName());
 	}
 }
 
