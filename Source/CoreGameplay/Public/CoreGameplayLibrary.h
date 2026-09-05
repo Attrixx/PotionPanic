@@ -48,6 +48,9 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Core Gameplay|Tags")
 	static FLinearColor MakeColorFromTagContainer(const FGameplayTagContainer& Tags);
+	
+	UFUNCTION(BlueprintPure, Category = "Core Gameplay")
+	static float GetPulseAlpha(float Time, float Duration, float Interval);
 
 private:
 

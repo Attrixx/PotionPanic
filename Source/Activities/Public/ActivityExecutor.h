@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ActivityExecutionState.h"
+#include "ActivityStepPresentation.h"
 #include "ActivityExecutor.generated.h"
 
 class UActivityAsset;
@@ -14,6 +15,7 @@ class UActivityConclusion;
 struct FActivityStepResult;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActivityExecutionStatusChangedDelegate, UActivityExecutor*, Executor, EActivityExecutionStatus, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActivityStepPresentationChangedDelegate, UActivityExecutor*, Executor);
 
 /**
  * 
@@ -22,6 +24,10 @@ UCLASS(meta=(BlueprintSpawnableComponent))
 class ACTIVITIES_API UActivityExecutor : public UActorComponent
 {
 	GENERATED_BODY()
+
+public:
+
+	UActivityExecutor();
 
 protected:
 
@@ -68,13 +74,55 @@ public:
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
 
+	/**
+	 * Forwards a captured input to the current step. Called on the authority, from the server RPC
+	 * of the actor whose inputs the step took over.
+	 * @param Instigator Actor the press came from.
+	 * @param Slot The input that was pressed.
+	 */
+	UFUNCTION(BlueprintCallable)
+	void ReceiveActivityInput(AActor* Instigator, EActivityInputSlot Slot);
+
+	/**
+	 * Forwards an explicit give-up request to the current step. Nothing calls this yet.
+	 * @param Instigator Actor asking to bail out.
+	 */
+	UFUNCTION(BlueprintCallable)
+	void RequestStepCancel(AActor* Instigator);
+
+	/**
+	 * Publishes what the running step wants displayed, replicating it to every client.
+	 * @param Step The step doing the publishing. Its class is stamped into the presentation, which
+	 *        is what lets the display side find the widget without anything enumerating steps.
+	 * @param InPresentation What to draw. Its StepClass and Revision fields are overwritten here.
+	 * @note Authority only. Steps call this on themselves starting and progressing.
+	 */
+	void SetStepPresentation(const UActivityStep* Step, const FActivityStepPresentation& InPresentation);
+
+	/** Takes the current presentation down. Authority only. */
+	void ClearStepPresentation();
+
 	/** Context of the last started activity: holder, item, instigator, status and score. */
 	const FActivityExecutionState& GetExecutionState() const { return State; }
+
+	/** What the running step wants displayed. StepClass is null when there is nothing to draw. */
+	UFUNCTION(BlueprintPure)
+	const FActivityStepPresentation& GetStepPresentation() const { return Presentation; }
 
 	UPROPERTY(BlueprintAssignable)
 	FActivityExecutionStatusChangedDelegate OnExecutionStatusChanged;
 
+	/** Fires on every side whenever GetStepPresentation() changes, authority included. */
+	UPROPERTY(BlueprintAssignable)
+	FActivityStepPresentationChangedDelegate OnStepPresentationChanged;
+
 private:
+
+	/**
+	 * @return True where the activity actually runs. Everywhere else this component is a replicated
+	 *         view: State and Presentation are filled by the network, and Steps is empty.
+	 */
+	bool IsAuthority() const;
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
@@ -93,10 +141,16 @@ private:
 	UFUNCTION()
 	void OnRep_State(const FActivityExecutionState& OldState);
 
+	UFUNCTION()
+	void OnRep_Presentation();
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_State)
 	FActivityExecutionState State;
+
+	UPROPERTY(ReplicatedUsing=OnRep_Presentation)
+	FActivityStepPresentation Presentation;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UActivityStep>> Steps;

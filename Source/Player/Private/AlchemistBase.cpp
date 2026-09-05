@@ -11,10 +11,13 @@
 #include "ActorFilters/CarriableActorFilter.h"
 #include "ActorFilters/FreeHolderActorFilter.h"
 #include "CoreGameplayLibrary.h"
+#include "ActivityExecutor.h"
+#include "ActivityInputSettings.h"
 #include "NetworkSoundComponent.h"
 #include "NetworkSoundSubsystem.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
+#include <InputMappingContext.h>
 #include "PotionPanicKeybindSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistBase, Log, All);
@@ -198,6 +201,18 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(InteractAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Interact);
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
+
+	// Bound once here, but only reachable while the combo context is pushed: an action nothing
+	// maps to never triggers, so there is nothing to bind and unbind as steps come and go.
+	const UActivityInputSettings* ActivityInput = GetDefault<UActivityInputSettings>();
+	if (UInputAction* Up = ActivityInput->GetSlotAction(EActivityInputSlot::Up))
+		EIC->BindAction(Up, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityUp);
+	if (UInputAction* Left = ActivityInput->GetSlotAction(EActivityInputSlot::Left))
+		EIC->BindAction(Left, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityLeft);
+	if (UInputAction* Down = ActivityInput->GetSlotAction(EActivityInputSlot::Down))
+		EIC->BindAction(Down, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityDown);
+	if (UInputAction* Right = ActivityInput->GetSlotAction(EActivityInputSlot::Right))
+		EIC->BindAction(Right, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityRight);
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -235,11 +250,102 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 	}
 }
 
+void AAlchemistBase::BeginActivityInputCapture_Implementation(UActivityExecutor* Executor)
+{
+	// Authority side: the steps live there, and so does the executor we have to answer to.
+	CapturingExecutor = Executor;
+	Client_SetActivityInputCaptured(true);
+}
+
+void AAlchemistBase::EndActivityInputCapture_Implementation()
+{
+	CapturingExecutor.Reset();
+	Client_SetActivityInputCaptured(false);
+}
+
+void AAlchemistBase::Client_SetActivityInputCaptured_Implementation(bool bCaptured)
+{
+	if (bActivityInputCaptured == bCaptured)
+		return;
+
+	bActivityInputCaptured = bCaptured;
+
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	ULocalPlayer* LocalPlayer = PlayerController ? PlayerController->GetLocalPlayer() : nullptr;
+	auto* Subsystem = LocalPlayer ? ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer) : nullptr;
+	if (!Subsystem)
+	{
+		// Still worth flipping the flag above: without a context to push, blocking movement is the
+		// only thing standing between the player and walking away mid-combo.
+		UE_LOGFMT(MS_AlchemistBase, Warning, "No input subsystem to {0} the activity context on.",
+			bCaptured ? TEXT("push") : TEXT("pop"));
+		return;
+	}
+
+	const UActivityInputSettings* ActivityInput = GetDefault<UActivityInputSettings>();
+	UInputMappingContext* Context = ActivityInput->ComboMappingContext.LoadSynchronous();
+	if (!Context)
+	{
+		UE_LOGFMT(MS_AlchemistBase, Warning, "No combo mapping context configured: the player has nothing to press with.");
+		return;
+	}
+
+	// Through the keybind subsystem like every other context, so a remapped key still works here.
+	if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
+	{
+		Context = KeybindSubsystem->GetRuntimeContext(Context);
+	}
+
+	if (bCaptured)
+	{
+		Subsystem->AddMappingContext(Context, ActivityInput->ComboContextPriority);
+	}
+	else
+	{
+		Subsystem->RemoveMappingContext(Context);
+	}
+}
+
+void AAlchemistBase::RequestActivityCancel()
+{
+	if (bActivityInputCaptured)
+	{
+		Server_ActivityCancel();
+	}
+}
+
+void AAlchemistBase::HandleActivityInput(EActivityInputSlot Slot)
+{
+	if (bActivityInputCaptured)
+	{
+		Server_ActivityInput(Slot);
+	}
+}
+
+void AAlchemistBase::Server_ActivityInput_Implementation(EActivityInputSlot Slot)
+{
+	if (UActivityExecutor* Executor = CapturingExecutor.Get())
+	{
+		Executor->ReceiveActivityInput(this, Slot);
+	}
+}
+
+void AAlchemistBase::Server_ActivityCancel_Implementation()
+{
+	if (UActivityExecutor* Executor = CapturingExecutor.Get())
+	{
+		Executor->RequestStepCancel(this);
+	}
+}
+
+void AAlchemistBase::Input_ActivityUp()    { HandleActivityInput(EActivityInputSlot::Up); }
+void AAlchemistBase::Input_ActivityLeft()  { HandleActivityInput(EActivityInputSlot::Left); }
+void AAlchemistBase::Input_ActivityDown()  { HandleActivityInput(EActivityInputSlot::Down); }
+void AAlchemistBase::Input_ActivityRight() { HandleActivityInput(EActivityInputSlot::Right); }
+
 bool AAlchemistBase::ShouldBlockGameplayInput() const
 {
-	// TODO: re-hook once the activity module drives the input-capturing steps. Every gameplay
-	// input handler already funnels through here, so wiring it back is a one-liner.
-	return false;
+	return bActivityInputCaptured;
 }
 
 int32 AAlchemistBase::PlayNetworkedSound(USoundBase* Sound)

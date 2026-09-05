@@ -1,6 +1,7 @@
 #include "StationActor.h"
 #include "ActivityAsset.h"
 #include "ActivityExecutor.h"
+#include "Components/ActivityDisplayComponent.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
 #include "ItemTags.h"
@@ -30,6 +31,9 @@ AStationActor::AStationActor()
 	ItemHolder->SetupAttachment(RootComponent);
 
 	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
+
+	ActivityDisplay = CreateDefaultSubobject<UActivityDisplayComponent>(TEXT("Activity Display"));
+	ActivityDisplay->SetupAttachment(RootComponent);
 
 	VisualActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("Visual Actor"));
 	VisualActor->SetupAttachment(RootComponent);

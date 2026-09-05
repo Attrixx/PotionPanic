@@ -39,6 +39,26 @@ FLinearColor UCoreGameplayLibrary::MakeColorFromTagContainer(const FGameplayTagC
 	return MakeColorFromHash(Hash);
 }
 
+float UCoreGameplayLibrary::GetPulseAlpha(float Time, float Duration, float Interval)
+{
+	const float SafeInterval = FMath::Max(Interval, KINDA_SMALL_NUMBER);
+	const float SafeDuration = FMath::Max(Duration, KINDA_SMALL_NUMBER);
+	const float LocalTime    = FMath::Fmod(Time, SafeInterval);
+
+	float Sum = 0.f;
+	// Somme des pulses encore actifs : gère nativement Duration > Interval.
+	const int32 Overlap = FMath::CeilToInt(SafeDuration / SafeInterval);
+	for (int32 k = 0; k < Overlap; ++k)
+	{
+		const float X = LocalTime + k * SafeInterval;
+		if (X < SafeDuration)
+		{
+			Sum += FMath::Sin(PI * X / SafeDuration);
+		}
+	}
+	return FMath::Clamp(Sum, 0.f, 1.f);
+}
+
 uint32 UCoreGameplayLibrary::HashTag(const FGameplayTag& Tag)
 {
 	// Crc of the tag's own text: stable across runs, machines and builds, which is the whole point.

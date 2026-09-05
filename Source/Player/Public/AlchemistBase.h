@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistCustomizationAsset.h"
+#include "ActivityInputCapture.h"
 #include "AlchemistBase.generated.h"
 
 class UHolderComponent;
@@ -16,13 +17,14 @@ class UInputAction;
 class UInteractableActorFilter;
 class UCarriableActorFilter;
 class UFreeHolderActorFilter;
+class UActivityExecutor;
 class USoundBase;
 class UNetworkSoundComponent;
 struct FInputActionValue;
 
 
 UCLASS(Abstract)
-class PLAYER_API AAlchemistBase : public ACharacter
+class PLAYER_API AAlchemistBase : public ACharacter, public IActivityInputCapture
 {
 	GENERATED_BODY()
 
@@ -144,6 +146,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sound")
 	TObjectPtr<USoundBase> StunSound;
 
+public:
+
+	// IActivityInputCapture
+	void BeginActivityInputCapture_Implementation(UActivityExecutor* Executor) override;
+	void EndActivityInputCapture_Implementation() override;
+
+	/**
+	 * Gives up on the step currently holding this player's inputs.
+	 * Nothing calls this yet: the path down to the step exists so a cancel key only has to be
+	 * bound, not designed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Activity")
+	void RequestActivityCancel();
+
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
@@ -153,6 +169,19 @@ private:
 
 	int32 PlayNetworkedSound(USoundBase* Sound);
 
+	/** Pushes or pops the combo mapping context on the owning client. */
+	UFUNCTION(Client, Reliable)
+	void Client_SetActivityInputCaptured(bool bCaptured);
+
+	/** Sends one press up to the step that captured us. */
+	UFUNCTION(Server, Reliable)
+	void Server_ActivityInput(EActivityInputSlot Slot);
+
+	UFUNCTION(Server, Reliable)
+	void Server_ActivityCancel();
+
+	void HandleActivityInput(EActivityInputSlot Slot);
+
 private: // Input
 	
 	void Input_Move(const FInputActionValue& Value);
@@ -161,6 +190,13 @@ private: // Input
 	void Input_Interact();
 	void Input_PickupOrDrop();
 	void Input_Throw();
+
+	// One handler per direction: Enhanced Input binds a bare member function, with no room for the
+	// payload that would let a single handler know which of the four it was.
+	void Input_ActivityUp();
+	void Input_ActivityLeft();
+	void Input_ActivityDown();
+	void Input_ActivityRight();
 
 	UFUNCTION(Server, Reliable)
 	void Server_Interact(AActor* Interactable);
@@ -175,4 +211,12 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
+
+private: // Activity input capture
+
+	/** Executor whose step took our inputs. Authority side only. */
+	TWeakObjectPtr<UActivityExecutor> CapturingExecutor;
+
+	/** True on the owning client while a step owns our inputs. Drives ShouldBlockGameplayInput. */
+	bool bActivityInputCaptured = false;
 };

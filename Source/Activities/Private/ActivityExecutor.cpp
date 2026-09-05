@@ -12,10 +12,20 @@
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ActivityExecutor, Log, All);
 
+UActivityExecutor::UActivityExecutor()
+{
+	PrimaryComponentTick.bCanEverTick = false;
+
+	// Without this the replicated members below never leave the authority, however correctly they
+	// are declared: a component replicates only once its owner is told to replicate it.
+	SetIsReplicatedByDefault(true);
+}
+
 void UActivityExecutor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UActivityExecutor, State);
+	DOREPLIFETIME(UActivityExecutor, Presentation);
 }
 
 void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -27,6 +37,11 @@ void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	Super::EndPlay(EndPlayReason);
+}
+
+bool UActivityExecutor::IsAuthority() const
+{
+	return GetOwner() && GetOwner()->HasAuthority();
 }
 
 void UActivityExecutor::Initialize(UHolderComponent* Holder)
@@ -49,6 +64,11 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 
 void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator)
 {
+	// Steps only ever exist on the authority; a client reaching here would build a second, private
+	// activity on top of the one being replicated to it.
+	if (!IsAuthority())
+		return;
+
 	if (!State.Holder.IsValid())
 	{
 		UE_LOGFMT(MS_ActivityExecutor, Error, "Cannot StartActivity. Holder is not initialized.");
@@ -118,7 +138,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 
 void UActivityExecutor::Interact(AActor* Instigator)
 {
-	if (State.Status == EActivityExecutionStatus::Ongoing)
+	if (IsAuthority() && State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		RefreshInstigator(Instigator);
 
@@ -129,7 +149,9 @@ void UActivityExecutor::Interact(AActor* Instigator)
 
 void UActivityExecutor::Cancel()
 {
-	if (State.Status == EActivityExecutionStatus::Ongoing)
+	// Reachable off the authority through EndPlay and the holder delegate, where Status replicates
+	// as Ongoing but there is no step to cancel.
+	if (IsAuthority() && State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
 		if (bCurrentStepStarted)
@@ -143,6 +165,59 @@ void UActivityExecutor::Cancel()
 EActivityExecutionStatus UActivityExecutor::GetExecutionStatus() const
 {
 	return State.Status;
+}
+
+void UActivityExecutor::ReceiveActivityInput(AActor* Instigator, EActivityInputSlot Slot)
+{
+	if (!IsAuthority())
+		return;
+
+	if (State.Status != EActivityExecutionStatus::Ongoing)
+	{
+		// The step that captured this actor is already over: its last presses are still in flight.
+		UE_LOGFMT(MS_ActivityExecutor, Verbose, "Activity input from '{0}' ignored, nothing is running.",
+			GetNameSafe(Instigator));
+		return;
+	}
+
+	check(CurrentStepIndex < Steps.Num());
+	Steps[CurrentStepIndex]->OnActivityInput(Instigator, Slot);
+}
+
+void UActivityExecutor::RequestStepCancel(AActor* Instigator)
+{
+	if (!IsAuthority() || State.Status != EActivityExecutionStatus::Ongoing)
+		return;
+
+	check(CurrentStepIndex < Steps.Num());
+	Steps[CurrentStepIndex]->OnCancelRequested(Instigator);
+}
+
+void UActivityExecutor::SetStepPresentation(const UActivityStep* Step, const FActivityStepPresentation& InPresentation)
+{
+	if (!IsAuthority())
+	{
+		UE_LOGFMT(MS_ActivityExecutor, Warning, "SetStepPresentation off the authority ignored.");
+		return;
+	}
+
+	const uint8 PreviousRevision = Presentation.Revision;
+	Presentation = InPresentation;
+	Presentation.StepClass = Step ? Step->GetClass() : nullptr;
+	Presentation.Revision = PreviousRevision + 1;
+
+	// The authority gets no OnRep of its own, and it hosts a listen server's widgets too.
+	OnStepPresentationChanged.Broadcast(this);
+}
+
+void UActivityExecutor::ClearStepPresentation()
+{
+	// Silent off the authority, unlike SetStepPresentation: this one is also called from the
+	// teardown paths a client legitimately runs, EndPlay first among them.
+	if (!IsAuthority() || Presentation.StepClass == nullptr)
+		return;
+
+	SetStepPresentation(nullptr, FActivityStepPresentation());
 }
 
 void UActivityExecutor::RefreshInstigator(AActor* Instigator)
@@ -168,6 +243,11 @@ void UActivityExecutor::RefreshInstigator(AActor* Instigator)
 void UActivityExecutor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 {
 	check(Holder && Holder == State.Holder);
+
+	// The holder fires this on every side, but State is replicated: a client writing to it here
+	// would only be racing the next update from the server.
+	if (!IsAuthority())
+		return;
 
 	if (Holder->GetCarriable() != State.Item)
 	{
@@ -237,12 +317,17 @@ void UActivityExecutor::Conclude(EActivityExecutionStatus Status)
 		GetNameSafe(Conclusion));
 
 	State.Status = Status;
+	ClearStepPresentation();
 	Conclusion->Conclude(State);
 	OnExecutionStatusChanged.Broadcast(this, Status);
 }
 
 void UActivityExecutor::Reset(EActivityExecutionStatus Status)
 {
+	// Steps take their own presentation down when they end, but not when they are cancelled from
+	// under them, and a widget left on screen outlives everything it was describing.
+	ClearStepPresentation();
+
 	State.Status = Status;
 	State.Score = 0;
 	CurrentStepIndex = 0;
@@ -256,4 +341,9 @@ void UActivityExecutor::OnRep_State(const FActivityExecutionState& OldState)
 	{
 		OnExecutionStatusChanged.Broadcast(this, State.Status);
 	}
+}
+
+void UActivityExecutor::OnRep_Presentation()
+{
+	OnStepPresentationChanged.Broadcast(this);
 }
