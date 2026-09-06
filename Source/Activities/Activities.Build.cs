@@ -12,10 +12,6 @@ public class Activities : ModuleRules
 			"CoreUObject",
 			"Engine",
 			"GameplayTags",
-
-			// Public: the step widgets and the display component are part of this module's API.
-			// UMG only -- reaching UserInterfaces from here would close a cycle through GameFlow,
-			// so the concrete widgets compose those in Blueprint instead.
 			"UMG",
 			"DeveloperSettings"
 		});

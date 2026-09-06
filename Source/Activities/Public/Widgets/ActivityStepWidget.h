@@ -44,52 +44,13 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, Category = "Activity")
 	bool IsLocalPlayerInstigator() const;
-
-	/**
-	 * First half of the timeline: the wait before input is accepted.
-	 * @return 0 at the start, 1 at the opening. Already 1 when there was nothing to wait for.
-	 */
+	
 	UFUNCTION(BlueprintPure, Category = "Activity")
-	float GetStartToOpenAlpha() const;
+	double GetElapsedTimeSinceStart() const;	
 
-	/**
-	 * Second half: the window that is open, or the press that is on the clock. Only starts moving
-	 * once GetStartToOpenAlpha() has reached 1.
-	 * @return 0 at the opening, 1 at the closing. Stays 0 when it never closes.
-	 */
 	UFUNCTION(BlueprintPure, Category = "Activity")
-	float GetOpenToCloseAlpha() const;
-
-	/** @return True once input is being accepted, i.e. the opening time has passed. */
-	UFUNCTION(BlueprintPure, Category = "Activity")
-	bool IsOpen() const;
-
-	/** @return Seconds left before the closing, 0 once it is past or when it never closes. */
-	UFUNCTION(BlueprintPure, Category = "Activity")
-	float GetRemainingSeconds() const;
-
-	/** @return The input being asked for right now. None outside a combo. */
-	UFUNCTION(BlueprintPure, Category = "Activity")
-	EActivityInputSlot GetCurrentSlot() const;
-
-	/**
-	 * How far through the combo the player is, counting presses answered rather than time.
-	 * @return Answered presses over total presses. 0 outside a combo.
-	 */
-	UFUNCTION(BlueprintPure, Category = "Activity")
-	float GetComboProgressAlpha() const;
-
-	/**
-	 * How much of the combo's tolerance for mistakes has been spent.
-	 * @return 0 with nothing missed yet, up to 1 once one more miss would end the step. 0 outside
-	 *         a combo. Already 1 on a combo that tolerates nothing, where the very first miss is
-	 *         the fatal one.
-	 * @note 1 is the last chance, not the failure: the step is still alive there, and dies on the
-	 *       miss after.
-	 */
-	UFUNCTION(BlueprintPure, Category = "Activity")
-	float GetComboErrorAlpha() const;
-
+	const TInstancedStruct<FActivityStepPresentationCustomInfo>& GetCustomInfo() { return Presentation.CustomInfo; }
+	
 protected:
 
 	/**

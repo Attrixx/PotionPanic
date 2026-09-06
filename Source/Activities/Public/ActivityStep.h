@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Class.h"
-#include "ActivityStepPresentation.h"
 #include "ActivityStep.generated.h"
 
 class UActivityExecutor;
@@ -55,15 +54,6 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnActivityInput(AActor* Instigator, EActivityInputSlot Slot);
 
-	/**
-	 * The captured actor asked to give up on the step.
-	 * Nothing is bound to this yet: it exists so a cancel key can be wired later without having to
-	 * reopen the step contract.
-	 * @param Instigator Actor asking to bail out.
-	 */
-	UFUNCTION(BlueprintNativeEvent)
-	void OnCancelRequested(AActor* Instigator);
-
 protected:
 
 	/**
@@ -76,13 +66,6 @@ protected:
 	/** @return The executor running this step. Never null in practice: it is this step's outer. */
 	UFUNCTION(BlueprintPure)
 	UActivityExecutor* GetExecutor() const;
-
-	/**
-	 * @return The shared clock every replicated presentation time is expressed in, or zero before
-	 *         there is a game state to read it from.
-	 */
-	UFUNCTION(BlueprintPure)
-	double GetServerTimeSeconds() const;
 
 private:
 

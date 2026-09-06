@@ -4,8 +4,21 @@
 
 #include "CoreMinimal.h"
 #include "ActivityStep.h"
+#include "ActivityStepPresentation.h"
 #include "ActivityStepSettings.h"
 #include "InteractionWindowActivityStep.generated.h"
+
+USTRUCT(BlueprintType)
+struct FInteractionWindowActivityPresentation : public FActivityStepPresentationCustomInfo
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(BlueprintReadOnly)
+	double OpenServerTime = 0.0;
+	
+	UPROPERTY(BlueprintReadOnly)
+	double CloseServerTime = 0.0;
+};
 
 UCLASS(DisplayName = "Interaction Window")
 class ACTIVITIES_API UInteractionWindowActivitySettings : public UActivityStepSettings
@@ -66,4 +79,12 @@ class ACTIVITIES_API UInteractionWindowActivityStep : public UActivityStep
 
 	bool bWindowOpen = false;
 	FTimerHandle TimerHandle;
+	
+public: // Widget helpers
+	
+	UFUNCTION(BlueprintPure)
+	static float GetStartToOpenAlpha(const FInteractionWindowActivityPresentation& Data, float StartServerTime, float ElapsedTime);
+	
+	UFUNCTION(BlueprintPure)
+	static float GetOpenToCloseAlpha(const FInteractionWindowActivityPresentation& Data, float ElapsedTime);
 };

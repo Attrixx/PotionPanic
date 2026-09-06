@@ -12,13 +12,6 @@ class UActivityStep;
 
 /**
  * Draws whatever the activity running on this actor wants displayed, for everyone who can see it.
- *
- * It listens to its owner's UActivityExecutor and follows the replicated presentation: swapping in
- * the widget class configured for the running step, pushing every change into it, and hiding
- * itself when nothing is running. It is display only -- it never talks back to the executor.
- *
- * It keeps itself square to the local camera while something is showing, and stops ticking entirely
- * the rest of the time: neither the station nor the camera can be assumed to face any given way.
  */
 UCLASS(meta = (BlueprintSpawnableComponent))
 class ACTIVITIES_API UActivityDisplayComponent : public UWidgetComponent

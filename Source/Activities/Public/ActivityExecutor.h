@@ -15,7 +15,18 @@ class UActivityConclusion;
 struct FActivityStepResult;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActivityExecutionStatusChangedDelegate, UActivityExecutor*, Executor, EActivityExecutionStatus, NewStatus);
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActivityStepPresentationChangedDelegate, UActivityExecutor*, Executor);
+
+UENUM(BlueprintType, meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+enum class EActivityInputSlot : uint8
+{
+	None  = 0 UMETA(Hidden),
+	Up    = 1 << 0,
+	Left  = 1 << 1,
+	Down  = 1 << 2,
+	Right = 1 << 3,
+};
 
 /**
  * 
@@ -75,29 +86,30 @@ public:
 	EActivityExecutionStatus GetExecutionStatus() const;
 
 	/**
-	 * Forwards a captured input to the current step. Called on the authority, from the server RPC
-	 * of the actor whose inputs the step took over.
+	 * Forwards a captured input to the current step.
 	 * @param Instigator Actor the press came from.
 	 * @param Slot The input that was pressed.
 	 */
 	UFUNCTION(BlueprintCallable)
 	void ReceiveActivityInput(AActor* Instigator, EActivityInputSlot Slot);
 
-	/**
-	 * Forwards an explicit give-up request to the current step. Nothing calls this yet.
-	 * @param Instigator Actor asking to bail out.
-	 */
 	UFUNCTION(BlueprintCallable)
-	void RequestStepCancel(AActor* Instigator);
+	double GetServerTimeSeconds() const;
 
-	/**
-	 * Publishes what the running step wants displayed, replicating it to every client.
-	 * @param Step The step doing the publishing. Its class is stamped into the presentation, which
-	 *        is what lets the display side find the widget without anything enumerating steps.
-	 * @param InPresentation What to draw. Its StepClass and Revision fields are overwritten here.
-	 * @note Authority only. Steps call this on themselves starting and progressing.
-	 */
-	void SetStepPresentation(const UActivityStep* Step, const FActivityStepPresentation& InPresentation);
+	template <typename T>
+		requires std::derived_from<std::remove_cvref_t<T>, FActivityStepPresentationCustomInfo>
+	void SetStepPresentationCustomInfo(T&& InInfo)
+	{
+		using FInfoType = std::remove_cvref_t<T>;
+		if (IsAuthority())
+		{
+			if (Presentation.CustomInfo.GetScriptStruct() == FInfoType::StaticStruct())
+				Presentation.CustomInfo.GetMutable<FInfoType>() = Forward<T>(InInfo);
+			else
+				Presentation.CustomInfo.InitializeAs<FInfoType>(Forward<T>(InInfo));
+			UpdatePresentation();
+		}
+	}
 
 	/** Takes the current presentation down. Authority only. */
 	void ClearStepPresentation();
@@ -140,6 +152,8 @@ private:
 
 	UFUNCTION()
 	void OnRep_State(const FActivityExecutionState& OldState);
+
+	void UpdatePresentation();
 
 	UFUNCTION()
 	void OnRep_Presentation();

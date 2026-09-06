@@ -153,22 +153,17 @@ void UInteractionWindowActivityStep::OpenWindow()
 
 void UInteractionWindowActivityStep::PublishPresentation()
 {
-	UActivityExecutor* Executor = GetExecutor();
-	if (!Executor)
-		return;
-
-	const double Now = GetServerTimeSeconds();
-	const double OpensAt = Now + DelayBeforeOpen;
-
-	FActivityStepPresentation NewPresentation;
-	NewPresentation.Instigator = Executor->GetExecutionState().LastInstigator.Get();
-	NewPresentation.StartServerTime = Now;
-	NewPresentation.OpenServerTime = OpensAt;
-
-	// Equal to the opening time when the window never closes, which is what says "no deadline".
-	NewPresentation.CloseServerTime = WindowDuration > 0.f ? OpensAt + WindowDuration : OpensAt;
-
-	Executor->SetStepPresentation(this, NewPresentation);
+	if (UActivityExecutor* Executor = GetExecutor())
+	{
+		const double Start = Executor->GetStepPresentation().StartServerTime;
+		const double OpensAt = Start + DelayBeforeOpen;
+		FInteractionWindowActivityPresentation NewPresentation
+		{
+			.OpenServerTime = OpensAt,
+			.CloseServerTime = WindowDuration > 0.f ? OpensAt + WindowDuration : OpensAt,
+		};
+		Executor->SetStepPresentationCustomInfo(NewPresentation);
+	}
 }
 
 void UInteractionWindowActivityStep::ClearTimer()
@@ -177,4 +172,22 @@ void UInteractionWindowActivityStep::ClearTimer()
 	{
 		World->GetTimerManager().ClearTimer(TimerHandle);
 	}
+}
+
+float UInteractionWindowActivityStep::GetStartToOpenAlpha(const FInteractionWindowActivityPresentation& Data, float StartServerTime, float ElapsedTime)
+{
+	const double Duration = Data.OpenServerTime - StartServerTime;
+	if (Duration <= 0.0)
+		return 1.f;
+
+	return float(FMath::Clamp(ElapsedTime / Duration, 0.0, 1.0));
+}
+
+float UInteractionWindowActivityStep::GetOpenToCloseAlpha(const FInteractionWindowActivityPresentation& Data, float ElapsedTime)
+{
+	const double Duration = Data.CloseServerTime - Data.OpenServerTime;
+	if (Duration <= 0.0)
+		return 0.f;
+	
+	return float(FMath::Clamp(ElapsedTime / Duration, 0.0, 1.0));
 }

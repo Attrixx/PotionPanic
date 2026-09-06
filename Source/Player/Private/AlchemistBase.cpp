@@ -495,6 +495,6 @@ void AAlchemistBase::Server_ActivityCancel_Implementation()
 {
 	if (UActivityExecutor* Executor = CapturingExecutor.Get())
 	{
-		Executor->RequestStepCancel(this);
+		Executor->Cancel();
 	}
 }

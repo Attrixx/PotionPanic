@@ -4,9 +4,42 @@
 
 #include "CoreMinimal.h"
 #include "ActivityStep.h"
+#include "ActivityStepPresentation.h"
 #include "ActivityStepResult.h"
 #include "ActivityStepSettings.h"
 #include "InputComboActivityStep.generated.h"
+
+enum class EActivityInputSlot : uint8;
+
+UENUM(BlueprintType)
+enum class EActivityPressResult : uint8
+{
+	Pending = 0,
+	Hit,
+	Miss,
+};
+
+USTRUCT(BlueprintType)
+struct FInputComboActivityPresentation : public FActivityStepPresentationCustomInfo
+{
+	GENERATED_BODY()
+	
+	/** Full combo to enter. */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<EActivityInputSlot> Sequence;
+
+	/** Per-press outcome, parallel to Sequence. */
+	UPROPERTY(BlueprintReadOnly)
+	TArray<EActivityPressResult> Results;
+
+	/** Index into Sequence of the press being asked for. */
+	UPROPERTY(BlueprintReadOnly)
+	int32 CurrentPressIndex = INDEX_NONE;
+
+	/** How many misses the combo tolerates. */
+	UPROPERTY(BlueprintReadOnly)
+	int32 MaxFailedPresses = 0;
+};
 
 UCLASS(DisplayName = "Input Combo")
 class ACTIVITIES_API UInputComboActivitySettings : public UActivityStepSettings
@@ -26,7 +59,7 @@ public:
 	 * @note uint8 rather than the enum: the checkbox list only shows up on a plain integer
 	 *       property, an enum-typed one falls through to a single-select dropdown.
 	 */
-	UPROPERTY(EditAnywhere, Category = "", meta = (Bitmask, BitmaskEnum = "/Script/Activities.EActivityInputSlot"))
+	UPROPERTY(EditAnywhere, Category = "", meta = (Bitmask, BitmaskEnum = "EActivityInputSlot"))
 	uint8 AllowedSlots = 0;
 
 	/** How many presses the combo asks for. */
@@ -107,4 +140,15 @@ class ACTIVITIES_API UInputComboActivityStep : public UActivityStep
 	int32 FailureCount = 0;
 	bool bWaitingForInstigator = false;
 	FTimerHandle PressTimeoutHandle;
+	
+public: // Widget Helpers
+	
+	UFUNCTION(BlueprintPure)
+	static EActivityInputSlot GetCurrentSlot(const FInputComboActivityPresentation& Data);
+	
+	UFUNCTION(BlueprintPure)
+	static float GetComboProgressAlpha(const FInputComboActivityPresentation& Data);
+
+	UFUNCTION(BlueprintPure)
+	static float GetComboErrorAlpha(const FInputComboActivityPresentation& Data);
 };

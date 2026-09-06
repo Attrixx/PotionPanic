@@ -10,41 +10,41 @@ DEFINE_LOG_CATEGORY_STATIC(MS_InputComboActivityStep, Verbose, All);
 
 namespace
 {
-	/** The slots a mask can hold, in the order a drawn index walks them. */
-	constexpr EActivityInputSlot AllSlots[] = {
-		EActivityInputSlot::Up,
-		EActivityInputSlot::Left,
-		EActivityInputSlot::Down,
-		EActivityInputSlot::Right,
-	};
+/** The slots a mask can hold, in the order a drawn index walks them. */
+constexpr EActivityInputSlot AllSlots[] = {
+	EActivityInputSlot::Up,
+	EActivityInputSlot::Left,
+	EActivityInputSlot::Down,
+	EActivityInputSlot::Right,
+};
 
-	bool MaskHas(uint8 Mask, EActivityInputSlot Slot)
+bool MaskHas(uint8 Mask, EActivityInputSlot Slot)
+{
+	return (Mask & static_cast<uint8>(Slot)) != 0;
+}
+
+int32 CountSlots(uint8 Mask)
+{
+	int32 Count = 0;
+	for (EActivityInputSlot Slot : AllSlots)
 	{
-		return (Mask & static_cast<uint8>(Slot)) != 0;
+		Count += MaskHas(Mask, Slot) ? 1 : 0;
 	}
+	return Count;
+}
 
-	int32 CountSlots(uint8 Mask)
+/** @return The Index-th slot present in Mask, None when it holds fewer than that. */
+EActivityInputSlot SlotAt(uint8 Mask, int32 Index)
+{
+	for (EActivityInputSlot Slot : AllSlots)
 	{
-		int32 Count = 0;
-		for (EActivityInputSlot Slot : AllSlots)
+		if (MaskHas(Mask, Slot) && Index-- == 0)
 		{
-			Count += MaskHas(Mask, Slot) ? 1 : 0;
+			return Slot;
 		}
-		return Count;
 	}
-
-	/** @return The Index-th slot present in Mask, None when it holds fewer than that. */
-	EActivityInputSlot SlotAt(uint8 Mask, int32 Index)
-	{
-		for (EActivityInputSlot Slot : AllSlots)
-		{
-			if (MaskHas(Mask, Slot) && Index-- == 0)
-			{
-				return Slot;
-			}
-		}
-		return EActivityInputSlot::None;
-	}
+	return EActivityInputSlot::None;
+}
 }
 
 #if WITH_EDITOR
@@ -72,7 +72,8 @@ EDataValidationResult UInputComboActivitySettings::IsDataValid(FDataValidationCo
 
 	if (PressTimeoutSeconds <= 0.f)
 	{
-		Context.AddError(FText::Format(FTextFormat::FromString("Field 'PressTimeoutSeconds' should be greater than zero (Current value: {0})."), PressTimeoutSeconds));
+		Context.AddError(FText::Format(FTextFormat::FromString("Field 'PressTimeoutSeconds' should be greater than zero (Current value: {0})."),
+			PressTimeoutSeconds));
 		Result = EDataValidationResult::Invalid;
 	}
 
@@ -157,7 +158,9 @@ void UInputComboActivityStep::OnActivityInput_Implementation(AActor* Instigator,
 
 	const bool bHit = Slot == Sequence[CurrentPressIndex];
 
-	UE_LOGFMT(MS_InputComboActivityStep, Verbose, "Press {0}/{1}: got slot {2}, wanted {3} -- {4}.",
+	UE_LOGFMT(MS_InputComboActivityStep,
+		Verbose,
+		"Press {0}/{1}: got slot {2}, wanted {3} -- {4}.",
 		CurrentPressIndex + 1,
 		Sequence.Num(),
 		static_cast<int32>(Slot),
@@ -198,8 +201,13 @@ void UInputComboActivityStep::BeginCombo(AActor* Instigator)
 	SuccessCount = 0;
 	FailureCount = 0;
 
-	UE_LOGFMT(MS_InputComboActivityStep, Verbose, "'{0}' starts a {1} press combo ({2} miss allowed, {3}s each).",
-		GetNameSafe(Instigator), PressCount, MaxFailedPresses, PressTimeoutSeconds);
+	UE_LOGFMT(MS_InputComboActivityStep,
+		Verbose,
+		"'{0}' starts a {1} press combo ({2} miss allowed, {3}s each).",
+		GetNameSafe(Instigator),
+		PressCount,
+		MaxFailedPresses,
+		PressTimeoutSeconds);
 
 	if (Instigator->Implements<UActivityInputCapture>())
 	{
@@ -209,7 +217,9 @@ void UInputComboActivityStep::BeginCombo(AActor* Instigator)
 	{
 		// The combo still runs and still times out, it just cannot be played. Worth shouting about:
 		// this is a pawn that was never set up for activities.
-		UE_LOGFMT(MS_InputComboActivityStep, Warning, "'{0}' does not implement IActivityInputCapture: it cannot press anything.",
+		UE_LOGFMT(MS_InputComboActivityStep,
+			Warning,
+			"'{0}' does not implement IActivityInputCapture: it cannot press anything.",
 			GetNameSafe(Instigator));
 	}
 
@@ -250,8 +260,13 @@ void UInputComboActivityStep::RecordPress(EActivityPressResult Result)
 	{
 		// One miss too many. The presses that remain cannot bring the combo back, so making the
 		// player enter them would only be a formality.
-		UE_LOGFMT(MS_InputComboActivityStep, Verbose, "Failed at press {0}/{1}: {2} misses for {3} allowed.",
-			CurrentPressIndex, Sequence.Num(), FailureCount, MaxFailedPresses);
+		UE_LOGFMT(MS_InputComboActivityStep,
+			Verbose,
+			"Failed at press {0}/{1}: {2} misses for {3} allowed.",
+			CurrentPressIndex,
+			Sequence.Num(),
+			FailureCount,
+			MaxFailedPresses);
 
 		Finish(EActivityStepStatus::Fail);
 		return;
@@ -327,23 +342,51 @@ void UInputComboActivityStep::ClearPressTimeout()
 
 void UInputComboActivityStep::PublishPresentation()
 {
-	UActivityExecutor* Executor = GetExecutor();
-	if (!Executor)
-		return;
+	if (UActivityExecutor* Executor = GetExecutor())
+	{
+		FInputComboActivityPresentation NewPresentation
+		{
+			.Sequence = Sequence,
+			.Results = Results,
+			.CurrentPressIndex = CurrentPressIndex,
+			.MaxFailedPresses = MaxFailedPresses,
+		};
+		Executor->SetStepPresentationCustomInfo(NewPresentation);
+	}
+}
 
-	const double Now = GetServerTimeSeconds();
+EActivityInputSlot UInputComboActivityStep::GetCurrentSlot(const FInputComboActivityPresentation& Data)
+{
+	return Data.Sequence.IsValidIndex(Data.CurrentPressIndex)
+		? Data.Sequence[Data.CurrentPressIndex]
+		: EActivityInputSlot::None;
+}
 
-	FActivityStepPresentation NewPresentation;
-	NewPresentation.Instigator = CapturedInstigator.Get();
+float UInputComboActivityStep::GetComboProgressAlpha(const FInputComboActivityPresentation& Data)
+{
+	if (Data.Sequence.IsEmpty())
+		return 0.f;
 
-	// A press is askable the instant it appears: no opening phase, so start and open coincide.
-	NewPresentation.StartServerTime = Now;
-	NewPresentation.OpenServerTime = Now;
-	NewPresentation.CloseServerTime = Now + PressTimeoutSeconds;
-	NewPresentation.Sequence = Sequence;
-	NewPresentation.Results = Results;
-	NewPresentation.CurrentPressIndex = CurrentPressIndex;
-	NewPresentation.MaxFailedPresses = MaxFailedPresses;
+	const int32 Answered = FMath::Max(Data.CurrentPressIndex, 0);
+	return FMath::Clamp(float(Answered) / Data.Sequence.Num(), 0.f, 1.f);
+}
 
-	Executor->SetStepPresentation(this, NewPresentation);
+float UInputComboActivityStep::GetComboErrorAlpha(const FInputComboActivityPresentation& Data)
+{
+	if (Data.Sequence.IsEmpty())
+		return 0.f;
+
+	if (Data.MaxFailedPresses <= 0)
+		return 1.f;
+
+	int32 Missed = 0;
+	for (EActivityPressResult Result : Data.Results)
+	{
+		if (Result == EActivityPressResult::Miss)
+		{
+			++Missed;
+		}
+	}
+
+	return FMath::Clamp(float(Missed) / Data.MaxFailedPresses, 0.f, 1.f);
 }

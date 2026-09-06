@@ -10,14 +10,13 @@
 #include "ActivityStepSettings.h"
 #include <Net/UnrealNetwork.h>
 
+#include "GameFramework/GameStateBase.h"
+
 DEFINE_LOG_CATEGORY_STATIC(MS_ActivityExecutor, Log, All);
 
 UActivityExecutor::UActivityExecutor()
 {
 	PrimaryComponentTick.bCanEverTick = false;
-
-	// Without this the replicated members below never leave the authority, however correctly they
-	// are declared: a component replicates only once its owner is told to replicate it.
 	SetIsReplicatedByDefault(true);
 }
 
@@ -64,8 +63,6 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 
 void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator)
 {
-	// Steps only ever exist on the authority; a client reaching here would build a second, private
-	// activity on top of the one being replicated to it.
 	if (!IsAuthority())
 		return;
 
@@ -149,8 +146,6 @@ void UActivityExecutor::Interact(AActor* Instigator)
 
 void UActivityExecutor::Cancel()
 {
-	// Reachable off the authority through EndPlay and the holder delegate, where Status replicates
-	// as Ongoing but there is no step to cancel.
 	if (IsAuthority() && State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
@@ -184,55 +179,30 @@ void UActivityExecutor::ReceiveActivityInput(AActor* Instigator, EActivityInputS
 	Steps[CurrentStepIndex]->OnActivityInput(Instigator, Slot);
 }
 
-void UActivityExecutor::RequestStepCancel(AActor* Instigator)
+double UActivityExecutor::GetServerTimeSeconds() const
 {
-	if (!IsAuthority() || State.Status != EActivityExecutionStatus::Ongoing)
-		return;
-
-	check(CurrentStepIndex < Steps.Num());
-	Steps[CurrentStepIndex]->OnCancelRequested(Instigator);
-}
-
-void UActivityExecutor::SetStepPresentation(const UActivityStep* Step, const FActivityStepPresentation& InPresentation)
-{
-	if (!IsAuthority())
-	{
-		UE_LOGFMT(MS_ActivityExecutor, Warning, "SetStepPresentation off the authority ignored.");
-		return;
-	}
-
-	const uint8 PreviousRevision = Presentation.Revision;
-	Presentation = InPresentation;
-	Presentation.StepClass = Step ? Step->GetClass() : nullptr;
-	Presentation.Revision = PreviousRevision + 1;
-
-	// The authority gets no OnRep of its own, and it hosts a listen server's widgets too.
-	OnStepPresentationChanged.Broadcast(this);
+	const UWorld* World = GetOuter() ? GetOuter()->GetWorld() : nullptr;
+	const AGameStateBase* GameState = World ? World->GetGameState() : nullptr;
+	return GameState ? GameState->GetServerWorldTimeSeconds() : 0.0;
 }
 
 void UActivityExecutor::ClearStepPresentation()
 {
-	// Silent off the authority, unlike SetStepPresentation: this one is also called from the
-	// teardown paths a client legitimately runs, EndPlay first among them.
-	if (!IsAuthority() || Presentation.StepClass == nullptr)
-		return;
-
-	SetStepPresentation(nullptr, FActivityStepPresentation());
+	if (IsAuthority() && Presentation.StepClass)
+	{
+		Presentation.StepClass = nullptr;
+		UpdatePresentation();
+	}
 }
 
 void UActivityExecutor::RefreshInstigator(AActor* Instigator)
 {
 	if (Instigator && Instigator != State.LastInstigator.Get())
 	{
-		// A second player taking the activity over: what the item's origin says about where it
-		// should go back is no longer about whoever is standing here now. IsExplicitlyNull, not
-		// IsValid: an instigator that was destroyed since still counts as one we had.
 		State.bInstigatorChanged |= !State.LastInstigator.IsExplicitlyNull();
 		State.LastInstigator = Instigator;
 	}
 
-	// Re-read even when the instigator did not change: it may have handed over, thrown or used up
-	// what it was carrying since the last interact.
 	AActor* Current = State.LastInstigator.Get();
 	UHolderComponent* Holder = Current ? Current->FindComponentByClass<UHolderComponent>() : nullptr;
 
@@ -244,8 +214,6 @@ void UActivityExecutor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 {
 	check(Holder && Holder == State.Holder);
 
-	// The holder fires this on every side, but State is replicated: a client writing to it here
-	// would only be racing the next update from the server.
 	if (!IsAuthority())
 		return;
 
@@ -263,6 +231,11 @@ void UActivityExecutor::ContinueExecution()
 		check(CurrentStepIndex < Steps.Num());
 		bCurrentStepStarted = true;
 		Steps[CurrentStepIndex]->StartStep(State.LastInstigator.Get());
+		
+		Presentation.StepClass = Steps[CurrentStepIndex].GetClass();
+		Presentation.Instigator = State.LastInstigator.Get();
+		Presentation.StartServerTime = GetServerTimeSeconds();
+		UpdatePresentation();
 	}
 }
 
@@ -341,6 +314,12 @@ void UActivityExecutor::OnRep_State(const FActivityExecutionState& OldState)
 	{
 		OnExecutionStatusChanged.Broadcast(this, State.Status);
 	}
+}
+
+void UActivityExecutor::UpdatePresentation()
+{
+	++Presentation.Revision;
+	OnStepPresentationChanged.Broadcast(this);
 }
 
 void UActivityExecutor::OnRep_Presentation()
