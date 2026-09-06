@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AlchemistBase.h"
 #include "AlchemistMovementComponent.h"
@@ -12,12 +12,12 @@
 #include "ActorFilters/FreeHolderActorFilter.h"
 #include "CoreGameplayLibrary.h"
 #include "ActivityExecutor.h"
-#include "ActivityInputSettings.h"
 #include "NetworkSoundComponent.h"
 #include "NetworkSoundSubsystem.h"
 #include <EnhancedInputComponent.h>
 #include <EnhancedInputSubsystems.h>
 #include <InputMappingContext.h>
+#include <Net/UnrealNetwork.h>
 #include "PotionPanicKeybindSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistBase, Log, All);
@@ -33,7 +33,7 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 500.0f, 0.0f);
-	
+
 	HolderComponent = CreateDefaultSubobject<UHolderComponent>(TEXT("Holder Component"));
 	HolderComponent->SetupAttachment(GetMesh());
 
@@ -48,7 +48,7 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 
 	FreeHolderFilter = CreateDefaultSubobject<UFreeHolderActorFilter>(TEXT("Free Holder Filter"));
 	FreeHolderFilter->Ignored = this;
-	
+
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
 
@@ -61,6 +61,12 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetCustomDepthStencilValue(1);
 
 	NetworkSoundComponent = CreateDefaultSubobject<UNetworkSoundComponent>(TEXT("Network Sound"));
+}
+
+void AAlchemistBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AAlchemistBase, bActivityInputCaptured, COND_OwnerOnly);
 }
 
 bool AAlchemistBase::IsCarrying() const
@@ -153,34 +159,48 @@ void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void AAlchemistBase::NotifyControllerChanged()
 {
-	if (APlayerController* PlayerController = Cast<APlayerController>(PreviousController))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(PreviousController))
 	{
-		ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
-		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-		{
-			UInputMappingContext* ContextToRemove = MovementMappingContext;
-			if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
-			{
-				ContextToRemove = KeybindSubsystem->GetRuntimeContext(MovementMappingContext);
-			}
-			Subsystem->RemoveMappingContext(ContextToRemove);
-		}
+		SetMappingContextActive(PlayerController->GetLocalPlayer(), MovementMappingContext, false, 0);
 	}
 
 	Super::NotifyControllerChanged(); // Updates PreviousController
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
-		ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer();
-		if (auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-		{
-			UInputMappingContext* ContextToAdd = MovementMappingContext;
-			if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
-			{
-				ContextToAdd = KeybindSubsystem->GetRuntimeContext(MovementMappingContext);
-			}
-			Subsystem->AddMappingContext(ContextToAdd, 0);
-		}
+		SetMappingContextActive(PlayerController->GetLocalPlayer(), MovementMappingContext, true, 0);
+	}
+
+	// Repossess in the middle of a step should not allow movement
+	OnRep_ActivityInputCaptured();
+}
+
+ULocalPlayer* AAlchemistBase::GetInputLocalPlayer() const
+{
+	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	return PlayerController ? PlayerController->GetLocalPlayer() : nullptr;
+}
+
+void AAlchemistBase::SetMappingContextActive(ULocalPlayer* LocalPlayer, UInputMappingContext* Context, bool bActive, int32 Priority)
+{
+	auto* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer);
+	if (!Subsystem || !Context)
+	{
+		return;
+	}
+
+	if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
+	{
+		Context = KeybindSubsystem->GetRuntimeContext(Context);
+	}
+
+	if (bActive)
+	{
+		Subsystem->AddMappingContext(Context, Priority);
+	}
+	else
+	{
+		Subsystem->RemoveMappingContext(Context);
 	}
 }
 
@@ -202,17 +222,10 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(PickupOrDropAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_PickupOrDrop);
 	EIC->BindAction(ThrowAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_Throw);
 
-	// Bound once here, but only reachable while the combo context is pushed: an action nothing
-	// maps to never triggers, so there is nothing to bind and unbind as steps come and go.
-	const UActivityInputSettings* ActivityInput = GetDefault<UActivityInputSettings>();
-	if (UInputAction* Up = ActivityInput->GetSlotAction(EActivityInputSlot::Up))
-		EIC->BindAction(Up, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityUp);
-	if (UInputAction* Left = ActivityInput->GetSlotAction(EActivityInputSlot::Left))
-		EIC->BindAction(Left, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityLeft);
-	if (UInputAction* Down = ActivityInput->GetSlotAction(EActivityInputSlot::Down))
-		EIC->BindAction(Down, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityDown);
-	if (UInputAction* Right = ActivityInput->GetSlotAction(EActivityInputSlot::Right))
-		EIC->BindAction(Right, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityRight);
+	EIC->BindAction(SlotUpAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityUp);
+	EIC->BindAction(SlotLeftAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityLeft);
+	EIC->BindAction(SlotDownAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityDown);
+	EIC->BindAction(SlotRightAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityRight);
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -252,100 +265,34 @@ void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabl
 
 void AAlchemistBase::BeginActivityInputCapture_Implementation(UActivityExecutor* Executor)
 {
-	// Authority side: the steps live there, and so does the executor we have to answer to.
 	CapturingExecutor = Executor;
-	Client_SetActivityInputCaptured(true);
+	SetActivityInputCaptured(true);
 }
 
 void AAlchemistBase::EndActivityInputCapture_Implementation()
 {
 	CapturingExecutor.Reset();
-	Client_SetActivityInputCaptured(false);
+	SetActivityInputCaptured(false);
 }
 
-void AAlchemistBase::Client_SetActivityInputCaptured_Implementation(bool bCaptured)
+void AAlchemistBase::SetActivityInputCaptured(bool bCaptured)
 {
-	if (bActivityInputCaptured == bCaptured)
-		return;
-
-	bActivityInputCaptured = bCaptured;
-
-	const APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	ULocalPlayer* LocalPlayer = PlayerController ? PlayerController->GetLocalPlayer() : nullptr;
-	auto* Subsystem = LocalPlayer ? ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer) : nullptr;
-	if (!Subsystem)
+	check(HasAuthority());
+	if (bActivityInputCaptured != bCaptured)
 	{
-		// Still worth flipping the flag above: without a context to push, blocking movement is the
-		// only thing standing between the player and walking away mid-combo.
-		UE_LOGFMT(MS_AlchemistBase, Warning, "No input subsystem to {0} the activity context on.",
-			bCaptured ? TEXT("push") : TEXT("pop"));
-		return;
-	}
-
-	const UActivityInputSettings* ActivityInput = GetDefault<UActivityInputSettings>();
-	UInputMappingContext* Context = ActivityInput->ComboMappingContext.LoadSynchronous();
-	if (!Context)
-	{
-		UE_LOGFMT(MS_AlchemistBase, Warning, "No combo mapping context configured: the player has nothing to press with.");
-		return;
-	}
-
-	// Through the keybind subsystem like every other context, so a remapped key still works here.
-	if (auto* KeybindSubsystem = LocalPlayer->GetSubsystem<UPotionPanicKeybindSubsystem>())
-	{
-		Context = KeybindSubsystem->GetRuntimeContext(Context);
-	}
-
-	if (bCaptured)
-	{
-		Subsystem->AddMappingContext(Context, ActivityInput->ComboContextPriority);
-	}
-	else
-	{
-		Subsystem->RemoveMappingContext(Context);
+		bActivityInputCaptured = bCaptured;
+		OnRep_ActivityInputCaptured();
 	}
 }
 
-void AAlchemistBase::RequestActivityCancel()
+void AAlchemistBase::OnRep_ActivityInputCaptured()
 {
-	if (bActivityInputCaptured)
+	if (IsLocallyControlled())
 	{
-		Server_ActivityCancel();
+		ULocalPlayer* LocalPlayer = GetInputLocalPlayer();
+		SetMappingContextActive(LocalPlayer, MovementMappingContext, !bActivityInputCaptured, 0);
+		SetMappingContextActive(LocalPlayer, ComboMappingContext, bActivityInputCaptured, 0);
 	}
-}
-
-void AAlchemistBase::HandleActivityInput(EActivityInputSlot Slot)
-{
-	if (bActivityInputCaptured)
-	{
-		Server_ActivityInput(Slot);
-	}
-}
-
-void AAlchemistBase::Server_ActivityInput_Implementation(EActivityInputSlot Slot)
-{
-	if (UActivityExecutor* Executor = CapturingExecutor.Get())
-	{
-		Executor->ReceiveActivityInput(this, Slot);
-	}
-}
-
-void AAlchemistBase::Server_ActivityCancel_Implementation()
-{
-	if (UActivityExecutor* Executor = CapturingExecutor.Get())
-	{
-		Executor->RequestStepCancel(this);
-	}
-}
-
-void AAlchemistBase::Input_ActivityUp()    { HandleActivityInput(EActivityInputSlot::Up); }
-void AAlchemistBase::Input_ActivityLeft()  { HandleActivityInput(EActivityInputSlot::Left); }
-void AAlchemistBase::Input_ActivityDown()  { HandleActivityInput(EActivityInputSlot::Down); }
-void AAlchemistBase::Input_ActivityRight() { HandleActivityInput(EActivityInputSlot::Right); }
-
-bool AAlchemistBase::ShouldBlockGameplayInput() const
-{
-	return bActivityInputCaptured;
 }
 
 int32 AAlchemistBase::PlayNetworkedSound(USoundBase* Sound)
@@ -361,14 +308,29 @@ int32 AAlchemistBase::PlayNetworkedSound(USoundBase* Sound)
 	return -1;
 }
 
-void AAlchemistBase::Input_Move(const FInputActionValue& Value)
+UObject* AAlchemistBase::ResolveCarriable(AActor* Candidate)
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
+	// Either a loose Carriable, or an actor whose holder is offering one up (a station, a player).
+	if (!Candidate)
 	{
-		return;
+		return nullptr;
 	}
 
+	if (Candidate->Implements<UCarriable>())
+	{
+		return Candidate;
+	}
+
+	if (UHolderComponent* SourceHolder = UCoreGameplayLibrary::FindComponentInAttachChain<UHolderComponent>(Candidate))
+	{
+		return SourceHolder->GetCarriable();
+	}
+
+	return nullptr;
+}
+
+void AAlchemistBase::Input_Move(const FInputActionValue& Value)
+{
 	auto Axis2D = Value.Get<FInputActionValue::Axis2D>();
 
 	FRotator CamRotation;
@@ -388,12 +350,6 @@ void AAlchemistBase::Input_Move(const FInputActionValue& Value)
 
 void AAlchemistBase::Input_Dash()
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
-	{
-		return;
-	}
-
 	if (auto* AMC = Cast<UAlchemistMovementComponent>(GetCharacterMovement()))
 	{
 		if (!AMC->CanDash())
@@ -409,59 +365,63 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
-	{
-		return;
-	}
-
 	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
 		Server_Interact(Interactable);
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
-	{
-		return;
-	}
-
 	if (HolderComponent->GetCarriable())
 	{
 		// Items are never put on the ground: they go from holder to holder, or they get thrown.
 		if (AActor* Receiver = RangeComponent->FindBestMatchingActor(FreeHolderFilter))
 		{
+			// Applied before the RPC: the decision itself on the authority, a prediction on a client.
+			UHolderComponent* TargetHolder = UCoreGameplayLibrary::FindComponentInAttachChain<UHolderComponent>(Receiver);
+			if (TargetHolder && HolderComponent->TransferTo(TargetHolder))
+			{
+				PlayNetworkedSound(DropSound);
+			}
+
 			Server_Place(Receiver);
-			PlayNetworkedSound(DropSound);
 		}
 	}
 	else if (AActor* Candidate = RangeComponent->FindBestMatchingActor(CarriableFilter))
 	{
+		if (HolderComponent->TryPickup(ResolveCarriable(Candidate)))
+		{
+			PlayNetworkedSound(PickupSound);
+		}
+
 		Server_Pickup(Candidate);
-		PlayNetworkedSound(PickupSound);
 	}
 }
 
 void AAlchemistBase::Input_Throw()
 {
-	// TODO: Disable Mapping context instead of guarding
-	if (ShouldBlockGameplayInput())
-	{
-		return;
-	}
-
 	UObject* Carriable = HolderComponent->GetCarriable();
 	if (Carriable && ICarriable::Execute_CanBeThrown(Carriable))
 	{
-		Server_Throw(GetActorForwardVector());
-		PlayNetworkedSound(ThrowSound);
+		const FVector Direction = GetActorForwardVector();
+
+		if (HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce))
+		{
+			PlayNetworkedSound(ThrowSound);
+		}
+
+		Server_Throw(Direction);
 	}
 }
 
+void AAlchemistBase::Input_ActivityUp() { Server_ActivityInput(EActivityInputSlot::Up); }
+void AAlchemistBase::Input_ActivityLeft() { Server_ActivityInput(EActivityInputSlot::Left); }
+void AAlchemistBase::Input_ActivityDown() { Server_ActivityInput(EActivityInputSlot::Down); }
+void AAlchemistBase::Input_ActivityRight() { Server_ActivityInput(EActivityInputSlot::Right); }
+void AAlchemistBase::Input_ActivityCancel() { Server_ActivityCancel(); }
+
 void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 {
-	if (ShouldBlockGameplayInput())
+	if (bActivityInputCaptured)
 	{
 		return;
 	}
@@ -474,7 +434,7 @@ void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
 
 void AAlchemistBase::Server_Pickup_Implementation(AActor* Candidate)
 {
-	if (ShouldBlockGameplayInput())
+	if (bActivityInputCaptured)
 	{
 		return;
 	}
@@ -484,29 +444,13 @@ void AAlchemistBase::Server_Pickup_Implementation(AActor* Candidate)
 		return;
 	}
 
-	// Candidate is either a loose Carriable itself, or an actor whose occupied holder is offering
-	// one up (a station, or another player). Resolve to the actual object either way, and let
-	// TryPickup decide whether taking it from there is allowed: same bAllowStealing rule as any
-	// other holder-to-holder steal.
-	UObject* Target = Candidate->Implements<UCarriable>() ? Candidate : nullptr;
-
-	if (!Target)
-	{
-		if (UHolderComponent* SourceHolder = UCoreGameplayLibrary::FindComponentInAttachChain<UHolderComponent>(Candidate))
-		{
-			Target = SourceHolder->GetCarriable();
-		}
-	}
-
-	if (Target)
-	{
-		HolderComponent->TryPickup(Target);
-	}
+	// A no-op for the listen server's own player, which already applied this on the key press.
+	HolderComponent->TryPickup(ResolveCarriable(Candidate));
 }
 
 void AAlchemistBase::Server_Place_Implementation(AActor* Receiver)
 {
-	if (ShouldBlockGameplayInput())
+	if (bActivityInputCaptured)
 	{
 		return;
 	}
@@ -527,7 +471,7 @@ void AAlchemistBase::Server_Place_Implementation(AActor* Receiver)
 
 void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 {
-	if (ShouldBlockGameplayInput())
+	if (bActivityInputCaptured)
 	{
 		return;
 	}
@@ -536,5 +480,21 @@ void AAlchemistBase::Server_Throw_Implementation(FVector Direction)
 	if (Carriable && ICarriable::Execute_CanBeThrown(Carriable))
 	{
 		HolderComponent->Release(Direction.GetSafeNormal2D() * ThrowForce);
+	}
+}
+
+void AAlchemistBase::Server_ActivityInput_Implementation(EActivityInputSlot Slot)
+{
+	if (UActivityExecutor* Executor = CapturingExecutor.Get())
+	{
+		Executor->ReceiveActivityInput(this, Slot);
+	}
+}
+
+void AAlchemistBase::Server_ActivityCancel_Implementation()
+{
+	if (UActivityExecutor* Executor = CapturingExecutor.Get())
+	{
+		Executor->RequestStepCancel(this);
 	}
 }

@@ -200,7 +200,10 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	WorldData = NewWorldData;
 
 	if (!HasAuthority())
+	{
+		ApplyCurrentRoundLocally();
 		return;
+	}
 
 	// This world is the level: its first round starts a fresh run, so the tally starts over too.
 	Score = 0;
@@ -232,7 +235,36 @@ void AAlchemyGameState::SetCurrentRound(int32 Index)
 	CurrentRound = Index;
 	FOnRoundAppliedDelegate OnRoundApplied;
 	OnRoundApplied.BindDynamic(this, &ThisClass::OnCurrentRoundApplied);
-	RoundLoader = URoundLoader::LoadAndApplyRound(this, *Round, OnRoundApplied);
+	StartRoundLoad(*Round, OnRoundApplied);
+}
+
+void AAlchemyGameState::OnRep_CurrentRound()
+{
+	ApplyCurrentRoundLocally();
+}
+
+void AAlchemyGameState::ApplyCurrentRoundLocally()
+{
+	if (!WorldData)
+	{
+		// Wait for the world data to load.
+		return;
+	}
+
+	const FRound* Round = WorldData->GetRoundAt(CurrentRound);
+	if (!Round)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Error, "No round at index {0} to apply locally.", CurrentRound);
+		return;
+	}
+
+	CancelPendingRoundStart();
+	StartRoundLoad(*Round, FOnRoundAppliedDelegate());
+}
+
+void AAlchemyGameState::StartRoundLoad(const FRound& Round, FOnRoundAppliedDelegate OnApplied)
+{
+	RoundLoader = URoundLoader::LoadAndApplyRound(this, Round, OnApplied);
 
 	// A round with nothing left to stream is applied from inside the call above.
 	if (RoundLoader && !RoundLoader->IsPending())

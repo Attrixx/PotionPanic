@@ -111,6 +111,7 @@ public:
 	void OnRep_StationAsset();
 
 	void ApplyStationAsset();
+	void AnchorItemHolderToVisual();
 
 	/** @return The item this station starts play holding, or null when it starts empty. */
 	UFUNCTION(BlueprintPure)

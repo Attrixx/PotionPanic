@@ -3,13 +3,13 @@
 #include "HolderComponent.h"
 #include "Carriable.h"
 #include "Net/UnrealNetwork.h"
+#include "Engine/World.h"
+#include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_HolderComponent, Log, All);
 
 UHolderComponent::UHolderComponent()
 	: bAllowStealing(false)
-	, bShouldSwitchCollisionProfileOnPickup(false)
-	, bShouldSwitchCollisionProfileOnRelease(false)
 	, bShouldSnapToGroundOnReleaseWithoutVelocity(true)
 	, bIsCatchAllowed(true)
 {
@@ -24,12 +24,30 @@ UHolderComponent::UHolderComponent()
 void UHolderComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// A replicated USceneComponent also replicates its own scene graph, which here is a second
+	// channel fighting the attachment derived from Carriable. Every machine places the holder the
+	// same way from construction, so none of it is worth sending.
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, AttachParent);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, AttachChildren);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, AttachSocketName);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, bShouldBeAttached);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, RelativeLocation);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, RelativeRotation);
+	DISABLE_REPLICATED_PRIVATE_PROPERTY(USceneComponent, RelativeScale3D);
+
 	DOREPLIFETIME(UHolderComponent, Carriable);
+}
+
+bool UHolderComponent::HasHolderAuthority() const
+{
+	const AActor* Owner = GetOwner();
+	return Owner && Owner->HasAuthority();
 }
 
 bool UHolderComponent::TryPickup(UObject* NewCarriable)
 {
-	if (!NewCarriable || !NewCarriable->Implements<UCarriable>() || Carriable.IsValid())
+	if (!NewCarriable || !NewCarriable->Implements<UCarriable>() || GetCarriable())
 		return false;
 
 	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(NewCarriable);
@@ -47,19 +65,11 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 		}
 	}
 
-	// This must be set BEFORE AttachToComponent, because it may trigger
+	// This must be set BEFORE attaching, because attaching may trigger
 	// Sphere_OnBeginOverlap which will call TryPickup again.
-	Carriable = NewCarriable;
+	SetCarriableInternal(NewCarriable);
 
-	Primitive->SetSimulatePhysics(false);
-	bool bAttachSuccess = Primitive->AttachToComponent(this, {LocationRule, RotationRule, ScaleRule, false});
-
-	if (!bAttachSuccess)
-	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "AttachToComponent failed.");
-	}
-
-	ApplyCarriedState(NewCarriable, true);
+	AttachCarriable(NewCarriable);
 	LocallyAppliedCarriable = NewCarriable;
 
 	OnCarriableChanged.Broadcast(this);
@@ -68,21 +78,19 @@ bool UHolderComponent::TryPickup(UObject* NewCarriable)
 
 UObject* UHolderComponent::Release(FVector Velocity)
 {
-	if (!Carriable.IsValid())
+	UObject* OldCarriable = GetCarriable();
+	if (!OldCarriable)
 		return nullptr;
 
-	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(Carriable.Get());
+	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(OldCarriable);
 	if (!Primitive)
 	{
 		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
-		auto OldCarriable = Carriable.Get();
-		Carriable.Reset();
+		SetCarriableInternal(nullptr);
 		return OldCarriable;
 	}
 
-	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-
-	ApplyCarriedState(Carriable.Get(), false);
+	DetachCarriable(OldCarriable);
 	LocallyAppliedCarriable.Reset();
 
 	bool bSnapped = false;
@@ -110,8 +118,7 @@ UObject* UHolderComponent::Release(FVector Velocity)
 		Primitive->SetPhysicsLinearVelocity(Velocity, false);
 	}
 
-	auto OldCarriable = Carriable.Get();
-	Carriable.Reset();
+	SetCarriableInternal(nullptr);
 
 	// A velocity is what separates a throw from a drop, and the only distinction the Carriable
 	// itself cares about. Ejecting counts as a throw: it is one, just not a player's.
@@ -132,25 +139,15 @@ UObject* UHolderComponent::Eject()
 
 UObject* UHolderComponent::Detach()
 {
-	if (!Carriable.IsValid())
+	UObject* OldCarriable = GetCarriable();
+	if (!OldCarriable)
 		return nullptr;
-
-	UObject* OldCarriable = Carriable.Get();
-
-	if (UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(OldCarriable))
-	{
-		Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-	}
-	else
-	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "Carriable Primitive is null.");
-	}
 
 	// Restores the standalone collision profile, but leaves physics simulation off: the caller
 	// either re-attaches the Carriable right away, or is not in a world that could simulate it.
-	ApplyCarriedState(OldCarriable, false);
+	DetachCarriable(OldCarriable);
 	LocallyAppliedCarriable.Reset();
-	Carriable.Reset();
+	SetCarriableInternal(nullptr);
 
 	OnCarriableChanged.Broadcast(this);
 	return OldCarriable;
@@ -158,10 +155,10 @@ UObject* UHolderComponent::Detach()
 
 bool UHolderComponent::TransferTo(UHolderComponent* Target)
 {
-	if (!Target || Target == this || !Carriable.IsValid() || Target->GetCarriable())
+	if (!Target || Target == this || !GetCarriable() || Target->GetCarriable())
 		return false;
 
-	UObject* Moving = Carriable.Get();
+	UObject* Moving = GetCarriable();
 	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(Moving);
 	if (!Primitive)
 	{
@@ -169,9 +166,9 @@ bool UHolderComponent::TransferTo(UHolderComponent* Target)
 		return false;
 	}
 
-	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	DetachCarriable(Moving);
 	LocallyAppliedCarriable.Reset();
-	Carriable.Reset();
+	SetCarriableInternal(nullptr);
 
 	if (Target->TryPickup(Moving))
 	{
@@ -190,11 +187,27 @@ void UHolderComponent::Sphere_OnBeginOverlap(UPrimitiveComponent* OverlappedComp
 {
 	check(OverlappedComponent == this);
 
+	if (!HasHolderAuthority())
+		return;
+
 	if (bIsCatchAllowed && TryPickup(OtherActor))
 		return;
 }
 
-void UHolderComponent::ApplyCarriedState(UObject* InCarriable, bool bCarried)
+UHolderComponent* UHolderComponent::FindCarryingHolder(const UPrimitiveComponent* Primitive)
+{
+	for (USceneComponent* Parent = Primitive ? Primitive->GetAttachParent() : nullptr; Parent; Parent = Parent->GetAttachParent())
+	{
+		if (UHolderComponent* Holder = Cast<UHolderComponent>(Parent))
+		{
+			return Holder;
+		}
+	}
+
+	return nullptr;
+}
+
+void UHolderComponent::RefreshCarriedState(UObject* InCarriable)
 {
 	if (!InCarriable)
 		return;
@@ -202,54 +215,135 @@ void UHolderComponent::ApplyCarriedState(UObject* InCarriable, bool bCarried)
 	UPrimitiveComponent* Primitive = ICarriable::Execute_GetPrimitive(InCarriable);
 	if (!Primitive)
 	{
-		UE_LOGFMT(MS_HolderComponent, Warning, "ApplyCarriedState: Primitive is null.");
+		UE_LOGFMT(MS_HolderComponent, Warning, "RefreshCarriedState: Primitive is null.");
 		return;
 	}
 
-	if (bCarried)
+	// Attached or free, and nothing else decides it.
+	const UHolderComponent* Carrier = FindCarryingHolder(Primitive);
+
+	const FName Profile = Carrier
+		? ICarriable::Execute_GetCarriedCollisionProfileName(InCarriable)
+		: ICarriable::Execute_GetStandaloneCollisionProfileName(InCarriable);
+
+	if (Profile.IsNone())
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "{0} collision profile name is None on '{1}'.",
+			Carrier ? TEXT("Carried") : TEXT("Standalone"), GetNameSafe(InCarriable));
+	}
+	else
+	{
+		Primitive->SetCollisionProfileName(Profile);
+	}
+
+	// Only Release turns physics back on, once it knows the item is not going into another holder.
+	if (Carrier)
 	{
 		Primitive->SetSimulatePhysics(false);
-
-		if (bShouldSwitchCollisionProfileOnPickup)
-		{
-			FName Profile = ICarriable::Execute_GetCarriedCollisionProfileName(InCarriable);
-			if (Profile.IsNone())
-				UE_LOGFMT(MS_HolderComponent, Warning, "Carried Collision Profile Name is None.");
-			else
-				Primitive->SetCollisionProfileName(Profile);
-		}
 	}
-	else if (bShouldSwitchCollisionProfileOnRelease)
+}
+
+void UHolderComponent::AttachCarriable(UObject* InCarriable)
+{
+	UPrimitiveComponent* Primitive = InCarriable ? ICarriable::Execute_GetPrimitive(InCarriable) : nullptr;
+	if (!Primitive)
 	{
-		FName Profile = ICarriable::Execute_GetStandaloneCollisionProfileName(InCarriable);
-		if (Profile.IsNone())
-			UE_LOGFMT(MS_HolderComponent, Warning, "Standalone Collision Profile Name is None.");
-		else
-			Primitive->SetCollisionProfileName(Profile);
+		UE_LOGFMT(MS_HolderComponent, Warning, "AttachCarriable: Primitive is null.");
+		return;
+	}
+
+	// Before the attachment: a simulating body keeps driving its own transform and ignores its parent.
+	Primitive->SetSimulatePhysics(false);
+
+	if (!Primitive->AttachToComponent(this, {LocationRule, RotationRule, ScaleRule, false}))
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "AttachToComponent failed.");
+	}
+
+	RefreshCarriedState(InCarriable);
+}
+
+void UHolderComponent::DetachCarriable(UObject* InCarriable)
+{
+	UPrimitiveComponent* Primitive = InCarriable ? ICarriable::Execute_GetPrimitive(InCarriable) : nullptr;
+	if (!Primitive)
+	{
+		UE_LOGFMT(MS_HolderComponent, Warning, "DetachCarriable: Primitive is null.");
+		return;
+	}
+
+	// Something else holds it already: detaching would undo the receiving holder's attach.
+	if (Primitive->GetAttachParent() != this)
+	{
+		return;
+	}
+
+	Primitive->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+	RefreshCarriedState(InCarriable);
+}
+
+void UHolderComponent::SetCarriableInternal(UObject* InCarriable)
+{
+	if (HasHolderAuthority())
+	{
+		Carriable = InCarriable;
+		return;
+	}
+
+	// Off the authority the answer is a round trip away: act on the request now, get corrected later.
+	PredictedCarriable = InCarriable;
+	bHasPrediction = true;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(PredictionTimer, this,
+			&UHolderComponent::PredictionTimedOut, PredictionTimeoutSeconds, false);
+	}
+}
+
+void UHolderComponent::ClearPrediction()
+{
+	bHasPrediction = false;
+	PredictedCarriable.Reset();
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PredictionTimer);
+	}
+}
+
+void UHolderComponent::PredictionTimedOut()
+{
+	ClearPrediction();
+	ApplyCarriable();
+
+	OnCarriableChanged.Broadcast(this);
+}
+
+void UHolderComponent::ApplyCarriable()
+{
+	UObject* NewCarriable = GetCarriable();
+	UObject* PrevCarriable = LocallyAppliedCarriable.Get();
+
+	if (NewCarriable != PrevCarriable)
+	{
+		// The attachment is derived here rather than awaited from AttachmentReplication: that second
+		// channel can contradict Carriable, and nothing would come back to settle the disagreement.
+		if (PrevCarriable)
+			DetachCarriable(PrevCarriable);
+
+		if (NewCarriable)
+			AttachCarriable(NewCarriable);
+
+		LocallyAppliedCarriable = NewCarriable;
 	}
 }
 
 void UHolderComponent::OnRep_Carriable()
 {
-	// The replication system has already assigned Carriable by the time this runs,
-	// so TryPickup() would early-out on its Carriable.IsValid() guard. Apply the
-	// physics/collision state directly instead (the attachment itself is replicated
-	// natively via AActor::AttachmentReplication).
-	UObject* NewCarriable = Carriable.Get();
-	UObject* PrevCarriable = LocallyAppliedCarriable.Get();
-
-	if (NewCarriable != PrevCarriable)
-	{
-		// Revert the one we were carrying (restores its standalone collision
-		// profile so it can be detected/picked up again), then apply the new one.
-		if (PrevCarriable)
-			ApplyCarriedState(PrevCarriable, false);
-
-		if (NewCarriable)
-			ApplyCarriedState(NewCarriable, true);
-
-		LocallyAppliedCarriable = NewCarriable;
-	}
+	// The server has answered: right or wrong, the guess has no say any more.
+	ClearPrediction();
+	ApplyCarriable();
 
 	OnCarriableChanged.Broadcast(this);
 }

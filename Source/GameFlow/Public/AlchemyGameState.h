@@ -7,11 +7,11 @@
 #include "ItemOrder.h"
 #include "LevelResult.h"
 #include "Rounds/Round.h"
+#include "Rounds/RoundLoader.h"
 #include "Engine/TimerHandle.h"
 #include "AlchemyGameState.generated.h"
 
 class UWorldData;
-class URoundLoader;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundDelegate, const FRound&, Round);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLevelCompleteDelegate, const FLevelResult&, Result);
@@ -85,7 +85,16 @@ private:
 		
 	void SetCurrentRound(int32 Index);
 	const FRound* GetCurrentRound() const;
-	
+
+	UFUNCTION()
+	void OnRep_CurrentRound();
+
+	/** Streams the current round in and applies it locally, without starting anything. */
+	void ApplyCurrentRoundLocally();
+
+	/** Kicks off the load of Round, reporting to OnApplied once it has been applied. */
+	void StartRoundLoad(const FRound& Round, FOnRoundAppliedDelegate OnApplied);
+
 	UFUNCTION()
 	void OnCurrentRoundApplied();
 	
@@ -178,7 +187,7 @@ private:
 	FTimerHandle RoundStartWaitHandle;
 	double RoundStartWaitDeadline = 0.0;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing=OnRep_CurrentRound)
 	int32 CurrentRound = 0;
 	
 	UPROPERTY(Replicated)
