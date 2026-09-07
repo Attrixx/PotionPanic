@@ -229,13 +229,13 @@ void UActivityExecutor::ContinueExecution()
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
+		Presentation.StepClass = Steps[CurrentStepIndex].GetClass();
+        Presentation.Instigator = State.LastInstigator.Get();
+        Presentation.StartServerTime = GetServerTimeSeconds();
+        UpdatePresentation();
+		
 		bCurrentStepStarted = true;
 		Steps[CurrentStepIndex]->StartStep(State.LastInstigator.Get());
-		
-		Presentation.StepClass = Steps[CurrentStepIndex].GetClass();
-		Presentation.Instigator = State.LastInstigator.Get();
-		Presentation.StartServerTime = GetServerTimeSeconds();
-		UpdatePresentation();
 	}
 }
 

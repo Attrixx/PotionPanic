@@ -25,6 +25,9 @@ class GAMEFLOW_API AAlchemyGameState : public AGameStateBase
 {
 	GENERATED_BODY()
 
+	// Development cheats reach the round state from outside rather than widening this class's API.
+	friend struct FAlchemyGameStateCheats;
+
 	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 public:
