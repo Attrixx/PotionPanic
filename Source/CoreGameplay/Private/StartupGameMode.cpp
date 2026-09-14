@@ -21,6 +21,10 @@ void AStartupGameMode::BeginPlay()
 		TMap<FName, FVariant> SessionSettings;
 		MultiplayerSessionsSubsystem->CreateSession(SessionSettings);
 	}
+	else
+	{
+		OnCreateSession(false);
+	}
 }
 
 void AStartupGameMode::OnCreateSession(bool bWasSuccessful)
@@ -35,5 +39,10 @@ void AStartupGameMode::OnCreateSession(bool bWasSuccessful)
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Failed to create session"));
+		
+		if (UWorld* World = GetWorld())
+		{
+			World->ServerTravel(FString::Printf(TEXT("%s"), *LobbyMapURL));
+		}
 	}
 }
