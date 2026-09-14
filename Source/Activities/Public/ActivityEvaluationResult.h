@@ -8,9 +8,12 @@
 UENUM(BlueprintType)
 enum class EActivityFlowDecision : uint8
 {
-	Continue, // Start the next step, or conclude the activity with success if none remain.
-	Fail, // Skip remaining steps and instantly conclude the activity with a failure state.
-	Restart // Reset and restart the activity from the beginning without concluding.
+	// Start the next step, or conclude the activity with success if none remain.
+	Continue,
+	// Skip remaining steps and instantly conclude the activity with a failure state.
+	Fail,
+	// Reset and restart the activity from the beginning without concluding.
+	Restart
 };
 
 USTRUCT(BlueprintType)

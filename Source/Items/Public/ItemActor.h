@@ -59,9 +59,15 @@ protected: // ICarriable
 
 private:
 
-	// Release and the physics that raises NotifyHit both run on the authority alone, so the
-	// cosmetic side of a throw or a break has to be sent rather than derived on each machine.
-	UFUNCTION(NetMulticast, Unreliable)
+	/** Re-derives the carried state once the attachment lands. */
+	void OnRep_AttachmentReplication() override;
+
+	/** Plays the throw effect once, ignoring the multicast that echoes a locally played one. */
+	void PlayThrowVisual(FVector Velocity);
+
+	// Cosmetics no other machine can derive on its own. Reliable: dropping one leaves an item
+	// leaping away with no effect, and nothing comes later to make up for it.
+	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_Thrown(FVector Velocity);
 
 	UFUNCTION(NetMulticast, Reliable)
@@ -117,4 +123,9 @@ private:
 
 	/** Keeps a breakable item from firing its break effects again on every following impact. */
 	bool bBroken = false;
+
+	/** World time the throw effect last played, so a local play and its echo count as one. */
+	double LastThrowVisualTime = -1.0;
+
+	static constexpr double ThrowVisualDebounceSeconds = 0.5;
 };

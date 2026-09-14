@@ -12,6 +12,7 @@ class UItemAsset;
 class UStationAsset;
 class UHolderComponent;
 class UActivityExecutor;
+class UActivityDisplayComponent;
 class UActivityAsset;
 class UBoxComponent;
 
@@ -110,6 +111,7 @@ public:
 	void OnRep_StationAsset();
 
 	void ApplyStationAsset();
+	void AnchorItemHolderToVisual();
 
 	/** @return The item this station starts play holding, or null when it starts empty. */
 	UFUNCTION(BlueprintPure)
@@ -168,6 +170,10 @@ private:
 	/** Drives activity execution (QTEs, interactions, timed sequences) on this station. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UActivityExecutor> Executor;
+
+	/** Draws whatever the running activity step wants shown, for every player who can see it. */
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UActivityDisplayComponent> ActivityDisplay;
 
 	/** Spawns and swaps the station's visual representation (AStationVisualActor) from the StationAsset. */
 	UPROPERTY(VisibleAnywhere, Category = "Components")

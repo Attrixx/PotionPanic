@@ -35,7 +35,7 @@ protected:
 	EActivityFlowDecision FlowDecisionOnSuccess = EActivityFlowDecision::Continue;
 	
 	UPROPERTY(EditAnywhere, Category="")
-	EActivityFlowDecision FlowDecisionOnFail = EActivityFlowDecision::Continue;
+	EActivityFlowDecision FlowDecisionOnFail = EActivityFlowDecision::Fail;
 	
 	UPROPERTY(EditAnywhere, Category="")
 	EActivityFlowDecision FlowDecisionOnCriticalFail = EActivityFlowDecision::Fail;

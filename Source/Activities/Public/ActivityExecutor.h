@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ActivityExecutionState.h"
+#include "ActivityStepPresentation.h"
 #include "ActivityExecutor.generated.h"
 
 class UActivityAsset;
@@ -15,6 +16,18 @@ struct FActivityStepResult;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActivityExecutionStatusChangedDelegate, UActivityExecutor*, Executor, EActivityExecutionStatus, NewStatus);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActivityStepPresentationChangedDelegate, UActivityExecutor*, Executor);
+
+UENUM(BlueprintType, meta = (Bitflags, UseEnumValuesAsMaskValuesInEditor = "true"))
+enum class EActivityInputSlot : uint8
+{
+	None  = 0 UMETA(Hidden),
+	Up    = 1 << 0,
+	Left  = 1 << 1,
+	Down  = 1 << 2,
+	Right = 1 << 3,
+};
+
 /**
  * 
  */
@@ -22,6 +35,10 @@ UCLASS(meta=(BlueprintSpawnableComponent))
 class ACTIVITIES_API UActivityExecutor : public UActorComponent
 {
 	GENERATED_BODY()
+
+public:
+
+	UActivityExecutor();
 
 protected:
 
@@ -68,13 +85,56 @@ public:
 	UFUNCTION(BlueprintCallable)
 	EActivityExecutionStatus GetExecutionStatus() const;
 
+	/**
+	 * Forwards a captured input to the current step.
+	 * @param Instigator Actor the press came from.
+	 * @param Slot The input that was pressed.
+	 */
+	UFUNCTION(BlueprintCallable)
+	void ReceiveActivityInput(AActor* Instigator, EActivityInputSlot Slot);
+
+	UFUNCTION(BlueprintCallable)
+	double GetServerTimeSeconds() const;
+
+	template <typename T>
+		requires std::derived_from<std::remove_cvref_t<T>, FActivityStepPresentationCustomInfo>
+	void SetStepPresentationCustomInfo(T&& InInfo)
+	{
+		using FInfoType = std::remove_cvref_t<T>;
+		if (IsAuthority())
+		{
+			if (Presentation.CustomInfo.GetScriptStruct() == FInfoType::StaticStruct())
+				Presentation.CustomInfo.GetMutable<FInfoType>() = Forward<T>(InInfo);
+			else
+				Presentation.CustomInfo.InitializeAs<FInfoType>(Forward<T>(InInfo));
+			UpdatePresentation();
+		}
+	}
+
+	/** Takes the current presentation down. Authority only. */
+	void ClearStepPresentation();
+
 	/** Context of the last started activity: holder, item, instigator, status and score. */
 	const FActivityExecutionState& GetExecutionState() const { return State; }
+
+	/** What the running step wants displayed. StepClass is null when there is nothing to draw. */
+	UFUNCTION(BlueprintPure)
+	const FActivityStepPresentation& GetStepPresentation() const { return Presentation; }
 
 	UPROPERTY(BlueprintAssignable)
 	FActivityExecutionStatusChangedDelegate OnExecutionStatusChanged;
 
+	/** Fires on every side whenever GetStepPresentation() changes, authority included. */
+	UPROPERTY(BlueprintAssignable)
+	FActivityStepPresentationChangedDelegate OnStepPresentationChanged;
+
 private:
+
+	/**
+	 * @return True where the activity actually runs. Everywhere else this component is a replicated
+	 *         view: State and Presentation are filled by the network, and Steps is empty.
+	 */
+	bool IsAuthority() const;
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);
@@ -93,10 +153,18 @@ private:
 	UFUNCTION()
 	void OnRep_State(const FActivityExecutionState& OldState);
 
+	void UpdatePresentation();
+
+	UFUNCTION()
+	void OnRep_Presentation();
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_State)
 	FActivityExecutionState State;
+
+	UPROPERTY(ReplicatedUsing=OnRep_Presentation)
+	FActivityStepPresentation Presentation;
 
 	UPROPERTY()
 	TArray<TObjectPtr<UActivityStep>> Steps;

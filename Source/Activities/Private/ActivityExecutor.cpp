@@ -10,12 +10,21 @@
 #include "ActivityStepSettings.h"
 #include <Net/UnrealNetwork.h>
 
+#include "GameFramework/GameStateBase.h"
+
 DEFINE_LOG_CATEGORY_STATIC(MS_ActivityExecutor, Log, All);
+
+UActivityExecutor::UActivityExecutor()
+{
+	PrimaryComponentTick.bCanEverTick = false;
+	SetIsReplicatedByDefault(true);
+}
 
 void UActivityExecutor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UActivityExecutor, State);
+	DOREPLIFETIME(UActivityExecutor, Presentation);
 }
 
 void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -27,6 +36,11 @@ void UActivityExecutor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	Super::EndPlay(EndPlayReason);
+}
+
+bool UActivityExecutor::IsAuthority() const
+{
+	return GetOwner() && GetOwner()->HasAuthority();
 }
 
 void UActivityExecutor::Initialize(UHolderComponent* Holder)
@@ -49,6 +63,9 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 
 void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator)
 {
+	if (!IsAuthority())
+		return;
+
 	if (!State.Holder.IsValid())
 	{
 		UE_LOGFMT(MS_ActivityExecutor, Error, "Cannot StartActivity. Holder is not initialized.");
@@ -118,7 +135,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 
 void UActivityExecutor::Interact(AActor* Instigator)
 {
-	if (State.Status == EActivityExecutionStatus::Ongoing)
+	if (IsAuthority() && State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		RefreshInstigator(Instigator);
 
@@ -129,7 +146,7 @@ void UActivityExecutor::Interact(AActor* Instigator)
 
 void UActivityExecutor::Cancel()
 {
-	if (State.Status == EActivityExecutionStatus::Ongoing)
+	if (IsAuthority() && State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
 		if (bCurrentStepStarted)
@@ -145,19 +162,47 @@ EActivityExecutionStatus UActivityExecutor::GetExecutionStatus() const
 	return State.Status;
 }
 
+void UActivityExecutor::ReceiveActivityInput(AActor* Instigator, EActivityInputSlot Slot)
+{
+	if (!IsAuthority())
+		return;
+
+	if (State.Status != EActivityExecutionStatus::Ongoing)
+	{
+		// The step that captured this actor is already over: its last presses are still in flight.
+		UE_LOGFMT(MS_ActivityExecutor, Verbose, "Activity input from '{0}' ignored, nothing is running.",
+			GetNameSafe(Instigator));
+		return;
+	}
+
+	check(CurrentStepIndex < Steps.Num());
+	Steps[CurrentStepIndex]->OnActivityInput(Instigator, Slot);
+}
+
+double UActivityExecutor::GetServerTimeSeconds() const
+{
+	const UWorld* World = GetOuter() ? GetOuter()->GetWorld() : nullptr;
+	const AGameStateBase* GameState = World ? World->GetGameState() : nullptr;
+	return GameState ? GameState->GetServerWorldTimeSeconds() : 0.0;
+}
+
+void UActivityExecutor::ClearStepPresentation()
+{
+	if (IsAuthority() && Presentation.StepClass)
+	{
+		Presentation.StepClass = nullptr;
+		UpdatePresentation();
+	}
+}
+
 void UActivityExecutor::RefreshInstigator(AActor* Instigator)
 {
 	if (Instigator && Instigator != State.LastInstigator.Get())
 	{
-		// A second player taking the activity over: what the item's origin says about where it
-		// should go back is no longer about whoever is standing here now. IsExplicitlyNull, not
-		// IsValid: an instigator that was destroyed since still counts as one we had.
 		State.bInstigatorChanged |= !State.LastInstigator.IsExplicitlyNull();
 		State.LastInstigator = Instigator;
 	}
 
-	// Re-read even when the instigator did not change: it may have handed over, thrown or used up
-	// what it was carrying since the last interact.
 	AActor* Current = State.LastInstigator.Get();
 	UHolderComponent* Holder = Current ? Current->FindComponentByClass<UHolderComponent>() : nullptr;
 
@@ -168,6 +213,9 @@ void UActivityExecutor::RefreshInstigator(AActor* Instigator)
 void UActivityExecutor::Holder_OnCarriableChanged(UHolderComponent* Holder)
 {
 	check(Holder && Holder == State.Holder);
+
+	if (!IsAuthority())
+		return;
 
 	if (Holder->GetCarriable() != State.Item)
 	{
@@ -181,6 +229,11 @@ void UActivityExecutor::ContinueExecution()
 	if (State.Status == EActivityExecutionStatus::Ongoing)
 	{
 		check(CurrentStepIndex < Steps.Num());
+		Presentation.StepClass = Steps[CurrentStepIndex].GetClass();
+        Presentation.Instigator = State.LastInstigator.Get();
+        Presentation.StartServerTime = GetServerTimeSeconds();
+        UpdatePresentation();
+		
 		bCurrentStepStarted = true;
 		Steps[CurrentStepIndex]->StartStep(State.LastInstigator.Get());
 	}
@@ -237,12 +290,17 @@ void UActivityExecutor::Conclude(EActivityExecutionStatus Status)
 		GetNameSafe(Conclusion));
 
 	State.Status = Status;
+	ClearStepPresentation();
 	Conclusion->Conclude(State);
 	OnExecutionStatusChanged.Broadcast(this, Status);
 }
 
 void UActivityExecutor::Reset(EActivityExecutionStatus Status)
 {
+	// Steps take their own presentation down when they end, but not when they are cancelled from
+	// under them, and a widget left on screen outlives everything it was describing.
+	ClearStepPresentation();
+
 	State.Status = Status;
 	State.Score = 0;
 	CurrentStepIndex = 0;
@@ -256,4 +314,15 @@ void UActivityExecutor::OnRep_State(const FActivityExecutionState& OldState)
 	{
 		OnExecutionStatusChanged.Broadcast(this, State.Status);
 	}
+}
+
+void UActivityExecutor::UpdatePresentation()
+{
+	++Presentation.Revision;
+	OnStepPresentationChanged.Broadcast(this);
+}
+
+void UActivityExecutor::OnRep_Presentation()
+{
+	OnStepPresentationChanged.Broadcast(this);
 }

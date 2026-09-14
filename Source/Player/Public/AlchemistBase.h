@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -6,28 +6,27 @@
 #include "GameFramework/Character.h"
 #include <PhysicsEngine/PhysicalAnimationComponent.h>
 #include "AlchemistCustomizationAsset.h"
-#include "Core/QTESourceProvider.h"
-#include "Widgets/QTEActivityDisplay.h"
+#include "ActivityInputCapture.h"
 #include "AlchemistBase.generated.h"
 
+enum class EActivityInputSlot : uint8;
 class UHolderComponent;
 class URangeComponent;
 class UPhysicalAnimationComponent;
 class UInputMappingContext;
 class UInputAction;
+class ULocalPlayer;
 class UInteractableActorFilter;
 class UCarriableActorFilter;
 class UFreeHolderActorFilter;
-class UQTEComponent;
-class UQTEWidgetBase;
-class UQTEDisplayComponent;
+class UActivityExecutor;
 class USoundBase;
 class UNetworkSoundComponent;
 struct FInputActionValue;
 
 
 UCLASS(Abstract)
-class PLAYER_API AAlchemistBase : public ACharacter, public IQTESourceProvider, public IQTEActivityDisplay
+class PLAYER_API AAlchemistBase : public ACharacter, public IActivityInputCapture
 {
 	GENERATED_BODY()
 
@@ -55,6 +54,7 @@ public:
 
 protected:
 
+	void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	void OnConstruction(const FTransform& Transform) override;
 	void BeginPlay() override;
 	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -107,12 +107,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
 	FPhysicalAnimationData PhysicalAnimationData;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UQTEComponent> QTEComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
-	TObjectPtr<UQTEDisplayComponent> QTEDisplayComponent;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UNetworkSoundComponent> NetworkSoundComponent;
 
@@ -133,6 +127,24 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UInputAction> ThrowAction;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputMappingContext> ComboMappingContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> SlotUpAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> SlotLeftAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> SlotDownAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> SlotRightAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	TObjectPtr<UInputAction> CancelAction;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Gameplay")
 	float ThrowForce;
@@ -157,34 +169,58 @@ protected:
 
 public:
 
-	UFUNCTION(BlueprintPure, Category = "QTE")
-	UQTEComponent* GetQTEComponent() const { return QTEComponent; }
-
-	UFUNCTION(BlueprintPure, Category = "QTE")
-	UQTEDisplayComponent* GetQTEDisplayComponent() const { return QTEDisplayComponent; }
-
-	// IQTESourceProvider
-	UObject* GetQTESourceObject_Implementation() const override;
-
-	// IQTEActivityDisplay
-	void ShowQTEActivityStep_Implementation(UQTEComponent* InQTEComponent, TSubclassOf<UQTEWidgetBase> InWidgetClass) override;
-	void HideQTEActivityStep_Implementation() override;
+	// IActivityInputCapture
+	void BeginActivityInputCapture_Implementation(UActivityExecutor* Executor) override;
+	void EndActivityInputCapture_Implementation() override;
 
 private:
 
 	void SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue = 9);
-	bool ShouldBlockGameplayInput() const;
 
+	/** Plays Sound on this machine and relays it to the others, crediting this pawn as instigator. */
 	int32 PlayNetworkedSound(USoundBase* Sound);
 
+	/**
+	 * Turns a pickup candidate into the Carriable it stands for: itself when it is one, otherwise
+	 * whatever the holder it hangs off is offering.
+	 * @return The Carriable, or null when there is nothing to take.
+	 */
+	static UObject* ResolveCarriable(AActor* Candidate);
+
+	/** @return The local player this pawn's input runs on. Null where the pawn is not played. */
+	ULocalPlayer* GetInputLocalPlayer() const;
+
+	/**
+	 * Applies or lifts one mapping context, remapped through the keybind subsystem so a key the
+	 * player rebound still reaches the same action.
+	 * @param LocalPlayer Whose input stack to change. Nothing happens when null.
+	 * @param Context The context to apply or lift. Nothing happens when null.
+	 * @param bActive True to apply it, false to lift it.
+	 * @param Priority Priority to apply it at. Ignored when lifting.
+	 */
+	static void SetMappingContextActive(ULocalPlayer* LocalPlayer, UInputMappingContext* Context, bool bActive, int32 Priority);
+
+	/** Takes the capture flag over on the authority and runs the local half of it there too. */
+	void SetActivityInputCaptured(bool bCaptured);
+
+	/** Pushes or pops the combo mapping context. Does nothing where this pawn is not played. */
+	UFUNCTION()
+	void OnRep_ActivityInputCaptured();
+
 private: // Input
-	
+
 	void Input_Move(const FInputActionValue& Value);
 	void Input_Dash();
-	
+
 	void Input_Interact();
 	void Input_PickupOrDrop();
 	void Input_Throw();
+
+	void Input_ActivityUp();
+	void Input_ActivityLeft();
+	void Input_ActivityDown();
+	void Input_ActivityRight();
+	void Input_ActivityCancel();
 
 	UFUNCTION(Server, Reliable)
 	void Server_Interact(AActor* Interactable);
@@ -199,4 +235,19 @@ private: // Input
 
 	UFUNCTION(Server, Reliable)
 	void Server_Throw(FVector Direction);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_ActivityInput(EActivityInputSlot Slot);
+
+	UFUNCTION(Server, Reliable)
+	void Server_ActivityCancel();
+
+private: // Activity input capture
+
+	/** Executor whose step took our inputs. Authority side only. */
+	TWeakObjectPtr<UActivityExecutor> CapturingExecutor;
+
+	/** True while a step owns this pawn's inputs. Owner only. */
+	UPROPERTY(ReplicatedUsing = OnRep_ActivityInputCaptured)
+	bool bActivityInputCaptured = false;
 };

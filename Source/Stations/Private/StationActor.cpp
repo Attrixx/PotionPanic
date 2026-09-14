@@ -1,6 +1,7 @@
 #include "StationActor.h"
 #include "ActivityAsset.h"
 #include "ActivityExecutor.h"
+#include "Components/ActivityDisplayComponent.h"
 #include "HolderComponent.h"
 #include "ItemActor.h"
 #include "ItemTags.h"
@@ -18,6 +19,7 @@ DEFINE_LOG_CATEGORY_STATIC(MS_StationActor, Verbose, All);
 AStationActor::AStationActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 
@@ -30,6 +32,9 @@ AStationActor::AStationActor()
 	ItemHolder->SetupAttachment(RootComponent);
 
 	Executor = CreateDefaultSubobject<UActivityExecutor>(TEXT("Activity Executor"));
+
+	ActivityDisplay = CreateDefaultSubobject<UActivityDisplayComponent>(TEXT("Activity Display"));
+	ActivityDisplay->SetupAttachment(RootComponent);
 
 	VisualActor = CreateDefaultSubobject<UChildActorComponent>(TEXT("Visual Actor"));
 	VisualActor->SetupAttachment(RootComponent);
@@ -54,6 +59,8 @@ void AStationActor::OnConstruction(const FTransform& Transform)
 void AStationActor::BeginPlay()
 {
 	Super::BeginPlay();
+
+	AnchorItemHolderToVisual();
 
 	Executor->Initialize(ItemHolder);
 	ItemHolder->OnCarriableChanged.AddDynamic(this, &AStationActor::Holder_OnCarriableChanged);
@@ -308,7 +315,7 @@ void AStationActor::Executor_OnExecutionStatusChanged(UActivityExecutor* InExecu
 		}
 		break;
 	}
-	
+
 	if (NewStatus == EActivityExecutionStatus::Ongoing || !HasAuthority())
 	{
 		return;
@@ -374,6 +381,22 @@ void AStationActor::DropItemRefusedByAsset()
 }
 
 // This method MUST be callable in Editor, don't call gameplay stuff in here!!
+void AStationActor::AnchorItemHolderToVisual()
+{
+	AStationVisualActor* Visual = Cast<AStationVisualActor>(VisualActor->GetChildActor());
+	if (!Visual) return;
+	Visual->SetStationActor(this);
+
+	FName SocketName = NAME_None;
+	if (USceneComponent* Anchor = Visual->GetItemAnchor(SocketName))
+	{
+		const FTransform AnchorTransform = Anchor->GetSocketTransform(SocketName);
+		ItemHolder->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+		ItemHolder->SetWorldLocationAndRotation(AnchorTransform.GetLocation(), AnchorTransform.GetRotation());
+		ItemHolder->SetRelativeScale3D(FVector::OneVector);
+	}
+}
+
 void AStationActor::ApplyStationAsset()
 {
 	// Catching is its own axis: a bin or a delivery counter is no storage spot, yet it has to be
@@ -389,15 +412,11 @@ void AStationActor::ApplyStationAsset()
 	}
 
 	TSubclassOf<AStationVisualActor> VisualClass = StationAsset ? StationAsset->VisualActorClass : nullptr;
-
 	if (VisualActor->GetChildActorClass() != VisualClass)
 	{
-		ItemHolder->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 		VisualActor->SetChildActorClass(VisualClass);
 	}
 
-	// A station with no asset keeps whatever the class defaults hold, rather than collapsing to a
-	// zero-sized box nothing can touch.
 	if (StationAsset)
 	{
 		const FVector BodyExtent = StationAsset->BodyExtent;
@@ -405,20 +424,5 @@ void AStationActor::ApplyStationAsset()
 		Body->SetRelativeLocation(FVector(0.f, 0.f, BodyExtent.Z));
 	}
 
-	if (AStationVisualActor* Visual = Cast<AStationVisualActor>(VisualActor->GetChildActor()))
-	{
-		Visual->SetStationActor(this);
-
-		FName SocketName = NAME_None;
-		USceneComponent* Anchor = Visual->GetItemAnchor(SocketName);
-
-		if (ItemHolder->GetAttachParent() != Anchor || ItemHolder->GetAttachSocketName() != SocketName)
-		{
-			// IncludingScale, not NotIncludingScale: the latter is KeepWorld on scale, which preserves
-			// whatever scale the holder currently has. Construction script instance data restores
-			// that value, so a visual that was once scaled leaves the holder permanently resized --
-			// and the holder's scale is its overlap radius. SnapToTarget resets it to 1 every time.
-			ItemHolder->AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetIncludingScale, SocketName);
-		}
-	}
+	AnchorItemHolderToVisual();
 }

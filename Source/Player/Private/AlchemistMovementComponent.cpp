@@ -79,6 +79,7 @@ void UAlchemistMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePro
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ThisClass, bIsDashEnabled);
+	DOREPLIFETIME(ThisClass, LastDashTime);
 }
 
 void UAlchemistMovementComponent::Dash()

@@ -15,8 +15,9 @@ public class Player : ModuleRules
 			"CoreGameplay",
 			"UMG",
 
-			"CoreGameplay",
-			"QTE"
+			// Public: AlchemistBase implements IActivityInputCapture in its own header.
+			"Activities",
+			"DeveloperSettings"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]

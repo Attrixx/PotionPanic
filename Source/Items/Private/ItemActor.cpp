@@ -4,11 +4,20 @@
 #include "ItemAsset.h"
 #include "ItemTags.h"
 #include "ItemVisualActor.h"
+#include "HolderComponent.h"
 #include <Net/UnrealNetwork.h>
 #include <Components/CapsuleComponent.h>
 #include <Components/ChildActorComponent.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ItemActor, Log, All);
+
+void AItemActor::OnRep_AttachmentReplication()
+{
+	Super::OnRep_AttachmentReplication();
+
+	// The attachment and the holder's Carriable arrive in no order: let the last one decide.
+	UHolderComponent::RefreshCarriedState(this);
+}
 
 AItemActor::AItemActor()
 {
@@ -127,22 +136,33 @@ bool AItemActor::CanBeThrown_Implementation() const
 
 void AItemActor::OnThrow_Implementation(FVector Velocity)
 {
+	// On the machine that threw it, so the effect lands on the input rather than a round trip later.
+	PlayThrowVisual(Velocity);
+
 	if (HasAuthority())
 	{
-		// Runs here too: a multicast sent from the authority executes locally as well.
+		// Reaches everyone else. It runs here too, debounced by the call above.
 		Multicast_Thrown(Velocity);
-		return;
-	}
-
-	// Called locally on a client, by Blueprint: play it where we are, nothing to send.
-	if (AItemVisualActor* Visual = GetVisual())
-	{
-		Visual->OnItemThrown(Velocity);
 	}
 }
 
 void AItemActor::Multicast_Thrown_Implementation(FVector Velocity)
 {
+	PlayThrowVisual(Velocity);
+}
+
+void AItemActor::PlayThrowVisual(FVector Velocity)
+{
+	// Only time tells a multicast echoing a local throw from a genuinely new one.
+	const UWorld* World = GetWorld();
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	if (Now - LastThrowVisualTime < ThrowVisualDebounceSeconds)
+	{
+		return;
+	}
+
+	LastThrowVisualTime = Now;
+
 	if (AItemVisualActor* Visual = GetVisual())
 	{
 		Visual->OnItemThrown(Velocity);

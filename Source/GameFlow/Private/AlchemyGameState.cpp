@@ -200,7 +200,10 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	WorldData = NewWorldData;
 
 	if (!HasAuthority())
+	{
+		ApplyCurrentRoundLocally();
 		return;
+	}
 
 	// This world is the level: its first round starts a fresh run, so the tally starts over too.
 	Score = 0;
@@ -232,7 +235,36 @@ void AAlchemyGameState::SetCurrentRound(int32 Index)
 	CurrentRound = Index;
 	FOnRoundAppliedDelegate OnRoundApplied;
 	OnRoundApplied.BindDynamic(this, &ThisClass::OnCurrentRoundApplied);
-	RoundLoader = URoundLoader::LoadAndApplyRound(this, *Round, OnRoundApplied);
+	StartRoundLoad(*Round, OnRoundApplied);
+}
+
+void AAlchemyGameState::OnRep_CurrentRound()
+{
+	ApplyCurrentRoundLocally();
+}
+
+void AAlchemyGameState::ApplyCurrentRoundLocally()
+{
+	if (!WorldData)
+	{
+		// Wait for the world data to load.
+		return;
+	}
+
+	const FRound* Round = WorldData->GetRoundAt(CurrentRound);
+	if (!Round)
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Error, "No round at index {0} to apply locally.", CurrentRound);
+		return;
+	}
+
+	CancelPendingRoundStart();
+	StartRoundLoad(*Round, FOnRoundAppliedDelegate());
+}
+
+void AAlchemyGameState::StartRoundLoad(const FRound& Round, FOnRoundAppliedDelegate OnApplied)
+{
+	RoundLoader = URoundLoader::LoadAndApplyRound(this, Round, OnApplied);
 
 	// A round with nothing left to stream is applied from inside the call above.
 	if (RoundLoader && !RoundLoader->IsPending())
@@ -478,14 +510,13 @@ void AAlchemyGameState::CancelOngoingStationActivities()
 		return;
 	}
 
-	// An activity left running past the round is not just untidy: while its QTE step is alive,
-	// AAlchemistBase::ShouldBlockGameplayInput() reads UQTEComponent::IsQTERunning() and gates
-	// every gameplay input, so the player stays frozen through the whole transition while the
-	// station's looping sound carries over into the end-of-round screen.
+	// An activity left running past the round is not just untidy: a step that captures the player's
+	// inputs keeps them frozen through the whole transition, and the station's looping sound carries
+	// over into the end-of-round screen.
 	//
 	// Cancelling from the authority propagates on its own: the executor cancels its current step,
-	// which cancels the authority QTE, which tells the owning client to drop its mirror. Executors
-	// that are not running ignore the call.
+	// which releases whatever that step had taken over on the owning client. Executors that are not
+	// running ignore the call.
 	for (TActorIterator<AStationActor> It(GetWorld()); It; ++It)
 	{
 		if (UActivityExecutor* Executor = It->GetActivityExecutor())
