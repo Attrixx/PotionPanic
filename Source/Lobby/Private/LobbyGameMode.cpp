@@ -95,7 +95,7 @@ void ALobbyGameMode::SpawnLobbyCharacter(APlayerController* NewPlayer)
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	int32 NumberOfPlayers = GetNumPlayers();
-	if (CachedSpawnPoints.Num() >= NumberOfPlayers)
+	if ( NumberOfPlayers > 0 && CachedSpawnPoints.Num() >= NumberOfPlayers)
 	{
 		AActor* ChosenPoint = CachedSpawnPoints[NumberOfPlayers - 1];
 		AAlchemistBase* NewPreview = GetWorld()->SpawnActor<AAlchemistBase>(
