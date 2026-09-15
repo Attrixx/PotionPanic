@@ -20,6 +20,7 @@ AStationActor::AStationActor()
 {
 	PrimaryActorTick.bCanEverTick = false;
 	bReplicates = true;
+	SetReplicateMovement(false); // Stations are static furniture; only their asset/holder/executor state replicates.
 
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 

@@ -49,6 +49,9 @@ AAlchemistBase::AAlchemistBase(const FObjectInitializer& ObjectInitializer)
 	FreeHolderFilter = CreateDefaultSubobject<UFreeHolderActorFilter>(TEXT("Free Holder Filter"));
 	FreeHolderFilter->Ignored = this;
 
+	InteractableHighlightFilter = CreateDefaultSubobject<UInterfaceActorFilter>(TEXT("Interactable Highlight Filter"));
+	InteractableHighlightFilter->Interface = UInteractable::StaticClass();
+
 	PhysicalAnimationComponent = CreateDefaultSubobject<UPhysicalAnimationComponent>(TEXT("Physical Animation Component"));
 	PhysicalAnimationComponent->StrengthMultiplyer = 5.f;
 
@@ -140,8 +143,6 @@ void AAlchemistBase::BeginPlay()
 		GetMesh()->SetAllBodiesBelowSimulatePhysics(RagdollRootBoneName, true, false);
 	}
 
-	// TODO: Register SetActorCustomDepthEnabled on RangeComponent
-
 #if WITH_EDITORONLY_DATA
 	if (bDebugTrackActorFilters)
 	{
@@ -154,6 +155,8 @@ void AAlchemistBase::BeginPlay()
 
 void AAlchemistBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	SetInteractionHighlightEnabled(false);
+
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -202,6 +205,9 @@ void AAlchemistBase::SetMappingContextActive(ULocalPlayer* LocalPlayer, UInputMa
 	{
 		Subsystem->RemoveMappingContext(Context);
 	}
+
+	// The interaction outline is local-only: keep it running solely while we control this pawn locally.
+	SetInteractionHighlightEnabled(IsLocallyControlled());
 }
 
 void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -226,6 +232,54 @@ void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 	EIC->BindAction(SlotLeftAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityLeft);
 	EIC->BindAction(SlotDownAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityDown);
 	EIC->BindAction(SlotRightAction, ETriggerEvent::Started, this, &AAlchemistBase::Input_ActivityRight);
+}
+
+void AAlchemistBase::SetInteractionHighlightEnabled(bool bEnabled)
+{
+	if (bEnabled == bInteractionHighlightActive)
+	{
+		return;
+	}
+	bInteractionHighlightActive = bEnabled;
+
+	if (bEnabled)
+	{
+		RangeComponent->TrackFilter(InteractableHighlightFilter);
+		RangeComponent->TrackFilter(CarriableFilter);
+		RangeComponent->OnBestMatchingActorChanged.AddUniqueDynamic(this, &AAlchemistBase::HandleHighlightTargetChanged);
+
+		// TrackFilter does not broadcast, so sync the initial outline once.
+		HandleHighlightTargetChanged(nullptr, nullptr, nullptr);
+	}
+	else
+	{
+		RangeComponent->OnBestMatchingActorChanged.RemoveDynamic(this, &AAlchemistBase::HandleHighlightTargetChanged);
+		RangeComponent->UntrackFilter(InteractableHighlightFilter);
+		RangeComponent->UntrackFilter(CarriableFilter);
+
+		SetActorCustomDepthEnabled(HighlightedActor.Get(), false);
+		HighlightedActor = nullptr;
+	}
+}
+
+void AAlchemistBase::HandleHighlightTargetChanged(UActorFilter* Filter, AActor* NewBest, AActor* PreviousBest)
+{
+	// Interactable takes priority; fall back to the best carriable when there is none in range.
+	AActor* Desired = RangeComponent->GetBestMatchingActor(InteractableHighlightFilter);
+	if (!Desired)
+	{
+		Desired = RangeComponent->GetBestMatchingActor(CarriableFilter);
+	}
+
+	AActor* Current = HighlightedActor.Get();
+	if (Desired == Current)
+	{
+		return;
+	}
+
+	SetActorCustomDepthEnabled(Current, false);
+	SetActorCustomDepthEnabled(Desired, true);
+	HighlightedActor = Desired;
 }
 
 void AAlchemistBase::SetActorCustomDepthEnabled(AActor* TargetActor, bool bEnabled, int32 StencilValue)
@@ -365,8 +419,8 @@ void AAlchemistBase::Input_Dash()
 
 void AAlchemistBase::Input_Interact()
 {
-	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
-		Server_Interact(Interactable);
+	if (RangeComponent->FindBestMatchingActor(InteractableFilter))
+		Server_Interact();
 }
 
 void AAlchemistBase::Input_PickupOrDrop()
@@ -419,14 +473,16 @@ void AAlchemistBase::Input_ActivityDown() { Server_ActivityInput(EActivityInputS
 void AAlchemistBase::Input_ActivityRight() { Server_ActivityInput(EActivityInputSlot::Right); }
 void AAlchemistBase::Input_ActivityCancel() { Server_ActivityCancel(); }
 
-void AAlchemistBase::Server_Interact_Implementation(AActor* Interactable)
+void AAlchemistBase::Server_Interact_Implementation()
 {
 	if (bActivityInputCaptured)
 	{
 		return;
 	}
 
-	if (Interactable && Interactable->Implements<UInteractable>() && RangeComponent->IsActorInRange(Interactable))
+	// FindBestMatchingActor already filters on IInteractable + CanInteract and only returns
+	// actors currently in range, so no further validation is needed here.
+	if (AActor* Interactable = RangeComponent->FindBestMatchingActor(InteractableFilter))
 	{
 		IInteractable::Execute_Interact(Interactable, this);
 	}

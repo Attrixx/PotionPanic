@@ -12,15 +12,38 @@ void UAudioSettingsWidget::NativeOnInitialized()
 	bIsBackHandler = false;
 }
 
+static float ReadSoundClassVolume(const USoundClass* SoundClass, float Fallback)
+{
+	return SoundClass ? SoundClass->Properties.Volume : Fallback;
+}
+
 void UAudioSettingsWidget::LoadCurrentSettings()
 {
 	UPotionPanicUserSettings* Settings = UPotionPanicUserSettings::GetPotionPanicUserSettings();
 	if (!Settings) return;
 
-	Master  = Settings->MasterVolume;
-	Music   = Settings->MusicVolume;
-	Effects = Settings->SFXVolume;
-	bDirty  = false;
+	if (!Settings->bAudioDefaultsInitialized)
+	{
+		Master  = ReadSoundClassVolume(MasterSoundClass,  Settings->MasterVolume);
+		Music   = ReadSoundClassVolume(MusicSoundClass,   Settings->MusicVolume);
+		Effects = ReadSoundClassVolume(EffectsSoundClass, Settings->SFXVolume);
+
+		Settings->MasterVolume = Master;
+		Settings->MusicVolume  = Music;
+		Settings->SFXVolume    = Effects;
+		Settings->bAudioDefaultsInitialized = true;
+		Settings->SaveSettings();
+
+		Apply();
+	}
+	else
+	{
+		Master  = Settings->MasterVolume;
+		Music   = Settings->MusicVolume;
+		Effects = Settings->SFXVolume;
+	}
+
+	bDirty = false;
 }
 
 void UAudioSettingsWidget::ApplyIfDirty()
