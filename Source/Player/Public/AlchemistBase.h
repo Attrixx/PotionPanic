@@ -9,6 +9,7 @@
 #include "ActivityInputCapture.h"
 #include "AlchemistBase.generated.h"
 
+class UInterfaceActorFilter;
 enum class EActivityInputSlot : uint8;
 class UHolderComponent;
 class URangeComponent;

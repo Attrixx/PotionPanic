@@ -19,6 +19,7 @@
 #include <InputMappingContext.h>
 #include <Net/UnrealNetwork.h>
 #include "PotionPanicKeybindSubsystem.h"
+#include "ActorFilters/InterfaceActorFilter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_AlchemistBase, Log, All);
 
@@ -176,6 +177,9 @@ void AAlchemistBase::NotifyControllerChanged()
 
 	// Repossess in the middle of a step should not allow movement
 	OnRep_ActivityInputCaptured();
+	
+	// The interaction outline is local-only: keep it running solely while we control this pawn locally.
+	SetInteractionHighlightEnabled(IsLocallyControlled());
 }
 
 ULocalPlayer* AAlchemistBase::GetInputLocalPlayer() const
@@ -205,9 +209,6 @@ void AAlchemistBase::SetMappingContextActive(ULocalPlayer* LocalPlayer, UInputMa
 	{
 		Subsystem->RemoveMappingContext(Context);
 	}
-
-	// The interaction outline is local-only: keep it running solely while we control this pawn locally.
-	SetInteractionHighlightEnabled(IsLocallyControlled());
 }
 
 void AAlchemistBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
