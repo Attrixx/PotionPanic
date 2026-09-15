@@ -20,8 +20,9 @@ UENUM(BlueprintType)
 enum class EActivityHolderTarget : uint8
 {
 	/**
-	 * Puts the item back where it was taken from: InstigatorFirst when the activity started by
-	 * taking it out of the instigator's hands, StationFirst when it was already on the station.
+	 * The holder of the item StationItemTags matched: InstigatorFirst when the activity started by
+	 * taking it out of the instigator's hands, or when a Swappable activity found it there;
+	 * StationFirst when it was already on the station.
 	 */
 	Origin = 0,
 
@@ -36,6 +37,12 @@ enum class EActivityHolderTarget : uint8
 
 	/** The instigator's holder, then the station's. */
 	InstigatorFirst,
+
+	/**
+	 * The inverse of Origin: StationFirst when Origin resolves to InstigatorFirst, and the other way
+	 * around. With a Swappable activity, this is the holder of the item InstigatorItemTags matched.
+	 */
+	NotOrigin,
 };
 
 /**
@@ -44,7 +51,7 @@ enum class EActivityHolderTarget : uint8
  * it; it holds raw pointers and is only meant to live for the duration of that call.
  *
  * Two rules are applied while ordering, both driven by the execution state rather than by the
- * authored target: Origin resolves against where the item came from, and any target that names the
+ * authored target: Origin and NotOrigin resolve against where the item came from, and any target that names the
  * instigator degrades to StationFirst once a different instigator has taken the activity over.
  */
 struct ACTIVITIES_API FActivityTargetHolders

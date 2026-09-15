@@ -23,6 +23,13 @@ enum class EActivityTakeFromInstigator : uint8
 	 * as what it became.
 	 */
 	TakeAndReturn,
+
+	/**
+	 * Nothing moves, but the two items may sit either way around: the item StationItemTags describes
+	 * can be in the instigator's hands while the one InstigatorItemTags describes is on the station.
+	 * Conclusions tell the two apart with the Origin / NotOrigin targets.
+	 */
+	Swappable,
 };
 
 class UActivityStepSettings;
@@ -67,8 +74,9 @@ public:
 
 	/**
 	 * Whether the activity may start by taking the instigator's item onto the station's holder, and
-	 * whether it hands it back at the end. Anything but Never is mutually exclusive with
+	 * whether it hands it back at the end. Take and TakeAndReturn are mutually exclusive with
 	 * InstigatorItemTags: a taken item is matched against StationItemTags, not the instigator's.
+	 * Swappable is the opposite: it needs both containers to describe an actual item.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	EActivityTakeFromInstigator TakeFromInstigator = EActivityTakeFromInstigator::Take;

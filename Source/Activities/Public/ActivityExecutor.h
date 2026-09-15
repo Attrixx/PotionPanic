@@ -62,9 +62,12 @@ public:
 	 * @param Instigator The optional actor that initiated the activity.
 	 * @param bItemTakenFromInstigator Whether the item on the holder was taken out of the
 	 *        instigator's hands to start this activity, rather than already sitting there.
+	 * @param bItemRolesSwapped Whether a Swappable activity matched with the station's and the
+	 *        instigator's items the other way around.
 	 */
 	UFUNCTION(BlueprintCallable)
-	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr, bool bItemTakenFromInstigator = false);
+	void StartActivity(UActivityAsset* Activity, AActor* Instigator = nullptr, bool bItemTakenFromInstigator = false,
+	                   bool bItemRolesSwapped = false);
 
 	/**
 	 * Forwards an interaction event to the currently executing activity step.

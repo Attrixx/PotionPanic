@@ -25,12 +25,28 @@ EDataValidationResult UActivityAsset::IsDataValid(FDataValidationContext& Contex
 		Result = EDataValidationResult::Invalid;
 	}
 
-	if (TakeFromInstigator != EActivityTakeFromInstigator::Never && !InstigatorItemTags.IsEmpty())
+	const bool bTakesItem = TakeFromInstigator == EActivityTakeFromInstigator::Take
+		|| TakeFromInstigator == EActivityTakeFromInstigator::TakeAndReturn;
+
+	if (bTakesItem && !InstigatorItemTags.IsEmpty())
 	{
 		// A taken item is matched against StationItemTags: it is the station's item by the time the
 		// activity runs, and the instigator is left empty-handed.
 		Context.AddError(FText::FromString(
 			"Taking the instigator's item requires an empty InstigatorItemTags: the taken item is matched against StationItemTags."));
+		Result = EDataValidationResult::Invalid;
+	}
+
+	if (TakeFromInstigator == EActivityTakeFromInstigator::Swappable
+		&& (InstigatorItemTags.IsEmpty()
+			|| InstigatorItemTags.HasTagExact(GameTags::Item_None)
+			|| StationItemTags.HasTagExact(GameTags::Item_None)))
+	{
+		// Swapping roles only means something between two actual items: an empty or unconstrained
+		// side would let the activity match on whatever sits on the other one.
+		Context.AddError(FText::FromString(FString::Format(
+			TEXT("Swappable requires both StationItemTags and InstigatorItemTags to describe an item, without {0}."),
+			{GameTags::Item_None.GetTag().ToString()})));
 		Result = EDataValidationResult::Invalid;
 	}
 

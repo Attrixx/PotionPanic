@@ -31,23 +31,29 @@ public:
 	// void RemoveRecipe(URecipeAsset* Recipe);
 
 	/**
-	 * Finds the first activity whose three input containers are all satisfied. An empty container
+	 * Finds the most specific activity whose three input containers are all satisfied: activities
+	 * constraining InstigatorItemTags first, then the one requiring the most tags in total, ties
+	 * going to the activity added first. An empty container
 	 * on the activity accepts anything, which is how an activity declares it needs no station or
 	 * does not care what the instigator carries.
 	 * @param StationItemTags Tags of the item on the station's holder, or Item.None for an empty one.
 	 * @param ActivityTags Activities the station implements.
 	 * @param InstigatorItemTags Tags of the item the instigator carries, or Item.None for empty hands.
+	 * @param bSwapItemRoles Only consider Swappable activities, and match their StationItemTags
+	 *        against InstigatorItemTags and the other way around.
 	 * @return The found activity, or nullptr.
 	 */
 	UActivityAsset* FindActivity(const FGameplayTagContainer& StationItemTags,
 	                             const FGameplayTagContainer& ActivityTags,
-	                             const FGameplayTagContainer& InstigatorItemTags) const;
+	                             const FGameplayTagContainer& InstigatorItemTags,
+	                             bool bSwapItemRoles = false) const;
 
 	UFUNCTION(BlueprintCallable)
 	const TArray<UActivityAsset*>& GetActivities() const { return Activities; }
 
 private:
 
+	// Sorted by decreasing specificity, see FindActivity.
 	UPROPERTY()
 	TArray<UActivityAsset*> Activities;
 };

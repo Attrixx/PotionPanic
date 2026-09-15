@@ -113,8 +113,9 @@ void AStationActor::Interact_Implementation(AActor* InInstigator)
 bool AStationActor::CanInteract_Implementation(AActor* InInstigator) const
 {
 	UHolderComponent* UnusedSourceHolder = nullptr;
+	bool bUnusedRolesSwapped = false;
 	return Executor->GetExecutionStatus() == EActivityExecutionStatus::Ongoing
-		|| FindMatchingActivity(InInstigator, UnusedSourceHolder) != nullptr;
+		|| FindMatchingActivity(InInstigator, UnusedSourceHolder, bUnusedRolesSwapped) != nullptr;
 }
 
 void AStationActor::SetStationAsset(UStationAsset* NewStationAsset)
@@ -153,7 +154,8 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 	}
 
 	UHolderComponent* SourceHolder = nullptr;
-	UActivityAsset* Activity = FindMatchingActivity(InInstigator, SourceHolder);
+	bool bItemRolesSwapped = false;
+	UActivityAsset* Activity = FindMatchingActivity(InInstigator, SourceHolder, bItemRolesSwapped);
 	if (!Activity)
 	{
 		return;
@@ -178,12 +180,13 @@ void AStationActor::TryStartMatchingActivity(AActor* InInstigator)
 	bReturnItemToInstigator = SourceHolder != nullptr
 		&& Activity->TakeFromInstigator == EActivityTakeFromInstigator::TakeAndReturn;
 
-	Executor->StartActivity(Activity, InInstigator, SourceHolder != nullptr);
+	Executor->StartActivity(Activity, InInstigator, SourceHolder != nullptr, bItemRolesSwapped);
 }
 
-UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const
+UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder, bool& bOutItemRolesSwapped) const
 {
 	OutSourceHolder = nullptr;
+	bOutItemRolesSwapped = false;
 
 	if (!StationAsset)
 	{
@@ -212,7 +215,22 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 	// whether or not it matches anything, so there is nothing to take from the instigator.
 	if (const AItemActor* OwnItem = Cast<AItemActor>(ItemHolder->GetCarriable()))
 	{
-		return RecipeSystem->FindActivity(TagsOf(OwnItem), StationAsset->ImplementedActivities, InstigatorTags);
+		const FGameplayTagContainer OwnTags = TagsOf(OwnItem);
+		if (UActivityAsset* Activity = RecipeSystem->FindActivity(OwnTags, StationAsset->ImplementedActivities, InstigatorTags))
+		{
+			return Activity;
+		}
+
+		// A Swappable activity may find its two items the other way around. The authored layout wins
+		// when both would match, so this only comes second.
+		if (!InstigatorItem)
+		{
+			return nullptr;
+		}
+
+		UActivityAsset* SwappedActivity = RecipeSystem->FindActivity(OwnTags, StationAsset->ImplementedActivities, InstigatorTags, true);
+		bOutItemRolesSwapped = SwappedActivity != nullptr;
+		return SwappedActivity;
 	}
 
 	// The station's holder is free. Taking the instigator's item onto it comes next: the item is
@@ -224,7 +242,11 @@ UActivityAsset* AStationActor::FindMatchingActivity(AActor* InInstigator, UHolde
 			StationAsset->ImplementedActivities,
 			FGameplayTagContainer(GameTags::Item_None));
 
-		if (Activity && Activity->TakeFromInstigator != EActivityTakeFromInstigator::Never)
+		const bool bTakesItem = Activity
+			&& (Activity->TakeFromInstigator == EActivityTakeFromInstigator::Take
+				|| Activity->TakeFromInstigator == EActivityTakeFromInstigator::TakeAndReturn);
+
+		if (bTakesItem)
 		{
 			OutSourceHolder = InstigatorHolder;
 			return Activity;

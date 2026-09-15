@@ -10,9 +10,13 @@ FActivityTargetHolders::FActivityTargetHolders(const FActivityExecutionState& St
 	UHolderComponent* StationHolder = State.Holder.Get();
 	UHolderComponent* InstigatorHolder = State.InstigatorHolder.Get();
 
-	if (Target == EActivityHolderTarget::Origin)
+	if (Target == EActivityHolderTarget::Origin || Target == EActivityHolderTarget::NotOrigin)
 	{
-		Target = State.bItemTakenFromInstigator
+		// The item StationItemTags matched is in the instigator's hands, or came from them.
+		const bool bOriginIsInstigator = State.bItemTakenFromInstigator || State.bItemRolesSwapped;
+		const bool bWantsInstigator = bOriginIsInstigator == (Target == EActivityHolderTarget::Origin);
+
+		Target = bWantsInstigator
 			? EActivityHolderTarget::InstigatorFirst
 			: EActivityHolderTarget::StationFirst;
 	}

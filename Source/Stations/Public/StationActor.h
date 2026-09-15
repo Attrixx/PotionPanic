@@ -98,8 +98,10 @@ public:
 	 * Finds the activity matching this station's current state.
 	 * @param OutSourceHolder The holder the matched item is currently on, if it's not already
 	 *        this station's ItemHolder (i.e. it came from InInstigator). Null otherwise.
+	 * @param bOutItemRolesSwapped Whether a Swappable activity matched with the station's and the
+	 *        instigator's items the other way around.
 	 */
-	UActivityAsset* FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder) const;
+	UActivityAsset* FindMatchingActivity(AActor* InInstigator, UHolderComponent*& OutSourceHolder, bool& bOutItemRolesSwapped) const;
 
 	UFUNCTION()
 	void Holder_OnCarriableChanged(UHolderComponent* Holder);

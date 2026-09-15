@@ -61,7 +61,8 @@ void UActivityExecutor::Initialize(UHolderComponent* Holder)
 	Holder->OnCarriableChanged.AddDynamic(this, &UActivityExecutor::Holder_OnCarriableChanged);
 }
 
-void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator)
+void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigator, bool bItemTakenFromInstigator,
+                                      bool bItemRolesSwapped)
 {
 	if (!IsAuthority())
 		return;
@@ -82,6 +83,7 @@ void UActivityExecutor::StartActivity(UActivityAsset* Activity, AActor* Instigat
 
 	State.Item = Cast<AItemActor>(State.Holder->GetCarriable()); // null item is valid
 	State.bItemTakenFromInstigator = bItemTakenFromInstigator;
+	State.bItemRolesSwapped = bItemRolesSwapped;
 
 	// A fresh activity starts with a single instigator, whoever it turns out to be.
 	State.LastInstigator = nullptr; // null instigator is valid

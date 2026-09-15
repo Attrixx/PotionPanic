@@ -43,6 +43,13 @@ struct FActivityExecutionState
 	bool bItemTakenFromInstigator = false;
 
 	/**
+	 * True when a Swappable activity matched with its items the other way around: the item its
+	 * StationItemTags describe is in the instigator's hands, the other one is on the Holder.
+	 */
+	UPROPERTY(BlueprintReadOnly)
+	bool bItemRolesSwapped = false;
+
+	/**
 	 * Last Instigator received through StartActivity or Interact. Can be null.
 	 */
 	UPROPERTY(BlueprintReadOnly)
