@@ -2,6 +2,42 @@
 
 #include "WorldData.h"
 
+namespace
+{
+/**
+ * Rounds on the longest path starting at RoundIdx, RoundIdx included. Memoised, and a round
+ * still on the current path counts for nothing: validation rejects loops, but a run must not
+ * hang on data that slipped through.
+ */
+int32 LongestPathFrom(int32 RoundIdx, const TArray<FRound>& Rounds, TArray<int32>& Memo, TArray<bool>& OnPath)
+{
+	if (!Rounds.IsValidIndex(RoundIdx) || OnPath[RoundIdx])
+		return 0;
+
+	if (Memo[RoundIdx] > 0)
+		return Memo[RoundIdx];
+
+	OnPath[RoundIdx] = true;
+
+	int32 LongestNext = 0;
+	for (const int32 NextIdx : Rounds[RoundIdx].NextRounds)
+		LongestNext = FMath::Max(LongestNext, LongestPathFrom(NextIdx, Rounds, Memo, OnPath));
+
+	OnPath[RoundIdx] = false;
+	Memo[RoundIdx] = 1 + LongestNext;
+	return Memo[RoundIdx];
+}
+} // namespace
+
+int32 UWorldData::GetRunLength() const
+{
+	TArray<int32> Memo;
+	Memo.Init(0, Rounds.Num());
+	TArray<bool> OnPath;
+	OnPath.Init(false, Rounds.Num());
+	return LongestPathFrom(0, Rounds, Memo, OnPath);
+}
+
 #if WITH_EDITOR
 #include "Misc/DataValidation.h"
 #include "RecipeAsset.h"

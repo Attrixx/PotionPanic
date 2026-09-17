@@ -31,6 +31,13 @@ public:
 	{
 		return Rounds.IsValidIndex(Index) ? &Rounds[Index] : nullptr;
 	}
+
+	/**
+	 * How many rounds a full run goes through: the longest path from the first round. Branches
+	 * of uneven length make it an upper bound for the shorter ones.
+	 */
+	UFUNCTION(BlueprintCallable)
+	int32 GetRunLength() const;
 	
 protected:
 	

@@ -45,6 +45,14 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	float GetRoundRemainingTime() const;
+
+	/** Position of the current round in the run, from 1: what the players count, not its index. */
+	UFUNCTION(BlueprintCallable)
+	int32 GetRoundNumber() const { return RoundNumber; }
+
+	/** Rounds a full run goes through, the "3" of "round 1/3". Zero until the world data is there. */
+	UFUNCTION(BlueprintCallable)
+	int32 GetRunLength() const;
 	
 	UFUNCTION(BlueprintCallable)
 	const TArray<FItemOrder>& GetRoundOrders() const { return RoundOrders; }
@@ -273,6 +281,10 @@ private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentRound)
 	int32 CurrentRound = 0;
+
+	/** Rounds started in this run so far, so the current one's position in it. */
+	UPROPERTY(Replicated)
+	int32 RoundNumber = 0;
 
 	/**
 	 * Rounds offered to the host at the end of the current one. Non-empty only while the choice

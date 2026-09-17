@@ -73,6 +73,7 @@ void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AAlchemyGameState, SoftWorldData);
 	DOREPLIFETIME(AAlchemyGameState, CurrentRound);
+	DOREPLIFETIME(AAlchemyGameState, RoundNumber);
 	DOREPLIFETIME(AAlchemyGameState, RoundStartTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundEndTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundOrders);
@@ -102,6 +103,11 @@ float AAlchemyGameState::GetRoundRemainingTime() const
 int64 AAlchemyGameState::GetScoreToSucceed() const
 {
 	return WorldData ? WorldData->ScoreToSucceed : 0;
+}
+
+int32 AAlchemyGameState::GetRunLength() const
+{
+	return WorldData ? WorldData->GetRunLength() : 0;
 }
 
 bool AAlchemyGameState::GetRound(int32 RoundIndex, FRound& OutRound) const
@@ -299,6 +305,7 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	LevelCompletedOrders = 0;
 	LevelFailedOrders = 0;
 	bLevelOver = false;
+	RoundNumber = 0;
 
 	SetCurrentRound(0);
 }
@@ -502,6 +509,7 @@ void AAlchemyGameState::StartRound()
 	// previous round's start time, and the clients would place and expire every order at once.
 	CreateOrders();
 
+	++RoundNumber;
 	RoundStartTime = GetServerWorldTimeSeconds();
 	RoundEndTime = RoundStartTime + Round->Duration;
 	SetActorTickEnabled(true);
