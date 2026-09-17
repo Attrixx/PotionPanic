@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "AlchemyGameState.h"
+#include "AlchemyGameMode.h"
 #include "WorldData.h"
 #include "Rounds/RoundLoader.h"
 #include "ActivityExecutor.h"
@@ -76,6 +77,7 @@ void AAlchemyGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(AAlchemyGameState, RoundEndTime);
 	DOREPLIFETIME(AAlchemyGameState, RoundOrders);
 	DOREPLIFETIME(AAlchemyGameState, Score);
+	DOREPLIFETIME(AAlchemyGameState, NextRoundChoices);
 }
 
 void AAlchemyGameState::SetWorldData(const TSoftObjectPtr<UWorldData>& NewWorldData)
@@ -100,6 +102,93 @@ float AAlchemyGameState::GetRoundRemainingTime() const
 int64 AAlchemyGameState::GetScoreToSucceed() const
 {
 	return WorldData ? WorldData->ScoreToSucceed : 0;
+}
+
+bool AAlchemyGameState::GetRound(int32 RoundIndex, FRound& OutRound) const
+{
+	const FRound* Round = WorldData ? WorldData->GetRoundAt(RoundIndex) : nullptr;
+	if (!Round)
+		return false;
+
+	OutRound = *Round;
+	return true;
+}
+
+bool AAlchemyGameState::CanChooseNextRound() const
+{
+	return HasAuthority() && !NextRoundChoices.IsEmpty();
+}
+
+bool AAlchemyGameState::ChooseNextRound(int32 RoundIndex)
+{
+	// The gate that keeps the clients out: their HUD may call this, it just does nothing there.
+	if (!HasAuthority())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Next round chosen without authority: only the host decides.");
+		return false;
+	}
+
+	if (NextRoundChoices.IsEmpty())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Round {0} chosen while no choice is open.", RoundIndex);
+		return false;
+	}
+
+	if (!NextRoundChoices.Contains(RoundIndex))
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Round {0} chosen but it is not among the offered rounds.", RoundIndex);
+		return false;
+	}
+
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Host picked round {0} to follow round {1}.", RoundIndex, CurrentRound);
+
+	// Closed before the load starts, so SetCurrentRound finds nothing pending to complain about.
+	NextRoundChoices.Reset();
+	Multicast_OnNextRoundChosen(RoundIndex);
+	SetCurrentRound(RoundIndex);
+	return true;
+}
+
+bool AAlchemyGameState::CanLeaveLevel() const
+{
+	return HasAuthority() && bLevelOver;
+}
+
+bool AAlchemyGameState::ReplayLevel()
+{
+	if (!CanLeaveLevel())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Level replay refused: host only, and only once the level is over.");
+		return false;
+	}
+
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Host replays the level.");
+
+	// A relative URL resolves against the current one: same map and options, run from the top.
+	// This is what AGameMode::RestartGame does, out of reach of a GameModeBase.
+	return GetWorld()->ServerTravel(TEXT("?Restart"));
+}
+
+bool AAlchemyGameState::ReturnToLobby()
+{
+	if (!CanLeaveLevel())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Return to lobby refused: host only, and only once the level is over.");
+		return false;
+	}
+
+	// The game mode only exists on the server, which CanLeaveLevel just guaranteed we are.
+	const auto* GameMode = GetWorld()->GetAuthGameMode<AAlchemyGameMode>();
+	const TSoftObjectPtr<UWorld> LobbyLevel = GameMode ? GameMode->GetLobbyLevel() : nullptr;
+	if (LobbyLevel.IsNull())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Error, "Cannot return to the lobby: LobbyLevel is not set on {0}.",
+			GameMode ? GameMode->GetClass()->GetName() : TEXT("the game mode"));
+		return false;
+	}
+
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Host brings everyone back to the lobby.");
+	return GetWorld()->ServerTravel(LobbyLevel.ToSoftObjectPath().GetLongPackageName());
 }
 
 bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
@@ -209,6 +298,7 @@ void AAlchemyGameState::OnNewWorldDataLoaded(const FSoftObjectPath& RequestedPat
 	Score = 0;
 	LevelCompletedOrders = 0;
 	LevelFailedOrders = 0;
+	bLevelOver = false;
 
 	SetCurrentRound(0);
 }
@@ -259,7 +349,15 @@ void AAlchemyGameState::ApplyCurrentRoundLocally()
 	}
 
 	CancelPendingRoundStart();
-	StartRoundLoad(*Round, FOnRoundAppliedDelegate());
+
+	FOnRoundAppliedDelegate OnRoundApplied;
+	OnRoundApplied.BindDynamic(this, &ThisClass::OnCurrentRoundAppliedLocally);
+	StartRoundLoad(*Round, OnRoundApplied);
+}
+
+void AAlchemyGameState::OnCurrentRoundAppliedLocally()
+{
+	RoundLoader = nullptr;
 }
 
 void AAlchemyGameState::StartRoundLoad(const FRound& Round, FOnRoundAppliedDelegate OnApplied)
@@ -284,6 +382,14 @@ void AAlchemyGameState::CancelPendingRoundStart()
 	{
 		UE_LOGFMT(MS_AlchemyGameState, Warning, "Dropping the pending start of round {0}.", CurrentRound);
 		GetWorldTimerManager().ClearTimer(RoundStartWaitHandle);
+	}
+
+	// Only reached with a choice still open when a round is forced over it: the regular path,
+	// ChooseNextRound, closes the choice itself first.
+	if (!NextRoundChoices.IsEmpty())
+	{
+		UE_LOGFMT(MS_AlchemyGameState, Warning, "Dropping the open choice of the round following round {0}.", CurrentRound);
+		NextRoundChoices.Reset();
 	}
 }
 
@@ -492,15 +598,29 @@ void AAlchemyGameState::EndRound()
 			Result.bSucceeded ? TEXT("won") : TEXT("lost"),
 			Result.Score, Result.ScoreToSucceed, Result.CompletedOrders, Result.FailedOrders);
 
-		// Listeners will pop a menu to quit, restart, etc.
+		// Opens the way out of the level to the host, whose end screen offers to replay or leave.
+		bLevelOver = true;
 		Multicast_OnLevelComplete(Result);
 		return;
 	}
 	
-	// TODO: Give the choice to players
-	int32 Rand = FMath::RandRange(0, Round->NextRounds.Num() - 1);
-	int32 NextRound = Round->NextRounds[Rand];
-	SetCurrentRound(NextRound);
+	// A single way forward needs no decision; several are put to the host.
+	if (Round->NextRounds.Num() == 1)
+	{
+		SetCurrentRound(Round->NextRounds[0]);
+		return;
+	}
+
+	BeginNextRoundChoice(Round->NextRounds);
+}
+
+void AAlchemyGameState::BeginNextRoundChoice(const TArray<int32>& Choices)
+{
+	UE_LOGFMT(MS_AlchemyGameState, Log, "Round {0} over: {1} rounds may follow, waiting for the host to pick one.",
+		CurrentRound, Choices.Num());
+
+	NextRoundChoices = Choices;
+	Multicast_OnNextRoundChoiceStarted(Choices);
 }
 
 void AAlchemyGameState::CancelOngoingStationActivities()
@@ -634,4 +754,14 @@ void AAlchemyGameState::Multicast_OnRoundEnded_Implementation(int32 RoundIndex)
 void AAlchemyGameState::Multicast_OnLevelComplete_Implementation(const FLevelResult& Result)
 {
 	OnLevelComplete.Broadcast(Result);
+}
+
+void AAlchemyGameState::Multicast_OnNextRoundChoiceStarted_Implementation(const TArray<int32>& Choices)
+{
+	OnNextRoundChoiceStarted.Broadcast(Choices);
+}
+
+void AAlchemyGameState::Multicast_OnNextRoundChosen_Implementation(int32 RoundIndex)
+{
+	OnNextRoundChosen.Broadcast(RoundIndex);
 }

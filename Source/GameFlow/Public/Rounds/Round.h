@@ -83,7 +83,10 @@ struct GAMEFLOW_API FRound
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Score", meta = (ClampMin = 0))
 	int32 MinOrderScore = 25;
 
-	/** Rounds that may follow this one, as indices in the owning UWorldData. Empty means last round. */
+	/**
+	 * Rounds that may follow this one, as indices in the owning UWorldData. Empty means last
+	 * round, a single entry chains straight into it, and several put the choice to the host.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	TArray<int32> NextRounds;
 };

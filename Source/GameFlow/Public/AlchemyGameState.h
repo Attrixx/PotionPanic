@@ -16,6 +16,8 @@ class UWorldData;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundDelegate, const FRound&, Round);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLevelCompleteDelegate, const FLevelResult&, Result);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FScoreDelegate, int64, NewScore, int32, Delta);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNextRoundChoiceDelegate, const TArray<int32>&, RoundIndices);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundIndexDelegate, int32, RoundIndex);
 
 /**
  * 
@@ -64,6 +66,51 @@ public:
 	UFUNCTION(BlueprintCallable)
 	bool DeliverOrder(UItemAsset* ItemAsset);
 
+	/** @return False when RoundIndex names no round of this world, OutRound being left untouched. */
+	UFUNCTION(BlueprintCallable)
+	bool GetRound(int32 RoundIndex, FRound& OutRound) const;
+
+	/** Rounds the host is currently picking the next one from. Empty outside a choice. */
+	UFUNCTION(BlueprintCallable)
+	const TArray<int32>& GetNextRoundChoices() const { return NextRoundChoices; }
+
+	UFUNCTION(BlueprintCallable)
+	bool IsChoosingNextRound() const { return !NextRoundChoices.IsEmpty(); }
+
+	/** True on the host while a choice is open: the only machine allowed to make it. */
+	UFUNCTION(BlueprintCallable)
+	bool CanChooseNextRound() const;
+
+	/**
+	 * Picks the round to play next among GetNextRoundChoices() and starts loading it. Host only:
+	 * the clients follow the choice through OnNextRoundChoiceStarted and OnNextRoundChosen but
+	 * cannot make it, a call from one of them is refused.
+	 * @return False when no choice is open, RoundIndex is not one of the offered rounds, or this
+	 * machine is a client.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool ChooseNextRound(int32 RoundIndex);
+
+	/** True on the host once the level is over: the only machine allowed to leave it. */
+	UFUNCTION(BlueprintCallable)
+	bool CanLeaveLevel() const;
+
+	/**
+	 * Plays this level again from its first round, taking every client along. Host only, and
+	 * only once the level is over.
+	 * @return False when refused, or when the travel could not start.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool ReplayLevel();
+
+	/**
+	 * Brings the whole party back to the game mode's LobbyLevel, where another level can be
+	 * picked. Host only, and only once the level is over.
+	 * @return False when refused, when the game mode sets no lobby, or when the travel could not start.
+	 */
+	UFUNCTION(BlueprintCallable)
+	bool ReturnToLobby();
+
 	FOrderDelegate OnOrderChanged;
 	
 	UPROPERTY(BlueprintAssignable)
@@ -78,6 +125,17 @@ public:
 	/** Fires on every machine whenever a delivery moves the score, Delta being what it added. */
 	UPROPERTY(BlueprintAssignable)
 	FScoreDelegate OnScoreChanged;
+
+	/**
+	 * Fires on every machine when a round ends with several rounds able to follow it, carrying
+	 * their indices. The host is then expected to call ChooseNextRound; the others only watch.
+	 */
+	UPROPERTY(BlueprintAssignable)
+	FNextRoundChoiceDelegate OnNextRoundChoiceStarted;
+
+	/** Fires on every machine once the host has picked, before that round begins loading. */
+	UPROPERTY(BlueprintAssignable)
+	FRoundIndexDelegate OnNextRoundChosen;
 
 private:
 
@@ -100,7 +158,14 @@ private:
 
 	UFUNCTION()
 	void OnCurrentRoundApplied();
-	
+
+	/**
+	 * Client counterpart of OnCurrentRoundApplied: nothing to start, but the finished loader
+	 * still has to be let go, or the next round's CancelPendingRoundStart reports it in flight.
+	 */
+	UFUNCTION()
+	void OnCurrentRoundAppliedLocally();
+
 	/** Drops the round load and the round start still pending, if any. Server only. */
 	void CancelPendingRoundStart();
 
@@ -127,9 +192,16 @@ private:
 	/** Moves every pending order Shift seconds earlier, preserving the spacing between them. */
 	void ShiftPendingOrders(double Shift);
 
-	/** Reports every remaining order as deleted, drops them and stops ticking. Server only. */
+	/**
+	 * Reports every remaining order as deleted, drops them and stops ticking, then moves on: to
+	 * the level result when nothing follows, straight to the next round when only one does, or
+	 * to a choice put to the host when several do. Server only.
+	 */
 	void EndRound();
 	void CancelOngoingStationActivities();
+
+	/** Opens the choice of the next round among Choices and tells every machine. Server only. */
+	void BeginNextRoundChoice(const TArray<int32>& Choices);
 
 	/** Applies NewState and notifies local listeners, OnRep_RoundOrders doing it for the clients. */
 	void SetOrderState(FItemOrder& Order, EOrderState NewState);
@@ -164,6 +236,12 @@ private:
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnLevelComplete(const FLevelResult& Result);
 
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnNextRoundChoiceStarted(const TArray<int32>& Choices);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnNextRoundChosen(int32 RoundIndex);
+
 private:
 
 	UPROPERTY(ReplicatedUsing=OnRep_SoftWorldData)
@@ -187,12 +265,22 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Round", meta = (ClampMin = 0.01))
 	float RoundStartWaitPollInterval = 0.25f;
 
+	/** Set by the last round ending. Server only: it gates the way out of the level. */
+	bool bLevelOver = false;
+
 	FTimerHandle RoundStartWaitHandle;
 	double RoundStartWaitDeadline = 0.0;
 
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentRound)
 	int32 CurrentRound = 0;
-	
+
+	/**
+	 * Rounds offered to the host at the end of the current one. Non-empty only while the choice
+	 * is open; replicated so a HUD built in the middle of it can still show the options.
+	 */
+	UPROPERTY(Replicated)
+	TArray<int32> NextRoundChoices;
+
 	UPROPERTY(Replicated)
 	float RoundStartTime = 0.f;
 
