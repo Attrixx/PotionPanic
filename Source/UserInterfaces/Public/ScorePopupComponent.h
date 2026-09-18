@@ -7,6 +7,7 @@
 #include "ScorePopupComponent.generated.h"
 
 class AGameStateBase;
+class USoundBase;
 
 /**
  * Pops the points earned over its owner whenever an order is delivered there, on every machine.
@@ -30,6 +31,10 @@ protected:
 	/** How long the points stay up. Another delivery in the meantime restarts the clock. */
 	UPROPERTY(EditAnywhere, Category = "Score Popup", meta = (ClampMin = 0.1))
 	float DisplayDuration = 1.5f;
+
+	/** Played at this component's location on every delivery, on every machine. Optional. */
+	UPROPERTY(EditAnywhere, Category = "Score Popup")
+	TObjectPtr<USoundBase> DeliverySound;
 
 private:
 

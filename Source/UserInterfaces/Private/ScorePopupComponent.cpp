@@ -4,6 +4,7 @@
 #include "ScorePopupWidget.h"
 #include "AlchemyGameState.h"
 #include <Engine/World.h>
+#include <Kismet/GameplayStatics.h>
 #include <TimerManager.h>
 
 DEFINE_LOG_CATEGORY_STATIC(MS_ScorePopupComponent, Log, All);
@@ -72,6 +73,10 @@ void UScorePopupComponent::OnOrderDelivered(AActor* DeliveredAt, int32 Score)
 	// Every popup in the level hears every delivery: only the one on the right station reacts.
 	if (DeliveredAt != GetOwner())
 		return;
+
+	// Fire-and-forget at the counter, so overlapping deliveries each get their own sound.
+	if (DeliverySound)
+		UGameplayStatics::PlaySoundAtLocation(this, DeliverySound, GetComponentLocation());
 
 	auto* Popup = Cast<UScorePopupWidget>(GetUserWidgetObject());
 	if (!Popup)
