@@ -36,6 +36,7 @@ void URoundStatusWidget::NativeDestruct()
 	{
 		GameState->OnRoundStarted.RemoveDynamic(this, &ThisClass::OnRoundStarted);
 		GameState->OnRoundEnded.RemoveDynamic(this, &ThisClass::OnRoundEnded);
+		GameState->OnScoreChanged.RemoveDynamic(this, &ThisClass::OnScoreChanged);
 	}
 }
 
@@ -54,12 +55,14 @@ bool URoundStatusWidget::TryBindToGameState()
 
 	GameState->OnRoundStarted.AddDynamic(this, &ThisClass::OnRoundStarted);
 	GameState->OnRoundEnded.AddDynamic(this, &ThisClass::OnRoundEnded);
+	GameState->OnScoreChanged.AddDynamic(this, &ThisClass::OnScoreChanged);
 
 	// A round already running has no start broadcast left to come: a widget built in the middle
 	// of it reads the clock from the replicated state instead. Time left is the tell.
 	bRoundRunning = GameState->GetRoundNumber() > 0 && GameState->GetRoundRemainingTime() > 0.f;
 	RefreshRoundText();
 	RefreshTimeText();
+	RefreshScoreText();
 	return true;
 }
 
@@ -83,6 +86,23 @@ void URoundStatusWidget::OnRoundEnded(const FRound& Round)
 {
 	bRoundRunning = false;
 	RefreshTimeText();
+}
+
+void URoundStatusWidget::OnScoreChanged(int64 NewScore, int32 Delta)
+{
+	RefreshScoreText();
+}
+
+void URoundStatusWidget::RefreshScoreText()
+{
+	const auto* GameState = GetWorld() ? GetWorld()->GetGameState<AAlchemyGameState>() : nullptr;
+	if (!GameState)
+		return;
+
+	ScoreText->SetText(FText::AsNumber(GameState->GetScore()));
+
+	if (ScoreTargetText)
+		ScoreTargetText->SetText(FText::AsNumber(GameState->GetScoreToSucceed()));
 }
 
 void URoundStatusWidget::RefreshRoundText()

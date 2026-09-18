@@ -197,7 +197,7 @@ bool AAlchemyGameState::ReturnToLobby()
 	return GetWorld()->ServerTravel(LobbyLevel.ToSoftObjectPath().GetLongPackageName());
 }
 
-bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
+bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset, AActor* DeliveredAt)
 {
 	if (!HasAuthority())
 	{
@@ -257,6 +257,7 @@ bool AAlchemyGameState::DeliverOrder(UItemAsset* ItemAsset)
 
 	AddScore(Soonest->Score);
 	SetOrderState(*Soonest, EOrderState::Completed);
+	Multicast_OnOrderDelivered(DeliveredAt, Soonest->Score);
 
 	// That was the last thing to work on: pull the tail forward so the players don't idle.
 	const FRound* Round = GetCurrentRound();
@@ -772,4 +773,9 @@ void AAlchemyGameState::Multicast_OnNextRoundChoiceStarted_Implementation(const 
 void AAlchemyGameState::Multicast_OnNextRoundChosen_Implementation(int32 RoundIndex)
 {
 	OnNextRoundChosen.Broadcast(RoundIndex);
+}
+
+void AAlchemyGameState::Multicast_OnOrderDelivered_Implementation(AActor* DeliveredAt, int32 Points)
+{
+	OnOrderDelivered.Broadcast(DeliveredAt, Points);
 }

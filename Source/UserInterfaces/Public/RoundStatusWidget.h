@@ -34,6 +34,14 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> RoundText;
 
+	/** Points gathered so far in the level. */
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> ScoreText;
+
+	/** Points the level asks for. Optional: leave it out to show the score alone. */
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> ScoreTargetText;
+
 private:
 
 	/** @return False when the world has no AAlchemyGameState yet, nothing having been bound. */
@@ -48,8 +56,12 @@ private:
 	UFUNCTION()
 	void OnRoundEnded(const FRound& Round);
 
+	UFUNCTION()
+	void OnScoreChanged(int64 NewScore, int32 Delta);
+
 	void RefreshRoundText();
 	void RefreshTimeText();
+	void RefreshScoreText();
 
 private:
 

@@ -18,6 +18,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnLevelCompleteDelegate, const FLev
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FScoreDelegate, int64, NewScore, int32, Delta);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FNextRoundChoiceDelegate, const TArray<int32>&, RoundIndices);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FRoundIndexDelegate, int32, RoundIndex);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOrderDeliveredDelegate, AActor*, DeliveredAt, int32, Score);
 
 /**
  * 
@@ -68,11 +69,13 @@ public:
 	/**
 	 * Completes the placed order expiring the soonest among those asking for the delivered item.
 	 * Server only.
-	 * @param ItemAsset The object handed over, expected to be an AItemActor.
+	 * @param ItemAsset What was handed over.
+	 * @param DeliveredAt Where it was handed over, passed on to OnOrderDelivered so every machine
+	 * can show the points earned right there. Optional.
 	 * @return True if the item was delivered. False when no placed order is waiting for this item.
 	 */
 	UFUNCTION(BlueprintCallable)
-	bool DeliverOrder(UItemAsset* ItemAsset);
+	bool DeliverOrder(UItemAsset* ItemAsset, AActor* DeliveredAt = nullptr);
 
 	/** @return False when RoundIndex names no round of this world, OutRound being left untouched. */
 	UFUNCTION(BlueprintCallable)
@@ -133,6 +136,14 @@ public:
 	/** Fires on every machine whenever a delivery moves the score, Delta being what it added. */
 	UPROPERTY(BlueprintAssignable)
 	FScoreDelegate OnScoreChanged;
+
+	/**
+	 * Fires on every machine when an order is delivered, with where it happened and the points it
+	 * earned: for feedback anchored to the delivery spot. DeliveredAt is null when the caller of
+	 * DeliverOrder gave no location.
+	 */
+	UPROPERTY(BlueprintAssignable)
+	FOrderDeliveredDelegate OnOrderDelivered;
 
 	/**
 	 * Fires on every machine when a round ends with several rounds able to follow it, carrying
@@ -249,6 +260,9 @@ private:
 
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnNextRoundChosen(int32 RoundIndex);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnOrderDelivered(AActor* DeliveredAt, int32 Points);
 
 private:
 

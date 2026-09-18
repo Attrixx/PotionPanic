@@ -5,6 +5,7 @@
 #include "ActivityExecutionState.h"
 #include "ItemActor.h"
 #include "ItemAsset.h"
+#include "HolderComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(MS_DeliverOrder, Log, All);
 
@@ -29,7 +30,10 @@ void UDeliverOrderActivityConclusion::Conclude_Implementation(const FActivityExe
 		return;
 	}
 
-	if (GameState->DeliverOrder(Item->GetItemAsset()))
+	// The holder belongs to the station the item was handed to: where the points show up.
+	AActor* DeliveredAt = State.Holder.IsValid() ? State.Holder->GetOwner() : nullptr;
+
+	if (GameState->DeliverOrder(Item->GetItemAsset(), DeliveredAt))
 	{
 		Item->Destroy();
 	}
