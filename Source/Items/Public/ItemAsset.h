@@ -8,6 +8,7 @@
 #include "ItemAsset.generated.h"
 
 class AItemVisualActor;
+class UTexture2D;
 
 /**
  * 
@@ -27,7 +28,11 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	FText ItemName;
-	
+
+	/** How the item shows in the UI: on the order queue, the end screen, wherever it is named. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<UTexture2D> Icon;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(Categories="Item"))
 	FGameplayTagContainer ItemTags;
 

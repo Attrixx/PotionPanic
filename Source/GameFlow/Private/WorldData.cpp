@@ -195,6 +195,13 @@ EDataValidationResult UWorldData::IsDataValid(FDataValidationContext& Context) c
 		for (const FRoundOrderable& Orderable : Round.Orderables)
 		{
 			const UItemAsset* Item = Orderable.Asset.LoadSynchronous();
+			if (Item && !Item->Icon)
+			{
+				Context.AddWarning(FText::FromString(FString::Printf(
+					TEXT("Round [%d]: orderable item '%s' has no Icon, the order queue will show it blank."),
+					i, *Item->GetName())));
+			}
+
 			if (Item && !CraftableItems.Contains(Item))
 			{
 				// A warning, not an error: Blueprint conclusions cannot report what they produce,
